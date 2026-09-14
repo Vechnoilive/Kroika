@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0.0",
+  "geometry_core_version": "0.1.0",
+  "precision": "ieee754-binary64",
+  "unit": "mm",
+  "fixture": "diagnostic_rectangle_rotated_37deg_translated_15_minus22",
+  "expected_area_mm2": 5000.0,
+  "expected_perimeter_mm": 300.0,
+  "canonical_fingerprint": "b4c72f6b61ffbf444c41b5919a2841bc8fff7ae0ed40ffcaf06fb1e098b2b5b5"
+}

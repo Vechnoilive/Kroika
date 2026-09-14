@@ -1,7 +1,8 @@
-"""Stage-4 engine scaffold.
+"""Stage-6 engine boundary.
 
-The geometry core starts at stage 6. Until then the engine must fail closed:
-it returns a valid diagnostic report and never invents pattern geometry.
+The geometry core is available, but garment blocks start at stage 7. Until
+then generation must fail closed and never substitute a diagnostic shape for
+a wearable pattern.
 """
 
 from __future__ import annotations
@@ -11,21 +12,24 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
+from .geometry import run_core_diagnostics
+
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-class ScaffoldPatternEngine:
-    """Deterministic, dependency-free implementation of the engine port."""
+class GeometryPatternEngine:
+    """Deterministic boundary around the stage-6 geometry core."""
 
-    engine_id = "kroika-scaffold"
-    engine_version = "0.1.0"
+    engine_id = "kroika-geometry"
+    engine_version = "0.2.0"
 
     def __init__(self, clock: Callable[[], datetime] = _utc_now):
         self._clock = clock
 
     def generate(self, request: Mapping[str, Any]) -> dict[str, Any]:
+        diagnostic = run_core_diagnostics()
         input_hash = str(request["input_hash"])
         project_id = str(request["project_id"])
         generation_id = str(uuid5(NAMESPACE_URL, f"kroika:{project_id}:{input_hash}"))
@@ -43,19 +47,29 @@ class ScaffoldPatternEngine:
             "status": "failed",
             "method_validation_status": request["pattern_method"]["validation_status"],
             "issues": [{
-                "code": "GEOMETRY_STAGE_NOT_READY",
+                "code": "BASE_BLOCKS_STAGE_NOT_READY",
                 "severity": "blocking_error",
                 "message_ru": (
-                    "Каркас работает, но построение геометрии появится на этапе 6. "
-                    "Производственная выкройка не создана."
+                    "Геометрическое ядро проверено, но базовые блоки лифа, юбки и рукава "
+                    "будут реализованы на этапе 7. Производственная выкройка не создана."
                 ),
                 "json_pointer": "/pattern",
             }],
-            "checks": [{
-                "id": "engine.geometry",
-                "status": "not_run",
-                "message_ru": "Геометрические проверки не запускались до реализации этапа 6.",
-            }],
+            "checks": [
+                {
+                    "id": "engine.geometry.core",
+                    "status": "passed",
+                    "message_ru": (
+                        f"Ядро {diagnostic['version']}: {diagnostic['precision']}, "
+                        f"координаты {diagnostic['unit']}."
+                    ),
+                },
+                {
+                    "id": "engine.pattern_blocks",
+                    "status": "not_run",
+                    "message_ru": "Базовые блоки одежды ещё не реализованы.",
+                },
+            ],
             "diagnostic_export_allowed": False,
             "production_export_allowed": False,
         }
@@ -72,3 +86,7 @@ class ScaffoldPatternEngine:
             "pattern": None,
             "validation_report": report,
         }
+
+
+# Backwards-compatible import name for projects created by the stage-4 shell.
+ScaffoldPatternEngine = GeometryPatternEngine

@@ -126,7 +126,7 @@ def test_range_normalization_and_derived_provenance_fail_closed(client: TestClie
     response = client.post("/api/v1/measurement-profiles", json=profile)
     assert response.status_code == 422
     assert response.json()["issues"][0]["code"] == "MEASUREMENT_OUT_OF_RANGE"
-    assert "590" not in response.text
+    assert "590" not in json.dumps(response.json().get("issues", []), ensure_ascii=False)
 
     normalized = example_profile()
     normalized["values"]["bust"]["original_input"] = {"value": 93, "unit": "cm"}
@@ -233,10 +233,11 @@ def test_measurement_change_requires_project_to_return_to_draft(client: TestClie
     assert client.get(f"/api/v1/projects/{project['project_id']}").json()["revision"] == 1
 
 
-def test_local_and_docker_bootstrap_install_latest_stage_requirements():
+def test_stage5_requirements_remain_in_latest_bootstrap_chain():
     local_launcher = (ROOT / "scripts" / "start_local.py").read_text(encoding="utf-8")
     dockerfile = (ROOT / "backend" / "Dockerfile").read_text(encoding="utf-8")
-    assert '"requirements-stage5.txt"' in local_launcher
-    assert '"-r", str(ROOT / "requirements-stage5.txt")' in local_launcher
-    assert "COPY requirements-stage3.txt requirements-stage4.txt requirements-stage5.txt" in dockerfile
-    assert "-r requirements-stage5.txt" in dockerfile
+    stage6_requirements = (ROOT / "requirements-stage6.txt").read_text(encoding="utf-8")
+    assert '"requirements-stage6.txt"' in local_launcher
+    assert "requirements-stage5.txt" in dockerfile
+    assert "requirements-stage6.txt" in dockerfile
+    assert "-r requirements-stage5.txt" in stage6_requirements

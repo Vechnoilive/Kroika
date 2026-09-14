@@ -191,7 +191,7 @@ export default function App() {
         </aside>
 
         <section className="content">
-          <div className="stage-badge">Мастер мерок · этап 5 из 15</div>
+          <div className="stage-badge">Геометрическое ядро · этап 6 из 15</div>
           {!project ? (
             <>
               <div className="intro">

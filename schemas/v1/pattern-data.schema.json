@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://kroika.local/schemas/v1/pattern-data.schema.json",
   "title": "Canonical pattern geometry contract v1",
-  "description": "Формат геометрии для будущего ядра этапа 6. Координаты и размеры только в миллиметрах.",
+  "description": "Формат геометрии ядра этапа 6. Координаты и размеры только в миллиметрах.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "unit", "pieces", "seam_pairs"],

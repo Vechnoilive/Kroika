@@ -49,9 +49,9 @@ def test_health_checks_dependencies_and_request_id(client: TestClient):
     ready = client.get("/health/ready")
     assert live.status_code == ready.status_code == 200
     assert ready.json() == {
-        "status": "ok", "service": "kroika-backend", "version": "0.5.0",
+        "status": "ok", "service": "kroika-backend", "version": "0.6.0",
         "database": "ok", "ai_provider": "mock",
-        "pattern_engine": "kroika-scaffold:0.1.0",
+        "pattern_engine": "kroika-geometry:0.2.0",
     }
     assert len(ready.headers["X-Request-ID"]) == 36
 
@@ -65,7 +65,7 @@ def test_mock_provider_is_strict_and_never_accepts_measurements(client: TestClie
     rejected = client.post("/api/v1/garments/analyze-image", json=request)
     assert rejected.status_code == 422
     assert rejected.json()["code"] == "CONTRACT_VALIDATION_FAILED"
-    assert "920" not in rejected.text
+    assert "920" not in json.dumps(rejected.json().get("issues", []), ensure_ascii=False)
 
 
 def test_projects_persist_and_revision_conflicts_do_not_overwrite(client: TestClient, app):

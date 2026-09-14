@@ -6,13 +6,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY requirements-stage3.txt requirements-stage4.txt requirements-stage5.txt pyproject.toml ./
+COPY requirements-stage3.txt requirements-stage4.txt requirements-stage5.txt requirements-stage6.txt pyproject.toml ./
 COPY schemas ./schemas
 COPY src ./src
 COPY pattern-engine ./pattern-engine
 COPY backend ./backend
 
-RUN python -m pip install --no-cache-dir -r requirements-stage5.txt \
+RUN python -m pip install --no-cache-dir -r requirements-stage6.txt \
     && python -m pip install --no-cache-dir --no-deps -e . -e ./pattern-engine -e ./backend
 
 RUN useradd --create-home --uid 10001 kroika \

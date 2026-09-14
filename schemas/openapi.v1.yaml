@@ -4,7 +4,7 @@ info:
   version: 1.0.0
   description: >-
     Контракт локального API. На этапе 5 обработчики работают с SQLite,
-    профилями и каталогом мерок, mock AI и безопасным каркасом pattern-engine.
+    профилями и каталогом мерок, mock AI и проверенным геометрическим ядром pattern-engine.
 servers:
   - url: http://localhost:8000
     description: Локальный сервер
@@ -313,13 +313,13 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          description: Геометрия ещё не создана
+          description: Базовые детали одежды ещё не созданы
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '501':
-          description: SVG-рендерер появится на следующем этапе
+          description: SVG-рендерер появится на этапе 8
           content:
             application/json:
               schema:

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kroika-pattern-engine"
-version = "0.1.0"
-description = "Pure deterministic pattern-engine boundary for Kroika"
+version = "0.2.0"
+description = "Pure deterministic geometry core and pattern-engine boundary for Kroika"
 requires-python = ">=3.12"
 
 [tool.setuptools.packages.find]
