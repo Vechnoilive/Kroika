@@ -460,7 +460,7 @@ def test_stage6_runtime_bootstrap_is_the_latest_layer():
     assert '"requirements-stage6.txt"' in launcher
     assert '"-r", str(ROOT / "requirements-stage7.txt")' in launcher
     assert "requirements-stage6.txt" in dockerfile
-    assert "-r requirements-stage6.txt" in dockerfile
+    assert "-r requirements-stage7.txt" in dockerfile
     assert "-r requirements-stage5.txt" in requirements
     assert "hypothesis==6.168.0" in requirements
 
