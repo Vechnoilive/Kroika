@@ -3,7 +3,7 @@ import {api, ApiError} from './api';
 import {makeDemoProject} from './demoProject';
 import {MeasurementWizard} from './MeasurementWizard';
 import type {BodyMeasurements} from './types';
-import type {ProjectDocument, ProjectSummary, StyleAnalysis} from './types';
+import type {PatternEngineResult, ProjectDocument, ProjectSummary, StyleAnalysis} from './types';
 
 const LAST_PROJECT_KEY = 'kroika:last-project-id';
 
@@ -45,6 +45,46 @@ function FriendlyError({error}: {error: ApiError}) {
       )}
       {error.requestId && <small>Код обращения: {error.requestId.slice(0, 8)}</small>}
     </div>
+  );
+}
+
+function PatternResultCard({result}: {result: PatternEngineResult}) {
+  const pattern = result.pattern;
+  if (!pattern) return null;
+  return (
+    <section className="pattern-result" aria-labelledby="pattern-result-title">
+      <div className="pattern-result__heading">
+        <div className="success-mark" aria-hidden="true">✓</div>
+        <div>
+          <p className="eyebrow">Шаг 5 · диагностический результат</p>
+          <h2 id="pattern-result-title">Учебная выкройка построена</h2>
+          <p>Все детали собраны в одном понятном предпросмотре. Линии показаны без припусков.</p>
+        </div>
+      </div>
+      <div className="preview-frame">
+        <img
+          src={api.patternPreviewUrl(result.generation_id)}
+          alt="Предпросмотр деталей выкройки с долевыми, вытачками и контрольными метками"
+        />
+      </div>
+      <dl className="result-facts">
+        <div><dt>Детали</dt><dd>{pattern.pieces.length}</dd></div>
+        <div><dt>Пары швов</dt><dd>{pattern.seam_pairs.length}</dd></div>
+        <div><dt>Статус</dt><dd>Нужен макет</dd></div>
+      </dl>
+      <div className="notice notice--warning">
+        <strong>Пока не печатайте и не кроите</strong>
+        <span>Это точный SVG линий шва, но ещё без припусков и физической проверки посадки. Печать 1:1 появится на этапе 9.</span>
+      </div>
+      <a
+        className="secondary-link"
+        href={api.patternPreviewUrl(result.generation_id)}
+        target="_blank"
+        rel="noreferrer"
+      >
+        Открыть схему крупно
+      </a>
+    </section>
   );
 }
 
@@ -155,7 +195,45 @@ export default function App() {
     return updated;
   }
 
-  const activeStep = !project ? 1 : !analysis ? 2
+  async function generatePattern() {
+    if (!project || project.body_measurements.status !== 'ready') return;
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await api.generatePattern(project);
+      if (result.status !== 'succeeded' || !result.pattern) {
+        const firstIssue = result.validation_report.issues[0];
+        throw new ApiError(
+          firstIssue?.message_ru ?? 'Построение остановлено проверкой входных данных.',
+          422,
+          firstIssue?.code ?? 'PATTERN_REJECTED',
+          undefined,
+          result.validation_report.issues,
+        );
+      }
+      const refreshed = await api.getProject(project.project_id);
+      setProject(refreshed);
+      setProjects((items) => items.map((item) => item.project_id === refreshed.project_id
+        ? {
+            project_id: refreshed.project_id,
+            name: refreshed.name,
+            revision: refreshed.revision,
+            status: refreshed.status,
+            updated_at: refreshed.updated_at,
+          }
+        : item));
+    } catch (caught) {
+      setError(caught instanceof ApiError
+        ? caught
+        : new ApiError('Не удалось построить выкройку.', 0, 'UNKNOWN_ERROR'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const activeStep = !project ? 1
+    : project.latest_generation?.status === 'succeeded' ? 5
+    : !analysis ? 2
     : project.body_measurements.status === 'ready' ? 4 : 3;
 
   return (
@@ -181,8 +259,8 @@ export default function App() {
             <Step number={1} title="Создать проект" state={activeStep > 1 ? 'done' : 'active'} />
             <Step number={2} title="Добавить эскиз" state={activeStep > 2 ? 'done' : activeStep === 2 ? 'active' : 'locked'} />
             <Step number={3} title="Ввести мерки" state={activeStep > 3 ? 'done' : activeStep === 3 ? 'active' : 'locked'} />
-            <Step number={4} title="Проверить фасон" state={activeStep === 4 ? 'active' : 'locked'} />
-            <Step number={5} title="Получить выкройку" state="locked" />
+            <Step number={4} title="Проверить фасон" state={activeStep > 4 ? 'done' : activeStep === 4 ? 'active' : 'locked'} />
+            <Step number={5} title="Получить выкройку" state={activeStep === 5 ? 'active' : 'locked'} />
           </ol>
           <div className="privacy-note">
             <span aria-hidden="true">⌂</span>
@@ -191,7 +269,7 @@ export default function App() {
         </aside>
 
         <section className="content">
-          <div className="stage-badge">Базовые блоки · этап 7 из 15</div>
+          <div className="stage-badge">Генератор изделия · этап 8 из 15</div>
           {!project ? (
             <>
               <div className="intro">
@@ -255,7 +333,9 @@ export default function App() {
               </div>
               {error && <FriendlyError error={error} />}
 
-              {!analysis ? (
+              {project.latest_generation?.status === 'succeeded' && project.latest_generation.pattern ? (
+                <PatternResultCard result={project.latest_generation} />
+              ) : !analysis ? (
                 <div className="action-card action-card--sketch">
                   <div className="action-card__icon" aria-hidden="true">02</div>
                   <div className="action-card__body">
@@ -297,6 +377,25 @@ export default function App() {
                     </div>
                   </div>
                   <MeasurementWizard project={project} onSaveProject={saveMeasurements} />
+                  {project.body_measurements.status === 'ready' && (
+                    <section className="generation-card" aria-labelledby="generation-title">
+                      <div className="action-card__icon" aria-hidden="true">04</div>
+                      <div>
+                        <p className="eyebrow">Последняя проверка</p>
+                        <h2 id="generation-title">Построить учебную выкройку?</h2>
+                        <p>Будут созданы лиф, юбка, две обтачки, контрольные метки и пары швов. Исходные мерки останутся без изменений.</p>
+                        <ul>
+                          <li>{project.garment_spec.garment_type === 'sundress' ? 'Сарафан' : 'Платье'} без рукавов</li>
+                          <li>Круглая горловина и А-силуэт</li>
+                          <li>Молния по центру спинки</li>
+                        </ul>
+                        <button className="primary-button" onClick={() => void generatePattern()} disabled={busy}>
+                          {busy ? 'Строим и проверяем…' : 'Построить предпросмотр'} <span aria-hidden="true">→</span>
+                        </button>
+                        <p className="demo-warning"><strong>Учебный режим:</strong> печать для раскроя останется заблокирована.</p>
+                      </div>
+                    </section>
+                  )}
                 </>
               )}
             </>

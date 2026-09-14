@@ -7,9 +7,11 @@ import type {
   MeasurementValidation,
   ProjectDocument,
   ProjectList,
+  PatternEngineResult,
   Readiness,
   StyleAnalysis,
 } from './types';
+import {buildEngineRequest} from './generation';
 
 export class ApiError extends Error {
   constructor(
@@ -96,6 +98,13 @@ export const api = {
       `/api/v1/measurement-profiles/${encodeURIComponent(profile.profile_id)}`,
       {method: 'PUT', headers: {'If-Match': String(revision)}, body: JSON.stringify(profile)},
     ),
+  generatePattern: async (project: ProjectDocument) =>
+    request<PatternEngineResult>('/api/v1/patterns/generate', {
+      method: 'POST',
+      body: JSON.stringify(await buildEngineRequest(project)),
+    }),
+  patternPreviewUrl: (generationId: string) =>
+    `/api/v1/patterns/${encodeURIComponent(generationId)}/preview.svg`,
   analyzeDemo: (projectId: string) =>
     request<StyleAnalysis>('/api/v1/garments/analyze-image', {
       method: 'POST',
