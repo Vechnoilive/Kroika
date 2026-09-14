@@ -122,9 +122,14 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
              'Растяжимость выше 5% не входит в область текущей методики.')
 
     parameters = spec['parameters']
-    first_scenario = (
-        spec['garment_type'] == 'dress'
-        and parameters['bodice_fit'] == 'semi_fitted'
+    expected_preset = {
+        'fitted': 'woven_fitted_trial',
+        'semi_fitted': 'woven_semi_fitted_trial',
+    }.get(parameters['bodice_fit'])
+    supported_variant = (
+        spec['garment_type'] in {'dress', 'sundress'}
+        and expected_preset is not None
+        and request['fit_settings']['preset']['id'] == expected_preset
         and parameters['neckline']['type'] == 'round'
         and parameters['sleeve']['type'] == 'sleeveless'
         and parameters['skirt']['type'] == 'a_line'
@@ -132,9 +137,12 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
         and parameters['closure']['location'] == 'center_back'
         and parameters['finishing'] == {'neckline_facing': True, 'armhole_facing': True}
     )
-    if not first_scenario:
-        _add(issues, 'GARMENT_VARIANT_NOT_IMPLEMENTED', '/garment_spec/parameters',
-             'Эта комбинация запланирована, но первый проверяемый сценарий пока другой.')
+    if not supported_variant:
+        _add(
+            issues, 'GARMENT_VARIANT_NOT_IMPLEMENTED', '/garment_spec/parameters',
+            'Сейчас поддерживаются платье и сарафан без рукавов: круглая горловина, '
+            'отрезная А-юбка, вытачки, обтачки и молния по центру спинки.',
+        )
 
     if issues:
         raise SemanticContractError(issues)

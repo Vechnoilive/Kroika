@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kroika-backend"
-version = "0.4.0"
-description = "FastAPI application with profiles and deterministic experimental garment blocks"
+version = "0.5.0"
+description = "FastAPI application with profiles and deterministic experimental garment assembly and SVG preview"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.141,<0.142",
   "kroika-contracts==1.0.0",
-  "kroika-pattern-engine==0.3.0",
+  "kroika-pattern-engine==0.4.0",
   "uvicorn>=0.53,<0.54",
 ]
 

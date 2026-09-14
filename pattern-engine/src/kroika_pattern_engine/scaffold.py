@@ -1,10 +1,4 @@
-"""Stage-7 pattern-engine boundary.
-
-The base bodice, skirt and sleeve blocks are now executable and validated.
-A complete dress assembly, seam pairing and preview belong to stage 8, so the
-public garment-generation operation still fails closed instead of presenting
-diagnostic blocks as a ready-to-cut dress.
-"""
+"""Stage-8 deterministic garment generator boundary."""
 
 from __future__ import annotations
 
@@ -13,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
+from .assembly import assemble_garment
 from .blocks import BlockConstructionError, build_base_blocks
 from .geometry import run_core_diagnostics
 
@@ -22,10 +17,10 @@ def _utc_now() -> datetime:
 
 
 class GeometryPatternEngine:
-    """Deterministic boundary around geometry and experimental base blocks."""
+    """Build a bounded experimental garment and return an auditable report."""
 
     engine_id = "kroika-geometry"
-    engine_version = "0.3.0"
+    engine_version = "0.4.0"
 
     def __init__(self, clock: Callable[[], datetime] = _utc_now):
         self._clock = clock
@@ -37,7 +32,6 @@ class GeometryPatternEngine:
         generation_id = str(uuid5(NAMESPACE_URL, f"kroika:{project_id}:{input_hash}"))
         report_id = str(uuid5(NAMESPACE_URL, f"kroika:report:{project_id}:{input_hash}"))
         created_at = self._clock().astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
-
         checks: list[dict[str, Any]] = [{
             "id": "engine.geometry.core",
             "status": "passed",
@@ -47,13 +41,18 @@ class GeometryPatternEngine:
             ),
         }]
         issues: list[dict[str, Any]] = []
+        pattern: dict[str, Any] | None = None
+        result_status = "rejected"
+        report_status = "failed"
+
         try:
             blocks = build_base_blocks(request)
+            assembly = assemble_garment(request, blocks)
         except BlockConstructionError as error:
             checks.append({
-                "id": "engine.pattern_blocks",
+                "id": "engine.garment_assembly",
                 "status": "failed",
-                "message_ru": "Базовые блоки не построены: проверьте указанное поле.",
+                "message_ru": "Изделие не собрано: проверьте указанное поле.",
             })
             issues.append({
                 "code": error.code,
@@ -100,12 +99,31 @@ class GeometryPatternEngine:
                 {
                     "id": "engine.pattern_blocks.sleeve",
                     "status": "not_run",
-                    "message_ru": "Одношовный рукав реализован отдельно; выбран вариант без рукава.",
+                    "message_ru": "Выбран вариант без рукавов; модуль рукава не меняет результат.",
                 },
                 {
                     "id": "engine.garment_assembly",
-                    "status": "not_run",
-                    "message_ru": "Сборка деталей платья и пары швов будут добавлены на этапе 8.",
+                    "status": "passed",
+                    "message_ru": "Собраны основные детали и обтачки выбранного изделия.",
+                    "measured_value": assembly.controls["piece_count"],
+                    "limit_value": 6,
+                    "unit": "1",
+                },
+                {
+                    "id": "engine.garment_assembly.seam_pairs",
+                    "status": "passed",
+                    "message_ru": "Все десять соединений имеют явные пары участков и допуск.",
+                    "measured_value": assembly.controls["seam_pair_count"],
+                    "limit_value": 10,
+                    "unit": "1",
+                },
+                {
+                    "id": "engine.garment_assembly.interfaces",
+                    "status": "passed",
+                    "message_ru": "Разница каждого интерфейса учтена явно, скрытого остатка нет.",
+                    "measured_value": assembly.controls["maximum_interface_residual_mm"],
+                    "limit_value": 0.001,
+                    "unit": "mm",
                 },
             ])
             issues.extend([
@@ -113,21 +131,33 @@ class GeometryPatternEngine:
                     "code": "EXPERT_BLOCK_REVIEW_REQUIRED",
                     "severity": "warning",
                     "message_ru": (
-                        "Автоматические контроли пройдены, но бумажные построения и посадка "
+                        "Автоматические контроли пройдены, но бумажное построение и посадка "
                         "ещё не подтверждены закройщиком."
                     ),
                     "json_pointer": "/pattern_method/validation_status",
                 },
                 {
-                    "code": "GARMENT_ASSEMBLY_STAGE_NOT_READY",
-                    "severity": "blocking_error",
+                    "code": "SEAM_TRUEING_REVIEW_REQUIRED",
+                    "severity": "warning",
                     "message_ru": (
-                        "Базовые блоки построены, но это ещё не собранное платье: пары швов "
-                        "и правила деталей появятся на этапе 8."
+                        "Величины совмещения швов записаны в seam_pairs; их распределение "
+                        "нужно проверить на бумаге и макете до раскроя."
                     ),
-                    "json_pointer": "/pattern",
+                    "json_pointer": "/pattern/seam_pairs",
+                },
+                {
+                    "code": "CUTTING_CONTOUR_NOT_AVAILABLE",
+                    "severity": "warning",
+                    "message_ru": (
+                        "Предпросмотр показывает линии шва без припусков. Линии среза "
+                        "и печать 1:1 относятся к этапу 9."
+                    ),
+                    "json_pointer": "/pattern/pieces",
                 },
             ])
+            pattern = assembly.pattern
+            result_status = "succeeded"
+            report_status = "warnings"
 
         report = {
             "schema_version": "1.0.0",
@@ -137,11 +167,11 @@ class GeometryPatternEngine:
             "input_hash": input_hash,
             "validator_version": self.engine_version,
             "created_at": created_at,
-            "status": "failed",
+            "status": report_status,
             "method_validation_status": request["pattern_method"]["validation_status"],
             "issues": issues,
             "checks": checks,
-            "diagnostic_export_allowed": False,
+            "diagnostic_export_allowed": pattern is not None,
             "production_export_allowed": False,
         }
         return {
@@ -153,11 +183,10 @@ class GeometryPatternEngine:
             "engine_version": self.engine_version,
             "pattern_method": dict(request["pattern_method"]),
             "created_at": created_at,
-            "status": "rejected",
-            "pattern": None,
+            "status": result_status,
+            "pattern": pattern,
             "validation_report": report,
         }
 
 
-# Backwards-compatible import name for projects created by the stage-4 shell.
 ScaffoldPatternEngine = GeometryPatternEngine
