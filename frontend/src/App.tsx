@@ -1,6 +1,8 @@
 import {FormEvent, useEffect, useState} from 'react';
 import {api, ApiError} from './api';
 import {makeDemoProject} from './demoProject';
+import {MeasurementWizard} from './MeasurementWizard';
+import type {BodyMeasurements} from './types';
 import type {ProjectDocument, ProjectSummary, StyleAnalysis} from './types';
 
 const LAST_PROJECT_KEY = 'kroika:last-project-id';
@@ -36,6 +38,11 @@ function FriendlyError({error}: {error: ApiError}) {
     <div className="notice notice--error" role="alert">
       <strong>Не получилось выполнить действие</strong>
       <span>{error.message}</span>
+      {error.issues && error.issues.length > 0 && (
+        <ul>{error.issues.slice(0, 5).map((item) => (
+          <li key={`${item.code}-${item.json_pointer}`}>{item.message_ru}</li>
+        ))}</ul>
+      )}
       {error.requestId && <small>Код обращения: {error.requestId.slice(0, 8)}</small>}
     </div>
   );
@@ -132,7 +139,24 @@ export default function App() {
     localStorage.removeItem(LAST_PROJECT_KEY);
   }
 
-  const activeStep = !project ? 1 : analysis ? 3 : 2;
+  async function saveMeasurements(profile: BodyMeasurements): Promise<ProjectDocument> {
+    if (!project) throw new ApiError('Сначала откройте проект.', 0, 'PROJECT_REQUIRED');
+    const updated = await api.replaceProject({...project, status: 'draft', body_measurements: profile});
+    setProject(updated);
+    setProjects((items) => items.map((item) => item.project_id === updated.project_id
+      ? {
+          project_id: updated.project_id,
+          name: updated.name,
+          revision: updated.revision,
+          status: updated.status,
+          updated_at: updated.updated_at,
+        }
+      : item));
+    return updated;
+  }
+
+  const activeStep = !project ? 1 : !analysis ? 2
+    : project.body_measurements.status === 'ready' ? 4 : 3;
 
   return (
     <div className="app-shell">
@@ -156,8 +180,8 @@ export default function App() {
           <ol>
             <Step number={1} title="Создать проект" state={activeStep > 1 ? 'done' : 'active'} />
             <Step number={2} title="Добавить эскиз" state={activeStep > 2 ? 'done' : activeStep === 2 ? 'active' : 'locked'} />
-            <Step number={3} title="Ввести мерки" state={activeStep === 3 ? 'active' : 'locked'} />
-            <Step number={4} title="Проверить фасон" state="locked" />
+            <Step number={3} title="Ввести мерки" state={activeStep > 3 ? 'done' : activeStep === 3 ? 'active' : 'locked'} />
+            <Step number={4} title="Проверить фасон" state={activeStep === 4 ? 'active' : 'locked'} />
             <Step number={5} title="Получить выкройку" state="locked" />
           </ol>
           <div className="privacy-note">
@@ -167,7 +191,7 @@ export default function App() {
         </aside>
 
         <section className="content">
-          <div className="stage-badge">Каркас · этап 4 из 15</div>
+          <div className="stage-badge">Мастер мерок · этап 5 из 15</div>
           {!project ? (
             <>
               <div className="intro">
@@ -199,9 +223,9 @@ export default function App() {
                     disabled={busy || connection !== 'ready'}
                   />
                   <button className="primary-button" disabled={busy || connection !== 'ready'}>
-                    {busy ? 'Создаём…' : 'Создать учебный проект'} <span aria-hidden="true">→</span>
+                    {busy ? 'Создаём…' : 'Создать проект'} <span aria-hidden="true">→</span>
                   </button>
-                  <p className="demo-warning"><strong>Учебный режим:</strong> внутри будут тестовые мерки. Их нельзя использовать для пошива.</p>
+                  <p className="demo-warning"><strong>Без автозаполнения:</strong> новый профиль мерок будет пустым. Все значения вводятся человеком.</p>
                 </div>
               </form>
 
@@ -236,7 +260,7 @@ export default function App() {
                   <div className="action-card__icon" aria-hidden="true">02</div>
                   <div className="action-card__body">
                     <h2>Проверим анализ эскиза</h2>
-                    <p>На этапе 4 настоящий Qwen ещё не подключён. Нажмите кнопку — mock покажет безопасный пример ответа.</p>
+                    <p>На этапе 5 настоящий Qwen ещё не подключён. Нажмите кнопку — mock покажет безопасный пример ответа.</p>
                     <div className="mock-preview" aria-hidden="true">
                       <svg viewBox="0 0 240 250" role="img">
                         <path d="M92 23c8 12 48 12 56 0l23 23-19 30-7-8 15 155H80L95 68l-7 8-19-30 23-23Z" />
@@ -251,31 +275,29 @@ export default function App() {
                   </div>
                 </div>
               ) : (
-                <div className="analysis-card">
-                  <div className="success-mark" aria-hidden="true">✓</div>
-                  <div>
-                    <p className="eyebrow">Mock ответил</p>
-                    <h2>Похоже на платье А-силуэта</h2>
-                    <p>Это предложение, а не окончательное решение. Перед построением все признаки нужно будет подтвердить.</p>
+                <>
+                  <div className="analysis-card analysis-card--compact">
+                    <div className="success-mark" aria-hidden="true">✓</div>
+                    <div>
+                      <p className="eyebrow">Mock ответил</p>
+                      <h2>Похоже на платье А-силуэта</h2>
+                      <p>Это предложение, а не окончательное решение. Перед построением все признаки нужно будет подтвердить.</p>
+                    </div>
+                    <dl className="feature-grid">
+                      <div><dt>Изделие</dt><dd>{human(analysis.garment_category)}</dd></div>
+                      <div><dt>Посадка</dt><dd>{human(analysis.silhouette.fit)}</dd></div>
+                      <div><dt>Горловина</dt><dd>{human(analysis.neckline.front)}</dd></div>
+                      <div><dt>Рукав</dt><dd>{human(analysis.sleeves.length)}</dd></div>
+                      <div><dt>Юбка</dt><dd>{human(analysis.lower_part.type)}</dd></div>
+                      <div><dt>Длина</dt><dd>{human(analysis.lower_part.length_category)}</dd></div>
+                    </dl>
+                    <div className="questions">
+                      <strong>Позже приложение уточнит:</strong>
+                      <ul>{analysis.targeted_questions.map((item) => <li key={item}>{item}</li>)}</ul>
+                    </div>
                   </div>
-                  <dl className="feature-grid">
-                    <div><dt>Изделие</dt><dd>{human(analysis.garment_category)}</dd></div>
-                    <div><dt>Посадка</dt><dd>{human(analysis.silhouette.fit)}</dd></div>
-                    <div><dt>Горловина</dt><dd>{human(analysis.neckline.front)}</dd></div>
-                    <div><dt>Рукав</dt><dd>{human(analysis.sleeves.length)}</dd></div>
-                    <div><dt>Юбка</dt><dd>{human(analysis.lower_part.type)}</dd></div>
-                    <div><dt>Длина</dt><dd>{human(analysis.lower_part.length_category)}</dd></div>
-                  </dl>
-                  <div className="questions">
-                    <strong>Позже приложение уточнит:</strong>
-                    <ul>{analysis.targeted_questions.map((item) => <li key={item}>{item}</li>)}</ul>
-                  </div>
-                  <div className="next-stage">
-                    <span aria-hidden="true">03</span>
-                    <p><strong>Следующий шаг — ваши мерки</strong>Мастер с картинками и подсказками появится на этапе 5.</p>
-                    <button disabled title="Будет доступно на этапе 5">Продолжить к меркам</button>
-                  </div>
-                </div>
+                  <MeasurementWizard project={project} onSaveProject={saveMeasurements} />
+                </>
               )}
             </>
           )}

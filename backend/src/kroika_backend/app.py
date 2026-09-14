@@ -1,9 +1,9 @@
-"""FastAPI composition root for the stage-4 modular monolith."""
+"""FastAPI composition root for the stage-5 modular monolith."""
 
 from __future__ import annotations
 
 from time import perf_counter
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID, uuid4
 
 from fastapi import Body, FastAPI, Header, Request
@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
 from kroika_contracts.contract_io import validate_document
+from kroika_contracts.measurements import catalogue, measurement_issues
 from kroika_contracts.ports import AIProvider, PatternEngine
 from kroika_contracts.semantic import (
     validate_ai_analysis,
@@ -23,10 +24,18 @@ from .config import Settings
 from .errors import AppError, install_exception_handlers
 from .logging_config import configure_logging
 from .mock_provider import MockAIProvider
-from .models import HealthResponse, ProjectListResponse, ProjectSummary, ReadinessResponse
+from .models import (
+    HealthResponse,
+    MeasurementProfileListResponse,
+    MeasurementProfileRecord,
+    MeasurementProfileSummary,
+    ProjectListResponse,
+    ProjectSummary,
+    ReadinessResponse,
+)
 from .repository import SQLiteRepository
 
-APP_VERSION = "0.4.0"
+APP_VERSION = "0.5.0"
 
 
 def _project_or_404(repository: SQLiteRepository, project_id: str) -> dict[str, Any]:
@@ -60,7 +69,7 @@ def create_app(
     app = FastAPI(
         title="Kroika API",
         version=APP_VERSION,
-        description="Локальный API каркаса приложения для построения выкроек.",
+        description="Локальный API Kroika с проектами и профилями ручных мерок.",
         debug=settings.debug,
     )
     app.state.settings = settings
@@ -137,6 +146,84 @@ def create_app(
         if_match: int = Header(..., alias="If-Match", ge=1),
     ) -> dict[str, Any]:
         return repository.replace_project(str(project_id), if_match, project)
+
+    @app.get("/api/v1/measurements/catalog", tags=["measurements"])
+    def get_measurement_catalog(
+        garment_type: Literal[
+            "dress", "sundress", "skirt", "top", "blouse", "shirt", "vest",
+            "jacket", "trousers", "shorts", "jumpsuit",
+        ] = "dress",
+        sleeve_type: Literal["sleeveless", "short", "long"] = "sleeveless",
+    ) -> dict[str, Any]:
+        return catalogue(garment_type, sleeve_type)
+
+    @app.post("/api/v1/measurements/validate", tags=["measurements"])
+    def validate_measurements(
+        profile: dict[str, Any] = Body(...),
+        garment_type: Literal["dress", "sundress"] = "dress",
+        sleeve_type: Literal["sleeveless", "short", "long"] = "sleeveless",
+    ) -> dict[str, Any]:
+        validate_document("body-measurements", profile)
+        issues = measurement_issues(profile, garment_type, sleeve_type)
+        required = [
+            item for item in catalogue(garment_type, sleeve_type)["measurements"] if item["required"]
+        ]
+        values = profile.get("values", {})
+        angles = profile.get("angles_deg", {})
+        completed = sum(
+            1 for item in required
+            if item["id"] in (angles if item["kind"] == "angle" else values)
+        )
+        return {
+            "status": "invalid" if any(item.severity == "blocking_error" for item in issues)
+            else "ready" if completed == len(required) else "incomplete",
+            "required_count": len(required),
+            "completed_count": completed,
+            "issues": [{
+                "code": item.code,
+                "severity": item.severity,
+                "json_pointer": item.json_pointer,
+                "message_ru": item.message_ru,
+            } for item in issues],
+        }
+
+    @app.get(
+        "/api/v1/measurement-profiles",
+        response_model=MeasurementProfileListResponse,
+        tags=["measurements"],
+    )
+    def list_measurement_profiles() -> MeasurementProfileListResponse:
+        return MeasurementProfileListResponse(items=[
+            MeasurementProfileSummary(**item) for item in repository.list_measurement_profiles()
+        ])
+
+    @app.post(
+        "/api/v1/measurement-profiles", status_code=201,
+        response_model=MeasurementProfileRecord, tags=["measurements"],
+    )
+    def create_measurement_profile(profile: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        return repository.create_measurement_profile(profile)
+
+    @app.get(
+        "/api/v1/measurement-profiles/{profile_id}",
+        response_model=MeasurementProfileRecord, tags=["measurements"],
+    )
+    def get_measurement_profile(profile_id: UUID) -> dict[str, Any]:
+        record = repository.get_measurement_profile(str(profile_id))
+        if record is None:
+            raise AppError(404, "MEASUREMENT_PROFILE_NOT_FOUND", "Профиль мерок не найден.")
+        return record
+
+    @app.put(
+        "/api/v1/measurement-profiles/{profile_id}",
+        response_model=MeasurementProfileRecord, tags=["measurements"],
+    )
+    def replace_measurement_profile(
+        profile_id: UUID,
+        profile: dict[str, Any] = Body(...),
+        if_match: int = Header(..., alias="If-Match", ge=1),
+    ) -> dict[str, Any]:
+        return repository.replace_measurement_profile(str(profile_id), if_match, profile)
 
     @app.post("/api/v1/garments/analyze-image", tags=["garments"])
     async def analyze_image(request_document: dict[str, Any] = Body(...)) -> dict[str, Any]:

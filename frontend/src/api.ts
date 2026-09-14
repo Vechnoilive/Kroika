@@ -1,5 +1,10 @@
 import type {
   ApiErrorBody,
+  BodyMeasurements,
+  MeasurementCatalog,
+  MeasurementProfileRecord,
+  MeasurementProfileSummary,
+  MeasurementValidation,
   ProjectDocument,
   ProjectList,
   Readiness,
@@ -12,6 +17,7 @@ export class ApiError extends Error {
     public readonly status: number,
     public readonly code: string,
     public readonly requestId?: string,
+    public readonly issues: ApiErrorBody['issues'] = [],
   ) {
     super(message);
   }
@@ -44,6 +50,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       response.status,
       body.code ?? 'UNKNOWN_ERROR',
       body.request_id,
+      body.issues ?? [],
     );
   }
   return (await response.json()) as T;
@@ -59,6 +66,36 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(project),
     }),
+  replaceProject: (project: ProjectDocument) =>
+    request<ProjectDocument>(`/api/v1/projects/${encodeURIComponent(project.project_id)}`, {
+      method: 'PUT',
+      headers: {'If-Match': String(project.revision)},
+      body: JSON.stringify(project),
+    }),
+  measurementCatalog: (garmentType: string, sleeveType: string) =>
+    request<MeasurementCatalog>(
+      `/api/v1/measurements/catalog?garment_type=${encodeURIComponent(garmentType)}&sleeve_type=${encodeURIComponent(sleeveType)}`,
+    ),
+  validateMeasurements: (profile: BodyMeasurements, garmentType: string, sleeveType: string) =>
+    request<MeasurementValidation>(
+      `/api/v1/measurements/validate?garment_type=${encodeURIComponent(garmentType)}&sleeve_type=${encodeURIComponent(sleeveType)}`,
+      {method: 'POST', body: JSON.stringify(profile)},
+    ),
+  listMeasurementProfiles: () =>
+    request<{items: MeasurementProfileSummary[]}>('/api/v1/measurement-profiles'),
+  getMeasurementProfile: (profileId: string) =>
+    request<MeasurementProfileRecord>(
+      `/api/v1/measurement-profiles/${encodeURIComponent(profileId)}`,
+    ),
+  createMeasurementProfile: (profile: BodyMeasurements) =>
+    request<MeasurementProfileRecord>('/api/v1/measurement-profiles', {
+      method: 'POST', body: JSON.stringify(profile),
+    }),
+  replaceMeasurementProfile: (profile: BodyMeasurements, revision: number) =>
+    request<MeasurementProfileRecord>(
+      `/api/v1/measurement-profiles/${encodeURIComponent(profile.profile_id)}`,
+      {method: 'PUT', headers: {'If-Match': String(revision)}, body: JSON.stringify(profile)},
+    ),
   analyzeDemo: (projectId: string) =>
     request<StyleAnalysis>('/api/v1/garments/analyze-image', {
       method: 'POST',

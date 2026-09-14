@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -35,3 +35,27 @@ class ProjectListResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     items: list[ProjectSummary]
+
+
+class MeasurementProfileSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    profile_id: str
+    name: str
+    status: Literal["draft", "ready"]
+    revision: int = Field(ge=1)
+    updated_at: str
+
+
+class MeasurementProfileListResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[MeasurementProfileSummary]
+
+
+class MeasurementProfileRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    revision: int = Field(ge=1)
+    updated_at: str
+    profile: dict[str, Any]

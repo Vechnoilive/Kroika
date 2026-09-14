@@ -27,25 +27,17 @@ def _add(issues: list[SemanticIssue], code: str, pointer: str, message: str) -> 
     issues.append(SemanticIssue(code, pointer, message))
 
 
-def _measurement_issues(measurements: Mapping[str, Any]) -> list[SemanticIssue]:
-    issues: list[SemanticIssue] = []
-    values = measurements['values']
-    for name, measurement in values.items():
-        original = measurement.get('original_input')
-        if original is None:
-            continue
-        expected_mm = original['value'] * (10 if original['unit'] == 'cm' else 1)
-        if abs(measurement['value'] - expected_mm) > 1e-9:
-            _add(issues, 'NORMALIZATION_MISMATCH', f'/body_measurements/values/{name}/value',
-                 'Значение в миллиметрах не совпадает с исходным вводом.')
-    for arc, circumference in [('back_bust_arc', 'bust'), ('back_waist_arc', 'waist'),
-                               ('back_hip_arc', 'hips')]:
-        if arc in values and circumference in values:
-            if values[arc]['value'] >= values[circumference]['value']:
-                _add(issues, 'MEASUREMENT_ARC_NOT_SMALLER',
-                     f'/body_measurements/values/{arc}',
-                     'Задняя дуга должна быть меньше соответствующего полного обхвата.')
-    return issues
+def _measurement_issues(
+    measurements: Mapping[str, Any], garment_type: str | None = None,
+    sleeve_type: str = 'sleeveless',
+) -> list[SemanticIssue]:
+    from .measurements import measurement_issues
+
+    return [
+        SemanticIssue(item.code, item.json_pointer, item.message_ru)
+        for item in measurement_issues(measurements, garment_type, sleeve_type)
+        if item.severity == 'blocking_error'
+    ]
 
 
 def validate_validation_report(report: Mapping[str, Any]) -> None:
@@ -111,7 +103,10 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
         _add(issues, 'EASE_DISTRIBUTION_SUM', '/fit_settings/distribution',
              'Доли прибавки переда и спинки должны в сумме давать 1.')
 
-    issues.extend(_measurement_issues(request['body_measurements']))
+    spec = request['garment_spec']
+    issues.extend(_measurement_issues(
+        request['body_measurements'], spec['garment_type'], spec['parameters']['sleeve']['type'],
+    ))
 
     method = request['pattern_method']
     if (method['id'], method['version']) != ('kroika-gc-woven', '0.1.0'):
@@ -126,7 +121,6 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
         _add(issues, 'FABRIC_STRETCH_OUTSIDE_METHOD', '/fabric_properties/stretch_percent',
              'Растяжимость выше 5% не входит в область текущей методики.')
 
-    spec = request['garment_spec']
     parameters = spec['parameters']
     first_scenario = (
         spec['garment_type'] == 'dress'
@@ -148,7 +142,21 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
 
 def validate_project(project: Mapping[str, Any]) -> None:
     validate_document('pattern-project', project)
-    issues = _measurement_issues(project['body_measurements'])
+    from .measurements import measurement_issues
+
+    sleeve_type = project['garment_spec']['parameters']['sleeve']['type']
+    issues = [
+        SemanticIssue(item.code, item.json_pointer, item.message_ru)
+        for item in measurement_issues(
+            project['body_measurements'], project['garment_spec']['garment_type'], sleeve_type,
+        )
+        if item.severity == 'blocking_error'
+    ]
+    if project['status'] != 'draft' and project['body_measurements']['status'] != 'ready':
+        _add(
+            issues, 'PROJECT_MEASUREMENTS_NOT_READY', '/body_measurements/status',
+            'Проект нельзя подтвердить, пока обязательные мерки не заполнены.',
+        )
     latest = project['latest_generation']
     if latest is not None:
         if latest['project_id'] != project['project_id']:

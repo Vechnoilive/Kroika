@@ -1,14 +1,5 @@
 import type {ProjectDocument} from './types';
 
-const measurement = (value: number, originalCm?: number) => ({
-  value,
-  unit: 'mm',
-  source: 'preset',
-  ...(originalCm === undefined
-    ? {}
-    : {original_input: {value: originalCm, unit: 'cm'}}),
-});
-
 export function makeDemoProject(rawName: string): ProjectDocument {
   const now = new Date().toISOString();
   const name = rawName.trim() || 'Мой учебный проект';
@@ -37,26 +28,12 @@ export function makeDemoProject(rawName: string): ProjectDocument {
     body_measurements: {
       schema_version: '1.0.0',
       profile_id: crypto.randomUUID(),
-      name: 'Учебный профиль M — не для пошива',
-      status: 'ready',
+      name: 'Новые мерки',
+      status: 'draft',
       normalized_unit: 'mm',
-      values: {
-        bust: measurement(920, 92),
-        waist: measurement(740, 74),
-        hips: measurement(1000, 100),
-        back_bust_arc: measurement(440),
-        back_waist_arc: measurement(360),
-        back_hip_arc: measurement(520),
-        shoulder_span: measurement(380),
-        back_neck_to_waist: measurement(410),
-        front_neck_to_waist_over_bust: measurement(460),
-        bust_path_height: measurement(260),
-        bust_vertical_height: measurement(230),
-        bust_span: measurement(200),
-        hip_depth: measurement(200),
-        armscye_depth: measurement(190),
-      },
-      angles_deg: {shoulder_slope: 11.309932474020215, hip_inclination: 11.421186274999286},
+      values: {},
+      angles_deg: {},
+      angle_provenance: {},
     },
     garment_spec: {
       schema_version: '1.0.0',

@@ -68,6 +68,22 @@
         }
       ]
     },
+    "measurement_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source"],
+      "properties": {
+        "source": {"type": "string", "enum": ["user", "preset", "derived"]},
+        "formula_id": {"type": "string", "pattern": "^[A-Z][A-Z0-9_-]{1,63}$"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"source": {"const": "derived"}}, "required": ["source"]},
+          "then": {"required": ["formula_id"]},
+          "else": {"not": {"required": ["formula_id"]}}
+        }
+      ]
+    },
     "issue": {
       "type": "object",
       "additionalProperties": false,

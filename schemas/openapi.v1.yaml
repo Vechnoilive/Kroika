@@ -3,8 +3,8 @@ info:
   title: Kroika API contracts
   version: 1.0.0
   description: >-
-    Контракт локального API. На этапе 4 обработчики работают с SQLite,
-    mock AI-провайдером и безопасным каркасом pattern-engine.
+    Контракт локального API. На этапе 5 обработчики работают с SQLite,
+    профилями и каталогом мерок, mock AI и безопасным каркасом pattern-engine.
 servers:
   - url: http://localhost:8000
     description: Локальный сервер
@@ -132,6 +132,137 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
           $ref: '#/components/responses/ContractError'
+  /api/v1/measurements/catalog:
+    get:
+      operationId: getMeasurementCatalog
+      summary: Получить применимые мерки, диапазоны и инструкции
+      parameters:
+        - name: garment_type
+          in: query
+          schema:
+            type: string
+            default: dress
+            enum: [dress, sundress, skirt, top, blouse, shirt, vest, jacket, trousers, shorts, jumpsuit]
+        - name: sleeve_type
+          in: query
+          schema:
+            type: string
+            default: sleeveless
+            enum: [sleeveless, short, long]
+      responses:
+        '200':
+          description: Отфильтрованный каталог без персональных значений
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasurementCatalog'
+  /api/v1/measurements/validate:
+    post:
+      operationId: validateMeasurements
+      summary: Проверить полноту, диапазоны и согласованность мерок
+      parameters:
+        - name: garment_type
+          in: query
+          schema:
+            type: string
+            default: dress
+            enum: [dress, sundress]
+        - name: sleeve_type
+          in: query
+          schema:
+            type: string
+            default: sleeveless
+            enum: [sleeveless, short, long]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./v1/body-measurements.schema.json
+      responses:
+        '200':
+          description: Отчёт, не изменяющий и не дополняющий профиль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasurementValidation'
+        '422':
+          $ref: '#/components/responses/ContractError'
+  /api/v1/measurement-profiles:
+    get:
+      operationId: listMeasurementProfiles
+      summary: Показать сохранённые профили без значений мерок
+      responses:
+        '200':
+          description: Краткий список локальных профилей
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasurementProfileList'
+    post:
+      operationId: createMeasurementProfile
+      summary: Сохранить профиль по явному действию пользователя
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./v1/body-measurements.schema.json
+      responses:
+        '201':
+          description: Профиль сохранён локально
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasurementProfileRecord'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ContractError'
+  /api/v1/measurement-profiles/{profile_id}:
+    parameters:
+      - $ref: '#/components/parameters/MeasurementProfileId'
+    get:
+      operationId: getMeasurementProfile
+      summary: Получить сохранённый профиль
+      responses:
+        '200':
+          description: Профиль найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasurementProfileRecord'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      operationId: replaceMeasurementProfile
+      summary: Сохранить новую ревизию профиля
+      parameters:
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./v1/body-measurements.schema.json
+      responses:
+        '200':
+          description: Новая ревизия профиля сохранена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasurementProfileRecord'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ContractError'
   /api/v1/patterns/generate:
     post:
       operationId: generatePattern
@@ -252,6 +383,13 @@ components:
       schema:
         type: string
         format: uuid
+    MeasurementProfileId:
+      name: profile_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
   schemas:
     HealthResponse:
       type: object
@@ -320,6 +458,90 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ProjectSummary'
+    MeasurementDefinition:
+      type: object
+      additionalProperties: false
+      required: [id, label_ru, group, kind, unit, minimum, maximum, instruction_ru, illustration, applicable_to, required_for, sleeve_only, required]
+      properties:
+        id: {type: string, pattern: '^[a-z][a-z0-9_]+$'}
+        label_ru: {type: string, minLength: 1}
+        group: {type: string, minLength: 1}
+        kind: {type: string, enum: [linear, angle]}
+        unit: {type: string, enum: [mm, deg]}
+        minimum: {type: number}
+        maximum: {type: number}
+        instruction_ru: {type: string, minLength: 20}
+        illustration: {type: string, minLength: 1}
+        applicable_to:
+          type: array
+          items: {type: string}
+        required_for:
+          type: array
+          items: {type: string}
+        sleeve_only: {type: boolean}
+        required: {type: boolean}
+    MeasurementCatalog:
+      type: object
+      additionalProperties: false
+      required: [schema_version, catalog_version, garment_type, sleeve_type, normalized_unit, display_units, source_options, measurements]
+      properties:
+        schema_version: {type: string, const: 1.0.0}
+        catalog_version: {type: string, const: 1.0.0}
+        garment_type: {type: string}
+        sleeve_type: {type: string}
+        normalized_unit: {type: string, const: mm}
+        display_units:
+          type: array
+          prefixItems: [{const: cm}, {const: mm}]
+          minItems: 2
+          maxItems: 2
+        source_options:
+          type: array
+          items: {type: string, enum: [user, preset, derived]}
+        measurements:
+          type: array
+          items:
+            $ref: '#/components/schemas/MeasurementDefinition'
+    MeasurementValidation:
+      type: object
+      additionalProperties: false
+      required: [status, required_count, completed_count, issues]
+      properties:
+        status: {type: string, enum: [ready, incomplete, invalid]}
+        required_count: {type: integer, minimum: 0}
+        completed_count: {type: integer, minimum: 0}
+        issues:
+          type: array
+          items:
+            $ref: ./v1/common.schema.json#/$defs/issue
+    MeasurementProfileSummary:
+      type: object
+      additionalProperties: false
+      required: [profile_id, name, status, revision, updated_at]
+      properties:
+        profile_id: {type: string, format: uuid}
+        name: {type: string, minLength: 1, maxLength: 120}
+        status: {type: string, enum: [draft, ready]}
+        revision: {type: integer, minimum: 1}
+        updated_at: {type: string, format: date-time}
+    MeasurementProfileList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MeasurementProfileSummary'
+    MeasurementProfileRecord:
+      type: object
+      additionalProperties: false
+      required: [revision, updated_at, profile]
+      properties:
+        revision: {type: integer, minimum: 1}
+        updated_at: {type: string, format: date-time}
+        profile:
+          $ref: ./v1/body-measurements.schema.json
     ErrorResponse:
       type: object
       additionalProperties: false
@@ -354,6 +576,12 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
     NotFound:
       description: Объект не найден
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: Ресурс уже существует или был изменён в другой вкладке
       content:
         application/json:
           schema:

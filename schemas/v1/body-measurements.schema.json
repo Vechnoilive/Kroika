@@ -40,7 +40,17 @@
         "hand_circumference": {"$ref": "common.schema.json#/$defs/measurement_value"},
         "sleeve_length": {"$ref": "common.schema.json#/$defs/measurement_value"},
         "elbow_circumference": {"$ref": "common.schema.json#/$defs/measurement_value"},
-        "elbow_length": {"$ref": "common.schema.json#/$defs/measurement_value"}
+        "elbow_length": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "front_diagonal_shoulder_height": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "back_diagonal_shoulder_height": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "sitting_height": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "crotch_length": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "outside_leg_length": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "inseam_length": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "thigh_circumference": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "knee_circumference": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "trouser_hem_circumference": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "knee_height": {"$ref": "common.schema.json#/$defs/measurement_value"}
       }
     },
     "angles_deg": {
@@ -49,6 +59,15 @@
       "properties": {
         "shoulder_slope": {"type": "number", "minimum": 0, "maximum": 40},
         "hip_inclination": {"type": "number", "minimum": 0, "maximum": 40}
+      }
+    },
+    "angle_provenance": {
+      "description": "Происхождение угловых контрольных мерок; новые профили этапа 5 заполняют это поле.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "shoulder_slope": {"$ref": "common.schema.json#/$defs/measurement_provenance"},
+        "hip_inclination": {"$ref": "common.schema.json#/$defs/measurement_provenance"}
       }
     }
   },

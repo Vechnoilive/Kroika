@@ -13,29 +13,29 @@ describe('accessible stage flow', () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       const body = url.includes('/health/')
-        ? {status: 'ok', service: 'kroika-backend', version: '0.4.0', database: 'ok', ai_provider: 'mock', pattern_engine: 'kroika-scaffold:0.1.0'}
+        ? {status: 'ok', service: 'kroika-backend', version: '0.5.0', database: 'ok', ai_provider: 'mock', pattern_engine: 'kroika-scaffold:0.1.0'}
         : {items: []};
       return new Response(JSON.stringify(body), {status: 200, headers: {'Content-Type': 'application/json'}});
     }));
     render(<App />);
 
-    const action = await screen.findByRole('button', {name: /создать учебный проект/i});
+    const action = await screen.findByRole('button', {name: /создать проект/i});
     await waitFor(() => expect(action).toBeEnabled());
     expect(screen.getByLabelText(/название проекта/i)).toBeVisible();
-    expect(screen.getByText(/тестовые мерки/i)).toBeVisible();
+    expect(screen.getByText(/будет пустым/i)).toBeVisible();
   });
 
   it('explains a backend outage in plain language', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('offline')));
     render(<App />);
     expect(await screen.findByText('Backend пока недоступен')).toBeVisible();
-    expect(screen.getByRole('button', {name: /создать учебный проект/i})).toBeDisabled();
+    expect(screen.getByRole('button', {name: /создать проект/i})).toBeDisabled();
   });
 
   it('lets a keyboard user edit the project name', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const body = String(input).includes('/health/')
-        ? {status: 'ok', service: 'kroika-backend', version: '0.4.0', database: 'ok', ai_provider: 'mock', pattern_engine: 'kroika-scaffold:0.1.0'}
+        ? {status: 'ok', service: 'kroika-backend', version: '0.5.0', database: 'ok', ai_provider: 'mock', pattern_engine: 'kroika-scaffold:0.1.0'}
         : {items: []};
       return new Response(JSON.stringify(body), {status: 200, headers: {'Content-Type': 'application/json'}});
     }));

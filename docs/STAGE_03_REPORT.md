@@ -5,7 +5,7 @@
 ## Результат
 
 - Определены `BodyMeasurements`, `GarmentSpec`, `FitSettings`, `FabricProperties`, `FormulaRecord`, `PatternProject` и `ValidationReport`.
-- Добавлены 13 строгих JSON Schema Draft 2020-12 и OpenAPI 3.1; на этапе 4 контракт расширен health checks и списком проектов до 12 операций.
+- Добавлены 13 строгих JSON Schema Draft 2020-12 и OpenAPI 3.1; этапы 4–5 совместимо расширили API health checks, списком проектов, каталогом и профилями мерок до 18 операций.
 - AI-анализ отделён от подтверждённого `GarmentSpec`; схема AI-запроса структурно запрещает мерки тела.
 - Добавлены независимые Python `Protocol` для `AIProvider` и `PatternEngine` без SDK, HTTP и геометрических зависимостей.
 - Реализован стабильный SHA-256 нормализованных вычислительных входов. Служебные ID, имена и даты не меняют hash; мерки и конструктивные параметры меняют.

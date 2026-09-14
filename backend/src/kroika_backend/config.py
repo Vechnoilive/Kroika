@@ -46,7 +46,7 @@ class Settings:
     def validate(self) -> None:
         if self.ai_provider != "mock":
             raise ValueError(
-                "На этапе 4 доступен только KROIKA_AI_PROVIDER=mock; Qwen появится на этапе 10."
+                "До этапа 10 доступен только KROIKA_AI_PROVIDER=mock; Qwen появится на этапе 10."
             )
         if self.log_level not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
             raise ValueError("KROIKA_LOG_LEVEL содержит неподдерживаемое значение")
