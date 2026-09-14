@@ -168,8 +168,9 @@ def test_darts_waist_shoulder_and_side_projection_conserve_targets(case: dict):
 @given(scale=st.floats(min_value=0.8, max_value=1.2, allow_nan=False, allow_infinity=False))
 def test_scaled_reference_family_remains_finite_connected_and_simple(scale: float):
     blocks = build_base_blocks(request_for_case(CASES[1], scale=scale))
+    # build_base_blocks already validates every contour; avoid doubling the
+    # expensive flattened-intersection pass in each property example.
     for piece in blocks.pieces:
-        validate_simple_contour(piece.seam_contour)
         assert piece.seam_contour.area_mm2 > 0
     assert max(
         abs(value)
