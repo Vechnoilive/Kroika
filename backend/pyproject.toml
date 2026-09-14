@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kroika-backend"
+version = "0.1.0"
+description = "FastAPI application shell for Kroika"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.141,<0.142",
+  "kroika-contracts==1.0.0",
+  "kroika-pattern-engine==0.1.0",
+  "uvicorn>=0.53,<0.54",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["kroika_backend*"]

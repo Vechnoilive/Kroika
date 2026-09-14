@@ -1,0 +1,6 @@
+-r requirements-stage3.txt
+fastapi==0.141.1
+httpx2==2.12.0
+pydantic==2.13.5
+pytest==9.1.1
+uvicorn==0.53.0

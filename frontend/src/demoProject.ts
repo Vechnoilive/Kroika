@@ -1,0 +1,117 @@
+import type {ProjectDocument} from './types';
+
+const measurement = (value: number, originalCm?: number) => ({
+  value,
+  unit: 'mm',
+  source: 'preset',
+  ...(originalCm === undefined
+    ? {}
+    : {original_input: {value: originalCm, unit: 'cm'}}),
+});
+
+export function makeDemoProject(rawName: string): ProjectDocument {
+  const now = new Date().toISOString();
+  const name = rawName.trim() || 'Мой учебный проект';
+  return {
+    schema_version: '1.0.0',
+    project_id: crypto.randomUUID(),
+    revision: 1,
+    name,
+    locale: 'ru-RU',
+    status: 'draft',
+    created_at: now,
+    updated_at: now,
+    privacy: {
+      storage: 'local',
+      image_retention_days: 30,
+      allow_external_ai: false,
+      consent_recorded_at: null,
+    },
+    image_refs: [],
+    style_analysis_id: null,
+    pattern_method: {
+      id: 'kroika-gc-woven',
+      version: '0.1.0',
+      validation_status: 'experimental',
+    },
+    body_measurements: {
+      schema_version: '1.0.0',
+      profile_id: crypto.randomUUID(),
+      name: 'Учебный профиль M — не для пошива',
+      status: 'ready',
+      normalized_unit: 'mm',
+      values: {
+        bust: measurement(920, 92),
+        waist: measurement(740, 74),
+        hips: measurement(1000, 100),
+        back_bust_arc: measurement(440),
+        back_waist_arc: measurement(360),
+        back_hip_arc: measurement(520),
+        shoulder_span: measurement(380),
+        back_neck_to_waist: measurement(410),
+        front_neck_to_waist_over_bust: measurement(460),
+        bust_path_height: measurement(260),
+        bust_vertical_height: measurement(230),
+        bust_span: measurement(200),
+        hip_depth: measurement(200),
+        armscye_depth: measurement(190),
+      },
+      angles_deg: {shoulder_slope: 11.309932474020215, hip_inclination: 11.421186274999286},
+    },
+    garment_spec: {
+      schema_version: '1.0.0',
+      garment_id: crypto.randomUUID(),
+      selection_status: 'confirmed',
+      garment_type: 'dress',
+      parameters: {
+        symmetry: 'symmetric',
+        bodice_fit: 'semi_fitted',
+        shaping: 'darts',
+        neckline: {type: 'round', front_depth_mm: 90, back_depth_mm: 25},
+        sleeve: {type: 'sleeveless', length_mm: null},
+        skirt: {type: 'a_line', length_from_waist_mm: 550, hem_expansion_each_side_mm: 40},
+        closure: {type: 'zipper', location: 'center_back', length_mm: 550},
+        finishing: {neckline_facing: true, armhole_facing: true},
+      },
+      unsupported_features: [],
+      confirmed_at: now,
+    },
+    fit_settings: {
+      schema_version: '1.0.0',
+      settings_id: crypto.randomUUID(),
+      status: 'confirmed',
+      preset: {id: 'woven_semi_fitted_trial', version: '0.1.0'},
+      wearing_ease_mm: {bust: 60, waist: 40, hips: 60, upper_arm: 50},
+      design_ease_mm: {bust: 0, waist: 0, hips: 0, upper_arm: 0},
+      distribution: {front_share: 0.5, back_share: 0.5},
+      seam_allowance_mode: 'by_edge',
+      seam_allowances_mm: {
+        normal: 15,
+        neckline: 10,
+        armhole: 10,
+        zipper: 20,
+        hem: 30,
+        sleeve_hem: 25,
+        fold: 0,
+      },
+      confirmed_at: now,
+    },
+    fabric_properties: {
+      schema_version: '1.0.0',
+      fabric_id: crypto.randomUUID(),
+      status: 'confirmed',
+      name: 'Учебная стабильная хлопковая ткань',
+      intended_use: 'toile',
+      structure: 'woven',
+      stretch_percent: {warp: 0, weft: 2},
+      weight: 'medium',
+      drape: 'crisp',
+      stability: 'stable',
+      directional_nap: false,
+      prewashed: true,
+      confirmed_at: now,
+    },
+    latest_generation: null,
+    generation_history: [],
+  };
+}

@@ -1,0 +1,201 @@
+"""FastAPI composition root for the stage-4 modular monolith."""
+
+from __future__ import annotations
+
+from time import perf_counter
+from typing import Any
+from uuid import UUID, uuid4
+
+from fastapi import Body, FastAPI, Header, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, Response
+
+from kroika_contracts.contract_io import validate_document
+from kroika_contracts.ports import AIProvider, PatternEngine
+from kroika_contracts.semantic import (
+    validate_ai_analysis,
+    validate_engine_request,
+    validate_validation_report,
+)
+from kroika_pattern_engine import ScaffoldPatternEngine
+
+from .config import Settings
+from .errors import AppError, install_exception_handlers
+from .logging_config import configure_logging
+from .mock_provider import MockAIProvider
+from .models import HealthResponse, ProjectListResponse, ProjectSummary, ReadinessResponse
+from .repository import SQLiteRepository
+
+APP_VERSION = "0.4.0"
+
+
+def _project_or_404(repository: SQLiteRepository, project_id: str) -> dict[str, Any]:
+    project = repository.get_project(project_id)
+    if project is None:
+        raise AppError(404, "PROJECT_NOT_FOUND", "Проект не найден.")
+    return project
+
+
+def _generation_or_404(repository: SQLiteRepository, generation_id: str) -> dict[str, Any]:
+    result = repository.get_generation(generation_id)
+    if result is None:
+        raise AppError(404, "GENERATION_NOT_FOUND", "Результат построения не найден.")
+    return result
+
+
+def create_app(
+    settings: Settings | None = None,
+    repository: SQLiteRepository | None = None,
+    ai_provider: AIProvider | None = None,
+    pattern_engine: PatternEngine | None = None,
+) -> FastAPI:
+    settings = settings or Settings.from_env()
+    settings.validate()
+    repository = repository or SQLiteRepository(settings.database_path)
+    repository.initialize()
+    ai_provider = ai_provider or MockAIProvider()
+    pattern_engine = pattern_engine or ScaffoldPatternEngine()
+    logger = configure_logging(settings.log_level)
+
+    app = FastAPI(
+        title="Kroika API",
+        version=APP_VERSION,
+        description="Локальный API каркаса приложения для построения выкроек.",
+        debug=settings.debug,
+    )
+    app.state.settings = settings
+    app.state.repository = repository
+    app.state.ai_provider = ai_provider
+    app.state.pattern_engine = pattern_engine
+    app.state.logger = logger
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=list(settings.cors_origins),
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "PUT"],
+        allow_headers=["Content-Type", "If-Match", "X-Request-ID"],
+        expose_headers=["X-Request-ID"],
+    )
+    install_exception_handlers(app)
+
+    @app.middleware("http")
+    async def request_context(request: Request, call_next):
+        request_id = str(uuid4())
+        request.state.request_id = request_id
+        started = perf_counter()
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        route = request.scope.get("route")
+        logger.info(
+            "request_completed",
+            extra={
+                "request_id": request_id,
+                "method": request.method,
+                "route": getattr(route, "path", "unmatched"),
+                "status_code": response.status_code,
+                "duration_ms": round((perf_counter() - started) * 1000, 2),
+            },
+        )
+        return response
+
+    @app.get("/health/live", response_model=HealthResponse, tags=["health"])
+    def health_live() -> HealthResponse:
+        return HealthResponse(service="kroika-backend", version=APP_VERSION)
+
+    @app.get("/health/ready", response_model=ReadinessResponse, tags=["health"])
+    def health_ready() -> ReadinessResponse:
+        if not repository.health():
+            raise AppError(503, "DATABASE_UNAVAILABLE", "Локальное хранилище недоступно.")
+        return ReadinessResponse(
+            service="kroika-backend",
+            version=APP_VERSION,
+            database="ok",
+            ai_provider=ai_provider.provider_id,
+            pattern_engine=f"{pattern_engine.engine_id}:{pattern_engine.engine_version}",
+        )
+
+    @app.get("/api/v1/projects", response_model=ProjectListResponse, tags=["projects"])
+    def list_projects() -> ProjectListResponse:
+        items = [ProjectSummary(
+            project_id=item["project_id"], name=item["name"], revision=item["revision"],
+            status=item["status"], updated_at=item["updated_at"],
+        ) for item in repository.list_projects()]
+        return ProjectListResponse(items=items)
+
+    @app.post("/api/v1/projects", status_code=201, tags=["projects"])
+    def create_project(project: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        return repository.create_project(project)
+
+    @app.get("/api/v1/projects/{project_id}", tags=["projects"])
+    def get_project(project_id: UUID) -> dict[str, Any]:
+        return _project_or_404(repository, str(project_id))
+
+    @app.put("/api/v1/projects/{project_id}", tags=["projects"])
+    def replace_project(
+        project_id: UUID,
+        project: dict[str, Any] = Body(...),
+        if_match: int = Header(..., alias="If-Match", ge=1),
+    ) -> dict[str, Any]:
+        return repository.replace_project(str(project_id), if_match, project)
+
+    @app.post("/api/v1/garments/analyze-image", tags=["garments"])
+    async def analyze_image(request_document: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        validate_document("ai-analysis-request", request_document)
+        result = await ai_provider.analyze_style(request_document)
+        validate_ai_analysis(result)
+        return result
+
+    @app.post("/api/v1/patterns/generate", tags=["patterns"])
+    def generate_pattern(request_document: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        validate_engine_request(request_document)
+        _project_or_404(repository, request_document["project_id"])
+        existing = repository.get_generation_by_hash(
+            request_document["project_id"], request_document["input_hash"]
+        )
+        if existing is not None:
+            return existing
+        result = pattern_engine.generate(request_document)
+        validate_document("pattern-engine-result", result)
+        validate_validation_report(result["validation_report"])
+        binding_fields = ("request_id", "project_id", "input_hash", "pattern_method")
+        if any(result[field] != request_document[field] for field in binding_fields):
+            raise AppError(
+                500, "ENGINE_RESULT_MISMATCH",
+                "Движок вернул несогласованный результат. Проект не был изменён.",
+            )
+        return repository.record_generation(result)
+
+    @app.get("/api/v1/patterns/{generation_id}/validation", tags=["patterns"])
+    def get_validation(generation_id: UUID) -> dict[str, Any]:
+        return _generation_or_404(repository, str(generation_id))["validation_report"]
+
+    @app.get("/api/v1/patterns/{generation_id}/preview.svg", tags=["patterns"])
+    def get_preview(generation_id: UUID) -> Response:
+        result = _generation_or_404(repository, str(generation_id))
+        if result["pattern"] is None:
+            raise AppError(
+                409, "PATTERN_NOT_AVAILABLE",
+                "Предпросмотр появится после реализации и проверки геометрического движка.",
+            )
+        raise AppError(501, "SVG_RENDERER_NOT_READY", "SVG-экспорт появится на этапе 8.")
+
+    @app.post("/api/v1/patterns/{generation_id}/export/a4-pdf", tags=["patterns"])
+    def export_pdf(generation_id: UUID) -> Response:
+        result = _generation_or_404(repository, str(generation_id))
+        if not result["validation_report"]["production_export_allowed"]:
+            raise AppError(
+                409, "PRODUCTION_EXPORT_BLOCKED",
+                "Печать заблокирована до проверки методики и макета изделия.",
+            )
+        raise AppError(501, "PDF_RENDERER_NOT_READY", "PDF-экспорт появится на этапе 9.")
+
+    @app.get("/api/v1/patterns/{generation_id}/export/project-json", tags=["patterns"])
+    def export_project(generation_id: UUID) -> JSONResponse:
+        result = _generation_or_404(repository, str(generation_id))
+        project = _project_or_404(repository, result["project_id"])
+        return JSONResponse(
+            project,
+            headers={"Content-Disposition": f'attachment; filename="kroika-{project["project_id"]}.json"'},
+        )
+
+    return app

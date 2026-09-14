@@ -6,7 +6,11 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-checks = [ROOT / 'scripts' / 'verify_stage2.py', ROOT / 'scripts' / 'verify_stage3.py']
+checks = [
+    ROOT / 'scripts' / 'verify_stage2.py',
+    ROOT / 'scripts' / 'verify_stage3.py',
+    ROOT / 'scripts' / 'verify_stage4.py',
+]
 
 for check in checks:
     print(f'\n=== {check.name} ===', flush=True)

@@ -1,0 +1,290 @@
+import {FormEvent, useEffect, useState} from 'react';
+import {api, ApiError} from './api';
+import {makeDemoProject} from './demoProject';
+import type {ProjectDocument, ProjectSummary, StyleAnalysis} from './types';
+
+const LAST_PROJECT_KEY = 'kroika:last-project-id';
+
+const labels: Record<string, string> = {
+  dress: 'Платье',
+  semi_fitted: 'Полуприлегающий',
+  round: 'Круглая',
+  sleeveless: 'Без рукавов',
+  a_line: 'А-силуэт',
+  midi: 'Миди',
+};
+
+function human(value: string): string {
+  return labels[value] ?? value;
+}
+
+function Logo() {
+  return <div className="brand-mark" aria-hidden="true"><span>K</span></div>;
+}
+
+function Step({number, title, state}: {number: number; title: string; state: 'done' | 'active' | 'locked'}) {
+  return (
+    <li className={`step step--${state}`} aria-current={state === 'active' ? 'step' : undefined}>
+      <span className="step__number">{state === 'done' ? '✓' : number}</span>
+      <span>{title}</span>
+    </li>
+  );
+}
+
+function FriendlyError({error}: {error: ApiError}) {
+  return (
+    <div className="notice notice--error" role="alert">
+      <strong>Не получилось выполнить действие</strong>
+      <span>{error.message}</span>
+      {error.requestId && <small>Код обращения: {error.requestId.slice(0, 8)}</small>}
+    </div>
+  );
+}
+
+export default function App() {
+  const [connection, setConnection] = useState<'checking' | 'ready' | 'offline'>('checking');
+  const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [project, setProject] = useState<ProjectDocument | null>(null);
+  const [analysis, setAnalysis] = useState<StyleAnalysis | null>(null);
+  const [projectName, setProjectName] = useState('Моё первое платье');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<ApiError | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      try {
+        await api.readiness();
+        const list = await api.listProjects();
+        if (!active) return;
+        setConnection('ready');
+        setProjects(list.items);
+        const remembered = localStorage.getItem(LAST_PROJECT_KEY);
+        if (remembered) {
+          try {
+            setProject(await api.getProject(remembered));
+          } catch {
+            localStorage.removeItem(LAST_PROJECT_KEY);
+          }
+        }
+      } catch {
+        if (active) setConnection('offline');
+      }
+    }
+    void load();
+    return () => { active = false; };
+  }, []);
+
+  async function createProject(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const created = await api.createProject(makeDemoProject(projectName));
+      setProject(created);
+      setProjects((current) => [created, ...current]);
+      localStorage.setItem(LAST_PROJECT_KEY, created.project_id);
+    } catch (caught) {
+      setError(caught instanceof ApiError
+        ? caught
+        : new ApiError('Не удалось создать проект.', 0, 'UNKNOWN_ERROR'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function openProject(projectId: string) {
+    setBusy(true);
+    setError(null);
+    setAnalysis(null);
+    try {
+      const loaded = await api.getProject(projectId);
+      setProject(loaded);
+      localStorage.setItem(LAST_PROJECT_KEY, loaded.project_id);
+    } catch (caught) {
+      setError(caught instanceof ApiError
+        ? caught
+        : new ApiError('Не удалось открыть проект.', 0, 'UNKNOWN_ERROR'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function analyzeDemo() {
+    if (!project) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setAnalysis(await api.analyzeDemo(project.project_id));
+    } catch (caught) {
+      setError(caught instanceof ApiError
+        ? caught
+        : new ApiError('Не удалось проверить mock-анализ.', 0, 'UNKNOWN_ERROR'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function startAnother() {
+    setProject(null);
+    setAnalysis(null);
+    setError(null);
+    localStorage.removeItem(LAST_PROJECT_KEY);
+  }
+
+  const activeStep = !project ? 1 : analysis ? 3 : 2;
+
+  return (
+    <div className="app-shell">
+      <header className="topbar">
+        <a className="brand" href="/" aria-label="Kroika — главная">
+          <Logo />
+          <span><strong>Kroika</strong><small>Выкройка шаг за шагом</small></span>
+        </a>
+        <div className={`connection connection--${connection}`} aria-live="polite">
+          <span aria-hidden="true" />
+          {connection === 'ready' && 'Работает локально'}
+          {connection === 'checking' && 'Проверяем запуск…'}
+          {connection === 'offline' && 'Нет связи с приложением'}
+        </div>
+      </header>
+
+      <main className="workspace">
+        <aside className="journey" aria-label="Этапы создания выкройки">
+          <p className="eyebrow">Ваш путь</p>
+          <h2>Пять понятных шагов</h2>
+          <ol>
+            <Step number={1} title="Создать проект" state={activeStep > 1 ? 'done' : 'active'} />
+            <Step number={2} title="Добавить эскиз" state={activeStep > 2 ? 'done' : activeStep === 2 ? 'active' : 'locked'} />
+            <Step number={3} title="Ввести мерки" state={activeStep === 3 ? 'active' : 'locked'} />
+            <Step number={4} title="Проверить фасон" state="locked" />
+            <Step number={5} title="Получить выкройку" state="locked" />
+          </ol>
+          <div className="privacy-note">
+            <span aria-hidden="true">⌂</span>
+            <p><strong>Данные остаются на компьютере</strong>Сейчас используется локальная SQLite-база и безопасный mock.</p>
+          </div>
+        </aside>
+
+        <section className="content">
+          <div className="stage-badge">Каркас · этап 4 из 15</div>
+          {!project ? (
+            <>
+              <div className="intro">
+                <p className="eyebrow">Начнём спокойно</p>
+                <h1>Создадим выкройку<br /><em>последовательно</em></h1>
+                <p>На каждом шаге приложение объяснит, что требуется. Ничего не будет рассчитано или отправлено без вашего подтверждения.</p>
+              </div>
+
+              {connection === 'offline' && (
+                <div className="notice notice--error" role="alert">
+                  <strong>Backend пока недоступен</strong>
+                  <span>Запустите приложение по инструкции и обновите страницу.</span>
+                </div>
+              )}
+              {error && <FriendlyError error={error} />}
+
+              <form className="action-card" onSubmit={createProject}>
+                <div className="action-card__icon" aria-hidden="true">01</div>
+                <div className="action-card__body">
+                  <h2>Как назовём проект?</h2>
+                  <p>Название поможет найти работу позже. Его можно будет изменить.</p>
+                  <label htmlFor="project-name">Название проекта</label>
+                  <input
+                    id="project-name"
+                    value={projectName}
+                    onChange={(event) => setProjectName(event.target.value)}
+                    maxLength={120}
+                    autoComplete="off"
+                    disabled={busy || connection !== 'ready'}
+                  />
+                  <button className="primary-button" disabled={busy || connection !== 'ready'}>
+                    {busy ? 'Создаём…' : 'Создать учебный проект'} <span aria-hidden="true">→</span>
+                  </button>
+                  <p className="demo-warning"><strong>Учебный режим:</strong> внутри будут тестовые мерки. Их нельзя использовать для пошива.</p>
+                </div>
+              </form>
+
+              {projects.length > 0 && (
+                <div className="recent-projects">
+                  <h2>Недавние проекты</h2>
+                  <div className="project-list">
+                    {projects.slice(0, 4).map((item) => (
+                      <button key={item.project_id} onClick={() => void openProject(item.project_id)} disabled={busy}>
+                        <span><strong>{item.name}</strong><small>Черновик · версия {item.revision}</small></span>
+                        <span aria-hidden="true">→</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="project-heading">
+                <div>
+                  <p className="eyebrow">Проект сохранён</p>
+                  <h1>{project.name}</h1>
+                  <p>Можно закрыть страницу: проект останется в локальном хранилище.</p>
+                </div>
+                <button className="text-button" onClick={startAnother}>Другой проект</button>
+              </div>
+              {error && <FriendlyError error={error} />}
+
+              {!analysis ? (
+                <div className="action-card action-card--sketch">
+                  <div className="action-card__icon" aria-hidden="true">02</div>
+                  <div className="action-card__body">
+                    <h2>Проверим анализ эскиза</h2>
+                    <p>На этапе 4 настоящий Qwen ещё не подключён. Нажмите кнопку — mock покажет безопасный пример ответа.</p>
+                    <div className="mock-preview" aria-hidden="true">
+                      <svg viewBox="0 0 240 250" role="img">
+                        <path d="M92 23c8 12 48 12 56 0l23 23-19 30-7-8 15 155H80L95 68l-7 8-19-30 23-23Z" />
+                        <path d="M95 68c17 9 33 9 50 0M88 126h64M120 35v188" />
+                      </svg>
+                      <span>Демонстрационный эскиз</span>
+                    </div>
+                    <button className="primary-button" onClick={() => void analyzeDemo()} disabled={busy}>
+                      {busy ? 'Проверяем…' : 'Запустить mock-анализ'} <span aria-hidden="true">→</span>
+                    </button>
+                    <p className="demo-warning"><strong>Без передачи фото:</strong> это заранее подготовленный ответ для проверки интерфейса.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="analysis-card">
+                  <div className="success-mark" aria-hidden="true">✓</div>
+                  <div>
+                    <p className="eyebrow">Mock ответил</p>
+                    <h2>Похоже на платье А-силуэта</h2>
+                    <p>Это предложение, а не окончательное решение. Перед построением все признаки нужно будет подтвердить.</p>
+                  </div>
+                  <dl className="feature-grid">
+                    <div><dt>Изделие</dt><dd>{human(analysis.garment_category)}</dd></div>
+                    <div><dt>Посадка</dt><dd>{human(analysis.silhouette.fit)}</dd></div>
+                    <div><dt>Горловина</dt><dd>{human(analysis.neckline.front)}</dd></div>
+                    <div><dt>Рукав</dt><dd>{human(analysis.sleeves.length)}</dd></div>
+                    <div><dt>Юбка</dt><dd>{human(analysis.lower_part.type)}</dd></div>
+                    <div><dt>Длина</dt><dd>{human(analysis.lower_part.length_category)}</dd></div>
+                  </dl>
+                  <div className="questions">
+                    <strong>Позже приложение уточнит:</strong>
+                    <ul>{analysis.targeted_questions.map((item) => <li key={item}>{item}</li>)}</ul>
+                  </div>
+                  <div className="next-stage">
+                    <span aria-hidden="true">03</span>
+                    <p><strong>Следующий шаг — ваши мерки</strong>Мастер с картинками и подсказками появится на этапе 5.</p>
+                    <button disabled title="Будет доступно на этапе 5">Продолжить к меркам</button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </section>
+      </main>
+      <footer>
+        <span>Kroika · локальный прототип</span>
+        <span>Методика имеет статус experimental — не для производственного пошива</span>
+      </footer>
+    </div>
+  );
+}

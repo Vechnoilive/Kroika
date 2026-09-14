@@ -2,7 +2,7 @@
 
 Русскоязычное веб-приложение для закройщика: ручные женские мерки + подтверждённое описание фасона → детерминированная векторная выкройка в миллиметрах → SVG и A4 PDF 1:1.
 
-**Завершён этап 3 из 15: архитектура и проверяемые контракты данных. Веб-приложение будет собрано на этапе 4.**
+**Завершён этап 4 из 15: рабочий каркас веб-приложения с понятным пошаговым UI, FastAPI, SQLite, mock-AI и отдельным pattern-engine.**
 
 Пользователь поручил выбрать рабочие ответы вместо интервью. Они оформлены как решения разработчика, без фиктивного согласования тётей. Для исследовательского прототипа выбран `kroika-gc-woven 0.1.0` на основе зафиксированного открытого GarmentCode; статус `experimental`.
 
@@ -13,44 +13,55 @@
 - Записаны 41 скалярная формула, единицы, коэффициенты и 3 синтетических профиля с 123 контрольными значениями.
 - Подготовлены пробные прибавки/припуски, критерии точности и проверка расчётов без внешних зависимостей.
 - Выполнен отдельный запуск 12 исходных геометрических заготовок; измерены реальные длины интерфейсов и записаны несогласованные соединения.
-- Определены семь основных сущностей проекта, 13 JSON Schema 2020-12, OpenAPI 3.1 и девять будущих API-операций.
+- Определены семь основных сущностей проекта, 13 JSON Schema 2020-12 и OpenAPI 3.1 с 12 реализованными операциями.
 - Добавлены независимые интерфейсы AI/Pattern Engine, стабильный hash входов, смысловые проверки и безопасный реестр миграций.
+- Собран адаптивный React-интерфейс: один активный шаг, крупные действия, понятные ошибки, восстановление последнего проекта и явная маркировка учебного режима.
+- Реализован FastAPI backend, ревизии проектов в SQLite, идемпотентные результаты генерации, безопасное логирование и health checks.
+- Добавлены offline mock-AI, отдельный чистый пакет `pattern-engine`, Docker Compose и запуск одной командой без Docker.
 
 Это не готовые лекала. Полная геометрическая спецификация первого блока, одношовный рукав, независимые полные ручные построения и экспертная проверка ещё отсутствуют. **Исходный gate этапа 2: BLOCKED.** Успешные численные тесты не означают проверенную посадку.
 
-## Проверить этапы 2–3
+## Запустить приложение
 
-Арифметика этапа 2 использует только стандартную библиотеку Python 3.12+:
+Нужны Python 3.12+ и Node.js 24+. Первый запуск сам создаст `.venv`, установит зависимости и откроет браузер.
 
-```bash
-python3 scripts/verify_stage2.py
-```
-
-Windows:
+Windows PowerShell:
 
 ```powershell
-py -3.12 scripts/verify_stage2.py
+py -3.12 scripts/start_local.py
 ```
 
-Контрактные тесты этапа 3 требуют небольшого отдельного окружения. Linux/macOS:
+macOS/Linux:
 
 ```bash
-python3 -m venv .venv
-. .venv/bin/activate
-python -m pip install -r requirements-stage3.txt
-python scripts/verify_all.py
+python3 scripts/start_local.py
+```
+
+После запуска откройте `http://127.0.0.1:5173`. Для остановки нажмите `Ctrl+C`. Подробности: [LOCAL_SETUP.md](docs/LOCAL_SETUP.md).
+
+Вариант с Docker:
+
+```bash
+docker compose up --build
+```
+
+Интерфейс будет доступен на `http://localhost:8080`, API — на `http://localhost:8000`.
+
+## Проверить этапы 2–4
+
+После первого запуска, Linux/macOS:
+
+```bash
+.venv/bin/python scripts/verify_all.py
 ```
 
 Windows PowerShell:
 
 ```powershell
-py -3.12 -m venv .venv
-.venv\Scripts\Activate.ps1
-python -m pip install -r requirements-stage3.txt
-python scripts/verify_all.py
+.venv\Scripts\python.exe scripts\verify_all.py
 ```
 
-Ожидаемый результат: 15 тестов этапа 2 и 25 тестов этапа 3, `OK`. API-ключи и Docker не нужны. Проверки не создают выкройки и не переписывают эталоны.
+Проверяются 15 тестов этапа 2, 25 контрактных тестов, 13 backend-тестов, 4 UI-теста, production-сборка и сквозной smoke-test. API-ключи и Docker для проверки не нужны.
 
 ## Документы
 
@@ -66,12 +77,14 @@ python scripts/verify_all.py
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Модули, границы данных, hash и API |
 | [AI_PROVIDERS.md](docs/AI_PROVIDERS.md) | Единый интерфейс и безопасная граница AI |
 | [PROJECT_MIGRATIONS.md](docs/PROJECT_MIGRATIONS.md) | Политика версий и миграций проектов |
+| [LOCAL_SETUP.md](docs/LOCAL_SETUP.md) | Запуск на Windows, macOS, Linux и через Docker |
 | [FIT_AND_TOLERANCES.md](docs/FIT_AND_TOLERANCES.md) | Прибавки, припуски и допуски |
 | [VALIDATION_AND_TOILE_LOG.md](docs/VALIDATION_AND_TOILE_LOG.md) | Статус специалиста, бумаги и макетов |
 | [ROADMAP.md](docs/ROADMAP.md) | Все 15 этапов |
 | [STAGE_02_REPORT.md](docs/STAGE_02_REPORT.md) | Исследование методики и его ограничения |
 | [STAGE_03_REPORT.md](docs/STAGE_03_REPORT.md) | Проверки и gate архитектурного этапа |
+| [STAGE_04_REPORT.md](docs/STAGE_04_REPORT.md) | Реализация, проверки и ограничения каркаса |
 
-Qwen/Gemini будут анализировать фасон; мерки тела и координаты лекал не поручаются нейросети. Контракты готовы, а реальные API-обработчики и провайдеры относятся к следующим этапам.
+Qwen/Gemini будут анализировать фасон; мерки тела и координаты лекал не поручаются нейросети. Сейчас интерфейс использует явно подписанный mock. Реальный Qwen относится к этапу 10.
 
-Контракты: [PatternProject](schemas/v1/pattern-project.schema.json), [OpenAPI](schemas/openapi.v1.yaml), [пример проекта](examples/v1/example-dress-project.json). Источники и лицензия: [THIRD_PARTY_NOTICES.md](LICENSES/THIRD_PARTY_NOTICES.md). Следующий этап — каркас веб-приложения и локальный запуск.
+Контракты: [PatternProject](schemas/v1/pattern-project.schema.json), [OpenAPI](schemas/openapi.v1.yaml), [пример проекта](examples/v1/example-dress-project.json). Источники и лицензия: [THIRD_PARTY_NOTICES.md](LICENSES/THIRD_PARTY_NOTICES.md). Следующий этап — профили мерок и мастер их снятия.

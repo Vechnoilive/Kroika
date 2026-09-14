@@ -3,12 +3,36 @@ info:
   title: Kroika API contracts
   version: 1.0.0
   description: >-
-    Контракт будущего локального API. На этапе 3 обработчики ещё не реализованы;
-    файл фиксирует границы модулей для этапа 4.
+    Контракт локального API. На этапе 4 обработчики работают с SQLite,
+    mock AI-провайдером и безопасным каркасом pattern-engine.
 servers:
   - url: http://localhost:8000
     description: Локальный сервер
 paths:
+  /health/live:
+    get:
+      operationId: healthLive
+      summary: Проверить, что процесс backend запущен
+      responses:
+        '200':
+          description: Процесс отвечает
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /health/ready:
+    get:
+      operationId: healthReady
+      summary: Проверить SQLite и внутренние зависимости
+      responses:
+        '200':
+          description: Приложение готово принимать запросы
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+        '503':
+          $ref: '#/components/responses/ProviderUnavailable'
   /api/v1/garments/analyze-image:
     post:
       operationId: analyzeGarmentImages
@@ -33,6 +57,16 @@ paths:
         '503':
           $ref: '#/components/responses/ProviderUnavailable'
   /api/v1/projects:
+    get:
+      operationId: listProjects
+      summary: Показать недавние локальные проекты
+      responses:
+        '200':
+          description: Список проектов без мерок и других чувствительных полей
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectListResponse'
     post:
       operationId: createProject
       summary: Создать или импортировать проект
@@ -147,6 +181,18 @@ paths:
                 type: string
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          description: Геометрия ещё не создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '501':
+          description: SVG-рендерер появится на следующем этапе
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/patterns/{generation_id}/export/a4-pdf:
     post:
       operationId: exportPatternA4Pdf
@@ -169,6 +215,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           $ref: '#/components/responses/NotFound'
+        '501':
+          description: PDF-рендерер появится на этапе 9
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/patterns/{generation_id}/export/project-json:
     get:
       operationId: exportPatternProject
@@ -201,6 +253,73 @@ components:
         type: string
         format: uuid
   schemas:
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [status, service, version]
+      properties:
+        status:
+          type: string
+          const: ok
+        service:
+          type: string
+          minLength: 1
+        version:
+          type: string
+          pattern: '^[0-9]+\.[0-9]+\.[0-9]+$'
+    ReadinessResponse:
+      type: object
+      additionalProperties: false
+      required: [status, service, version, database, ai_provider, pattern_engine]
+      properties:
+        status:
+          type: string
+          const: ok
+        service:
+          type: string
+          minLength: 1
+        version:
+          type: string
+          pattern: '^[0-9]+\.[0-9]+\.[0-9]+$'
+        database:
+          type: string
+          const: ok
+        ai_provider:
+          type: string
+          minLength: 1
+        pattern_engine:
+          type: string
+          minLength: 1
+    ProjectSummary:
+      type: object
+      additionalProperties: false
+      required: [project_id, name, revision, status, updated_at]
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        revision:
+          type: integer
+          minimum: 1
+        status:
+          type: string
+          enum: [draft, inputs_confirmed, generated, validation_failed, ready_for_production_export]
+        updated_at:
+          type: string
+          format: date-time
+    ProjectListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectSummary'
     ErrorResponse:
       type: object
       additionalProperties: false
