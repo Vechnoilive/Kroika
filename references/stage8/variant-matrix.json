@@ -1,0 +1,63 @@
+{
+  "schema_version": "1.0.0",
+  "generator_version": "0.4.0",
+  "status": "experimental",
+  "supported": [
+    {
+      "garment_type": "dress",
+      "bodice_fit": "fitted",
+      "preset_id": "woven_fitted_trial"
+    },
+    {
+      "garment_type": "dress",
+      "bodice_fit": "semi_fitted",
+      "preset_id": "woven_semi_fitted_trial"
+    },
+    {
+      "garment_type": "sundress",
+      "bodice_fit": "fitted",
+      "preset_id": "woven_fitted_trial"
+    },
+    {
+      "garment_type": "sundress",
+      "bodice_fit": "semi_fitted",
+      "preset_id": "woven_semi_fitted_trial"
+    }
+  ],
+  "common_parameters": {
+    "symmetry": "symmetric",
+    "shaping": "darts",
+    "neckline": "round",
+    "sleeve": "sleeveless",
+    "skirt": "a_line",
+    "closure": "zipper_center_back",
+    "finishing": [
+      "neckline_facing",
+      "armhole_facing"
+    ],
+    "fabric": "stable_woven_max_5_percent_stretch"
+  },
+  "rejected_examples": [
+    {
+      "field": "neckline.type",
+      "value": "v",
+      "code": "GARMENT_VARIANT_NOT_IMPLEMENTED"
+    },
+    {
+      "field": "sleeve.type",
+      "value": "long",
+      "code": "GARMENT_VARIANT_NOT_IMPLEMENTED"
+    },
+    {
+      "field": "skirt.type",
+      "value": "straight",
+      "code": "GARMENT_VARIANT_NOT_IMPLEMENTED"
+    },
+    {
+      "field": "fit_settings.preset.id",
+      "value": "incompatible",
+      "code": "GARMENT_VARIANT_NOT_IMPLEMENTED"
+    }
+  ],
+  "production_export_allowed": false
+}
