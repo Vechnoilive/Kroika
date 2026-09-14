@@ -1,0 +1,5 @@
+# Pinned direct dependencies for the stage-3 contract gate.
+jsonschema[format]==4.26.0
+referencing==0.36.2
+openapi-spec-validator==0.7.2
+PyYAML==6.0.3

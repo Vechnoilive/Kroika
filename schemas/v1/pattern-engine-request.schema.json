@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kroika.local/schemas/v1/pattern-engine-request.schema.json",
+  "title": "Pattern engine request v1",
+  "description": "Детерминированный вход движка после нормализации и подтверждения человеком.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "request_id", "project_id", "input_hash", "pattern_method", "body_measurements", "garment_spec", "fit_settings", "fabric_properties"],
+  "properties": {
+    "schema_version": {"$ref": "common.schema.json#/$defs/schema_version"},
+    "request_id": {"$ref": "common.schema.json#/$defs/uuid"},
+    "project_id": {"$ref": "common.schema.json#/$defs/uuid"},
+    "input_hash": {"$ref": "common.schema.json#/$defs/sha256"},
+    "pattern_method": {"$ref": "common.schema.json#/$defs/pattern_method"},
+    "body_measurements": {
+      "allOf": [
+        {"$ref": "body-measurements.schema.json"},
+        {"properties": {"status": {"const": "ready"}}}
+      ]
+    },
+    "garment_spec": {
+      "allOf": [
+        {"$ref": "garment-spec.schema.json"},
+        {"properties": {"selection_status": {"const": "confirmed"}}}
+      ]
+    },
+    "fit_settings": {
+      "allOf": [
+        {"$ref": "fit-settings.schema.json"},
+        {"properties": {"status": {"const": "confirmed"}}}
+      ]
+    },
+    "fabric_properties": {
+      "allOf": [
+        {"$ref": "fabric-properties.schema.json"},
+        {"properties": {"status": {"const": "confirmed"}}}
+      ]
+    }
+  }
+}

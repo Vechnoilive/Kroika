@@ -1,0 +1,1 @@
+"""Kroika contract tests."""

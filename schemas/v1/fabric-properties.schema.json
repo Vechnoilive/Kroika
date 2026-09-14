@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kroika.local/schemas/v1/fabric-properties.schema.json",
+  "title": "FabricProperties v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "fabric_id", "status", "name", "intended_use", "structure", "stretch_percent", "weight", "drape", "stability", "directional_nap", "prewashed", "confirmed_at"],
+  "properties": {
+    "schema_version": {"$ref": "common.schema.json#/$defs/schema_version"},
+    "fabric_id": {"$ref": "common.schema.json#/$defs/uuid"},
+    "status": {"type": "string", "enum": ["draft", "confirmed"]},
+    "name": {"type": "string", "minLength": 1, "maxLength": 120},
+    "intended_use": {"type": "string", "enum": ["toile", "final"]},
+    "structure": {"type": "string", "enum": ["woven", "knit", "unknown"]},
+    "stretch_percent": {
+      "type": "object", "additionalProperties": false,
+      "required": ["warp", "weft"],
+      "properties": {
+        "warp": {"type": "number", "minimum": 0, "maximum": 300},
+        "weft": {"type": "number", "minimum": 0, "maximum": 300}
+      }
+    },
+    "weight": {"type": "string", "enum": ["light", "medium", "heavy", "unknown"]},
+    "drape": {"type": "string", "enum": ["crisp", "medium", "fluid", "unknown"]},
+    "stability": {"type": "string", "enum": ["stable", "moderate", "unstable", "unknown"]},
+    "directional_nap": {"type": "boolean"},
+    "prewashed": {"type": "boolean"},
+    "confirmed_at": {"anyOf": [{"$ref": "common.schema.json#/$defs/date_time"}, {"type": "null"}]}
+  },
+  "allOf": [{
+    "if": {"properties": {"status": {"const": "confirmed"}}, "required": ["status"]},
+    "then": {
+      "properties": {
+        "structure": {"not": {"const": "unknown"}},
+        "weight": {"not": {"const": "unknown"}},
+        "drape": {"not": {"const": "unknown"}},
+        "stability": {"not": {"const": "unknown"}},
+        "confirmed_at": {"$ref": "common.schema.json#/$defs/date_time"}
+      }
+    },
+    "else": {"properties": {"confirmed_at": {"type": "null"}}}
+  }]
+}

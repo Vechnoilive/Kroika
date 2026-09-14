@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kroika.local/schemas/v1/validation-report.schema.json",
+  "title": "ValidationReport v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "report_id", "project_id", "generation_id", "input_hash", "validator_version", "created_at", "status", "method_validation_status", "issues", "checks", "diagnostic_export_allowed", "production_export_allowed"],
+  "properties": {
+    "schema_version": {"$ref": "common.schema.json#/$defs/schema_version"},
+    "report_id": {"$ref": "common.schema.json#/$defs/uuid"},
+    "project_id": {"$ref": "common.schema.json#/$defs/uuid"},
+    "generation_id": {"$ref": "common.schema.json#/$defs/uuid"},
+    "input_hash": {"$ref": "common.schema.json#/$defs/sha256"},
+    "validator_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "created_at": {"$ref": "common.schema.json#/$defs/date_time"},
+    "status": {"type": "string", "enum": ["passed", "warnings", "failed"]},
+    "method_validation_status": {"$ref": "common.schema.json#/$defs/method_status"},
+    "issues": {"type": "array", "items": {"$ref": "common.schema.json#/$defs/issue"}},
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "status", "message_ru"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]*$"},
+          "status": {"type": "string", "enum": ["passed", "failed", "not_run"]},
+          "message_ru": {"type": "string", "minLength": 1, "maxLength": 500},
+          "measured_value": {"type": ["number", "null"]},
+          "limit_value": {"type": ["number", "null"]},
+          "unit": {"type": ["string", "null"], "enum": ["mm", "deg", "1", null]}
+        }
+      }
+    },
+    "diagnostic_export_allowed": {"type": "boolean"},
+    "production_export_allowed": {"type": "boolean"}
+  },
+  "allOf": [{
+    "if": {"properties": {"production_export_allowed": {"const": true}}, "required": ["production_export_allowed"]},
+    "then": {
+      "properties": {
+        "status": {"const": "passed"},
+        "method_validation_status": {"const": "toile_verified"}
+      }
+    }
+  }]
+}

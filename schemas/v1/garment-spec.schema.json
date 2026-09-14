@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kroika.local/schemas/v1/garment-spec.schema.json",
+  "title": "Confirmed GarmentSpec v1",
+  "description": "Подтверждённое человеком описание фасона. AI-ответ использует отдельную схему.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "garment_id", "selection_status", "garment_type", "parameters", "unsupported_features", "confirmed_at"],
+  "properties": {
+    "schema_version": {"$ref": "common.schema.json#/$defs/schema_version"},
+    "garment_id": {"$ref": "common.schema.json#/$defs/uuid"},
+    "selection_status": {"type": "string", "enum": ["proposed", "confirmed"]},
+    "garment_type": {"type": "string", "enum": ["dress", "sundress"]},
+    "parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["symmetry", "bodice_fit", "shaping", "neckline", "sleeve", "skirt", "closure", "finishing"],
+      "properties": {
+        "symmetry": {"type": "string", "const": "symmetric"},
+        "bodice_fit": {"type": "string", "enum": ["fitted", "semi_fitted"]},
+        "shaping": {"type": "string", "const": "darts"},
+        "neckline": {
+          "type": "object", "additionalProperties": false,
+          "required": ["type", "front_depth_mm", "back_depth_mm"],
+          "properties": {
+            "type": {"type": "string", "enum": ["round", "v", "square"]},
+            "front_depth_mm": {"$ref": "common.schema.json#/$defs/positive_millimetres"},
+            "back_depth_mm": {"$ref": "common.schema.json#/$defs/positive_millimetres"}
+          }
+        },
+        "sleeve": {
+          "type": "object", "additionalProperties": false,
+          "required": ["type", "length_mm"],
+          "properties": {
+            "type": {"type": "string", "enum": ["sleeveless", "short", "long"]},
+            "length_mm": {"type": ["number", "null"], "exclusiveMinimum": 0}
+          },
+          "allOf": [{
+            "if": {"properties": {"type": {"const": "sleeveless"}}, "required": ["type"]},
+            "then": {"properties": {"length_mm": {"type": "null"}}},
+            "else": {"properties": {"length_mm": {"type": "number", "exclusiveMinimum": 0}}}
+          }]
+        },
+        "skirt": {
+          "type": "object", "additionalProperties": false,
+          "required": ["type", "length_from_waist_mm", "hem_expansion_each_side_mm"],
+          "properties": {
+            "type": {"type": "string", "enum": ["straight", "a_line"]},
+            "length_from_waist_mm": {"$ref": "common.schema.json#/$defs/positive_millimetres"},
+            "hem_expansion_each_side_mm": {"$ref": "common.schema.json#/$defs/millimetres"}
+          }
+        },
+        "closure": {
+          "type": "object", "additionalProperties": false,
+          "required": ["type", "location", "length_mm"],
+          "properties": {
+            "type": {"type": "string", "const": "zipper"},
+            "location": {"type": "string", "const": "center_back"},
+            "length_mm": {"$ref": "common.schema.json#/$defs/positive_millimetres"}
+          }
+        },
+        "finishing": {
+          "type": "object", "additionalProperties": false,
+          "required": ["neckline_facing", "armhole_facing"],
+          "properties": {
+            "neckline_facing": {"type": "boolean"},
+            "armhole_facing": {"type": "boolean"}
+          }
+        }
+      }
+    },
+    "unsupported_features": {
+      "type": "array", "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 120}
+    },
+    "confirmed_at": {"anyOf": [{"$ref": "common.schema.json#/$defs/date_time"}, {"type": "null"}]}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"selection_status": {"const": "confirmed"}}, "required": ["selection_status"]},
+      "then": {
+        "properties": {
+          "unsupported_features": {"maxItems": 0},
+          "confirmed_at": {"$ref": "common.schema.json#/$defs/date_time"}
+        }
+      },
+      "else": {"properties": {"confirmed_at": {"type": "null"}}}
+    },
+    {
+      "if": {"properties": {"garment_type": {"const": "sundress"}}, "required": ["garment_type"]},
+      "then": {"properties": {"parameters": {"properties": {"sleeve": {"properties": {"type": {"const": "sleeveless"}, "length_mm": {"type": "null"}}}}}}}
+    }
+  ]
+}

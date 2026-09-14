@@ -48,4 +48,4 @@ Linux/macOS: `python3 scripts/verify_stage2.py`; Windows: `py -3.12 scripts/veri
 
 ## 7. Следующий шаг
 
-Если пользователь отдельно поручит **«Переходим к этапу 3»**, следующий этап — архитектура и контракты данных с сохранением experimental-статуса и незакрытого математического gate. В этом запуске этап 3 не реализован. Незакрытые части методики: [VALIDATION_AND_TOILE_LOG.md](VALIDATION_AND_TOILE_LOG.md).
+Этап 3 впоследствии реализован с сохранением experimental-статуса и незакрытого математического gate: [STAGE_03_REPORT.md](STAGE_03_REPORT.md). Незакрытые части методики: [VALIDATION_AND_TOILE_LOG.md](VALIDATION_AND_TOILE_LOG.md).

@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kroika.local/schemas/v1/ai-style-analysis.schema.json",
+  "title": "Vendor-neutral AI style analysis v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "status", "garment_category", "source_image_views", "silhouette", "neckline", "sleeves", "bodice", "tailoring", "lower_part", "trousers", "closure", "details", "fabric_hypothesis", "observations", "uncertainties", "targeted_questions", "unsupported_features"],
+  "properties": {
+    "schema_version": {"$ref": "common.schema.json#/$defs/schema_version"},
+    "status": {"type": "string", "enum": ["ok", "needs_confirmation", "insufficient_input"]},
+    "garment_category": {"type": "string", "enum": ["dress", "sundress", "skirt", "top", "blouse", "shirt", "vest", "blazer", "jacket", "trousers", "shorts", "jumpsuit", "light_coat", "unknown"]},
+    "source_image_views": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "enum": ["front", "back", "side", "flat_sketch", "unknown"]}},
+    "silhouette": {
+      "type": "object", "additionalProperties": false, "required": ["fit", "waist_seam", "symmetry", "confidence"],
+      "properties": {
+        "fit": {"type": "string", "enum": ["fitted", "semi_fitted", "loose", "unknown"]},
+        "waist_seam": {"type": "string", "enum": ["present", "absent", "uncertain"]},
+        "symmetry": {"type": "string", "enum": ["symmetric", "asymmetric", "uncertain"]},
+        "confidence": {"$ref": "#/$defs/confidence"}
+      }
+    },
+    "neckline": {
+      "type": "object", "additionalProperties": false, "required": ["front", "back", "collar", "confidence"],
+      "properties": {
+        "front": {"type": "string", "enum": ["round", "v", "square", "boat", "sweetheart", "other", "unknown"]},
+        "back": {"type": "string", "enum": ["round", "v", "square", "other", "unknown"]},
+        "collar": {"type": "string", "enum": ["none", "stand", "shirt", "notched", "other", "unknown"]},
+        "confidence": {"$ref": "#/$defs/confidence"}
+      }
+    },
+    "sleeves": {
+      "type": "object", "additionalProperties": false, "required": ["present", "length", "type", "cuff", "confidence"],
+      "properties": {
+        "present": {"type": "boolean"},
+        "length": {"type": "string", "enum": ["sleeveless", "cap", "short", "elbow", "three_quarter", "long", "unknown"]},
+        "type": {"type": "string", "enum": ["set_in", "raglan", "dolman", "puff", "other", "unknown"]},
+        "cuff": {"type": "string", "enum": ["none", "simple", "band", "buttoned", "elastic", "unknown"]},
+        "confidence": {"$ref": "#/$defs/confidence"}
+      }
+    },
+    "bodice": {
+      "type": "object", "additionalProperties": false, "required": ["visible_darts", "princess_seams", "yoke", "confidence"],
+      "properties": {
+        "visible_darts": {"type": "array", "uniqueItems": true, "items": {"type": "string", "enum": ["bust", "waist_front", "waist_back", "shoulder", "none", "unknown"]}},
+        "princess_seams": {"type": "string", "enum": ["none", "armhole", "shoulder", "unknown"]},
+        "yoke": {"type": "string", "enum": ["none", "front", "back", "both", "unknown"]},
+        "confidence": {"$ref": "#/$defs/confidence"}
+      }
+    },
+    "tailoring": {
+      "type": "object", "additionalProperties": false, "required": ["front_structure", "breasting", "lapel", "collar", "vents", "pockets", "lining", "confidence"],
+      "properties": {
+        "front_structure": {"type": "string", "enum": ["single_panel", "side_panel", "princess", "unknown"]},
+        "breasting": {"type": "string", "enum": ["none", "single_breasted", "double_breasted", "unknown"]},
+        "lapel": {"type": "string", "enum": ["none", "notch", "peak", "shawl", "other", "unknown"]},
+        "collar": {"type": "string", "enum": ["none", "stand", "shirt", "notched", "shawl", "other", "unknown"]},
+        "vents": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 80}},
+        "pockets": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 80}},
+        "lining": {"type": "string", "enum": ["none_visible", "partial", "full", "unknown"]},
+        "confidence": {"$ref": "#/$defs/confidence"}
+      }
+    },
+    "lower_part": {
+      "type": "object", "additionalProperties": false, "required": ["type", "length_category", "slit", "confidence"],
+      "properties": {
+        "type": {"type": "string", "enum": ["straight", "pencil", "a_line", "gathered", "pleated", "circle", "tiered", "unknown"]},
+        "length_category": {"type": "string", "enum": ["mini", "knee", "midi", "maxi", "unknown"]},
+        "slit": {"type": "string", "enum": ["none", "front", "back", "side", "unknown"]},
+        "confidence": {"$ref": "#/$defs/confidence"}
+      }
+    },
+    "trousers": {
+      "type": "object", "additionalProperties": false, "required": ["rise", "fit", "length", "waistband", "pleats", "confidence"],
+      "properties": {
+        "rise": {"type": "string", "enum": ["low", "natural", "high", "unknown"]},
+        "fit": {"type": "string", "enum": ["slim", "straight", "relaxed", "wide", "unknown"]},
+        "length": {"type": "string", "enum": ["short", "cropped", "ankle", "full", "unknown"]},
+        "waistband": {"type": "string", "enum": ["none", "straight", "shaped", "elastic", "unknown"]},
+        "pleats": {"type": "string", "enum": ["none", "single", "double", "unknown"]},
+        "confidence": {"$ref": "#/$defs/confidence"}
+      }
+    },
+    "closure": {
+      "type": "object", "additionalProperties": false, "required": ["type", "location", "confidence"],
+      "properties": {
+        "type": {"type": "string", "enum": ["zipper", "buttons", "hooks", "wrap", "none_visible", "unknown"]},
+        "location": {"type": "string", "enum": ["center_front", "center_back", "side", "shoulder", "unknown"]},
+        "confidence": {"$ref": "#/$defs/confidence"}
+      }
+    },
+    "details": {
+      "type": "object", "additionalProperties": false, "required": ["pockets", "pleats", "gathers", "visible_seams", "lining_visible"],
+      "properties": {
+        "pockets": {"$ref": "#/$defs/strings"},
+        "pleats": {"$ref": "#/$defs/strings"},
+        "gathers": {"$ref": "#/$defs/strings"},
+        "visible_seams": {"$ref": "#/$defs/strings"},
+        "lining_visible": {"type": "string", "enum": ["yes", "no", "unknown"]}
+      }
+    },
+    "fabric_hypothesis": {
+      "type": "object", "additionalProperties": false, "required": ["structure", "stretch", "weight", "drape", "must_confirm"],
+      "properties": {
+        "structure": {"type": "string", "enum": ["woven", "knit", "unknown"]},
+        "stretch": {"type": "string", "enum": ["none", "low", "medium", "high", "unknown"]},
+        "weight": {"type": "string", "enum": ["light", "medium", "heavy", "unknown"]},
+        "drape": {"type": "string", "enum": ["crisp", "medium", "fluid", "unknown"]},
+        "must_confirm": {"type": "boolean", "const": true}
+      }
+    },
+    "observations": {"type": "array", "items": {"$ref": "#/$defs/observation"}},
+    "uncertainties": {"$ref": "#/$defs/strings"},
+    "targeted_questions": {"$ref": "#/$defs/strings"},
+    "unsupported_features": {"$ref": "#/$defs/strings"}
+  },
+  "$defs": {
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "strings": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 500}},
+    "observation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["feature", "value", "confidence", "evidence"],
+      "properties": {
+        "feature": {"type": "string", "minLength": 1, "maxLength": 100},
+        "value": {"type": "string", "minLength": 1, "maxLength": 200},
+        "confidence": {"$ref": "#/$defs/confidence"},
+        "evidence": {"type": "string", "minLength": 1, "maxLength": 500}
+      }
+    }
+  }
+}

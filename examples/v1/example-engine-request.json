@@ -1,0 +1,80 @@
+{
+  "schema_version": "1.0.0",
+  "request_id": "66666666-6666-4666-8666-666666666666",
+  "project_id": "11111111-1111-4111-8111-111111111111",
+  "input_hash": "e9180195c21c66d63d76c5a843e577f81ff19726a24c6fabf47bcf137cdba590",
+  "pattern_method": {
+    "id": "kroika-gc-woven",
+    "version": "0.1.0",
+    "validation_status": "experimental"
+  },
+  "body_measurements": {
+    "schema_version": "1.0.0",
+    "profile_id": "22222222-2222-4222-8222-222222222222",
+    "name": "Синтетический профиль M",
+    "status": "ready",
+    "normalized_unit": "mm",
+    "values": {
+      "bust": {"value": 920, "unit": "mm", "source": "user", "original_input": {"value": 92, "unit": "cm"}},
+      "waist": {"value": 740, "unit": "mm", "source": "user", "original_input": {"value": 74, "unit": "cm"}},
+      "hips": {"value": 1000, "unit": "mm", "source": "user", "original_input": {"value": 100, "unit": "cm"}},
+      "back_bust_arc": {"value": 440, "unit": "mm", "source": "user"},
+      "back_waist_arc": {"value": 360, "unit": "mm", "source": "user"},
+      "back_hip_arc": {"value": 520, "unit": "mm", "source": "user"},
+      "shoulder_span": {"value": 380, "unit": "mm", "source": "user"},
+      "back_neck_to_waist": {"value": 410, "unit": "mm", "source": "user"},
+      "front_neck_to_waist_over_bust": {"value": 460, "unit": "mm", "source": "user"},
+      "bust_path_height": {"value": 260, "unit": "mm", "source": "user"},
+      "bust_vertical_height": {"value": 230, "unit": "mm", "source": "user"},
+      "bust_span": {"value": 200, "unit": "mm", "source": "user"},
+      "hip_depth": {"value": 200, "unit": "mm", "source": "user"},
+      "armscye_depth": {"value": 190, "unit": "mm", "source": "user"}
+    },
+    "angles_deg": {"shoulder_slope": 11.309932474020215, "hip_inclination": 11.421186274999286}
+  },
+  "garment_spec": {
+    "schema_version": "1.0.0",
+    "garment_id": "33333333-3333-4333-8333-333333333333",
+    "selection_status": "confirmed",
+    "garment_type": "dress",
+    "parameters": {
+      "symmetry": "symmetric",
+      "bodice_fit": "semi_fitted",
+      "shaping": "darts",
+      "neckline": {"type": "round", "front_depth_mm": 90, "back_depth_mm": 25},
+      "sleeve": {"type": "sleeveless", "length_mm": null},
+      "skirt": {"type": "a_line", "length_from_waist_mm": 550, "hem_expansion_each_side_mm": 40},
+      "closure": {"type": "zipper", "location": "center_back", "length_mm": 550},
+      "finishing": {"neckline_facing": true, "armhole_facing": true}
+    },
+    "unsupported_features": [],
+    "confirmed_at": "2026-09-14T11:50:00Z"
+  },
+  "fit_settings": {
+    "schema_version": "1.0.0",
+    "settings_id": "44444444-4444-4444-8444-444444444444",
+    "status": "confirmed",
+    "preset": {"id": "woven_semi_fitted_trial", "version": "0.1.0"},
+    "wearing_ease_mm": {"bust": 60, "waist": 40, "hips": 60, "upper_arm": 50},
+    "design_ease_mm": {"bust": 0, "waist": 0, "hips": 0, "upper_arm": 0},
+    "distribution": {"front_share": 0.5, "back_share": 0.5},
+    "seam_allowance_mode": "by_edge",
+    "seam_allowances_mm": {"normal": 15, "neckline": 10, "armhole": 10, "zipper": 20, "hem": 30, "sleeve_hem": 25, "fold": 0},
+    "confirmed_at": "2026-09-14T11:55:00Z"
+  },
+  "fabric_properties": {
+    "schema_version": "1.0.0",
+    "fabric_id": "55555555-5555-4555-8555-555555555555",
+    "status": "confirmed",
+    "name": "Стабильная хлопковая бязь для макета",
+    "intended_use": "toile",
+    "structure": "woven",
+    "stretch_percent": {"warp": 0, "weft": 2},
+    "weight": "medium",
+    "drape": "crisp",
+    "stability": "stable",
+    "directional_nap": false,
+    "prewashed": true,
+    "confirmed_at": "2026-09-14T11:57:00Z"
+  }
+}

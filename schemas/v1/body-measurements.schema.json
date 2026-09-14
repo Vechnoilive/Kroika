@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kroika.local/schemas/v1/body-measurements.schema.json",
+  "title": "BodyMeasurements v1",
+  "description": "Ручные мерки тела без прибавок и припусков; внутри системы только миллиметры.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "profile_id", "name", "status", "normalized_unit", "values"],
+  "properties": {
+    "schema_version": {"$ref": "common.schema.json#/$defs/schema_version"},
+    "profile_id": {"$ref": "common.schema.json#/$defs/uuid"},
+    "name": {"type": "string", "minLength": 1, "maxLength": 120},
+    "status": {"type": "string", "enum": ["draft", "ready"]},
+    "normalized_unit": {"type": "string", "const": "mm"},
+    "values": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "height": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "bust": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "waist": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "hips": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "neck_circumference": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "chest_width": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "back_width": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "back_bust_arc": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "back_waist_arc": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "back_hip_arc": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "shoulder_span": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "shoulder_length": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "back_neck_to_waist": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "front_neck_to_waist_over_bust": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "bust_path_height": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "bust_vertical_height": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "bust_span": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "hip_depth": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "armscye_depth": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "upper_arm_circumference": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "wrist_circumference": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "hand_circumference": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "sleeve_length": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "elbow_circumference": {"$ref": "common.schema.json#/$defs/measurement_value"},
+        "elbow_length": {"$ref": "common.schema.json#/$defs/measurement_value"}
+      }
+    },
+    "angles_deg": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "shoulder_slope": {"type": "number", "minimum": 0, "maximum": 40},
+        "hip_inclination": {"type": "number", "minimum": 0, "maximum": 40}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "ready"}}, "required": ["status"]},
+      "then": {
+        "required": ["angles_deg"],
+        "properties": {
+          "values": {
+            "required": ["bust", "waist", "hips", "back_bust_arc", "back_waist_arc", "back_hip_arc", "shoulder_span", "back_neck_to_waist", "front_neck_to_waist_over_bust", "bust_path_height", "bust_vertical_height", "bust_span", "hip_depth", "armscye_depth"]
+          },
+          "angles_deg": {"required": ["shoulder_slope", "hip_inclination"]}
+        }
+      }
+    }
+  ]
+}

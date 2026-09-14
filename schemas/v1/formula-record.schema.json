@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kroika.local/schemas/v1/formula-record.schema.json",
+  "title": "FormulaRecord contract v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["formula_id", "version", "pattern_method_id", "garment_type", "name", "inputs", "output", "output_unit", "expression", "source", "legal_status", "applicability", "expected_fit_error_mm", "numeric_tolerance", "expert_review", "production_allowed", "control_examples", "tests"],
+  "properties": {
+    "formula_id": {"type": "string", "pattern": "^[A-Z][A-Z0-9_-]{1,63}$"},
+    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "pattern_method_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "garment_type": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"type": "string", "enum": ["dress", "sundress", "skirt", "top", "blouse", "shirt", "vest", "blazer", "jacket", "trousers", "shorts", "jumpsuit"]}
+    },
+    "name": {"type": "string", "minLength": 1, "maxLength": 250},
+    "inputs": {
+      "type": "object",
+      "propertyNames": {"pattern": "^[a-z][a-z0-9_]*$"},
+      "additionalProperties": {"type": "string", "enum": ["mm", "deg", "rad", "1"]}
+    },
+    "output": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+    "output_unit": {"type": "string", "enum": ["mm", "deg", "rad", "1"]},
+    "expression": {"type": "string", "minLength": 1, "maxLength": 1000},
+    "source": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "path", "url", "snapshot"],
+          "properties": {
+            "kind": {"type": "string", "const": "MIT_source"},
+            "path": {"type": "string", "minLength": 1},
+            "url": {"type": "string", "format": "uri", "pattern": "^https://"},
+            "snapshot": {"type": "string", "pattern": "^references/garmentcode/.+\\.txt$"}
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "description"],
+          "properties": {
+            "kind": {"type": "string", "const": "mathematical_identity"},
+            "description": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
+    },
+    "legal_status": {"type": "string", "minLength": 1},
+    "applicability": {"type": "string", "minLength": 1},
+    "expected_fit_error_mm": {"type": ["number", "null"], "minimum": 0},
+    "numeric_tolerance": {"type": "number", "exclusiveMinimum": 0},
+    "expert_review": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "author", "date"],
+      "properties": {
+        "status": {"type": "string", "enum": ["not_reviewed", "reviewed", "rejected"]},
+        "author": {"type": ["string", "null"], "minLength": 1},
+        "date": {"type": ["string", "null"], "format": "date"}
+      },
+      "allOf": [{
+        "if": {"properties": {"status": {"const": "not_reviewed"}}, "required": ["status"]},
+        "then": {"properties": {"author": {"type": "null"}, "date": {"type": "null"}}},
+        "else": {"properties": {"author": {"type": "string", "minLength": 1}, "date": {"type": "string", "format": "date"}}}
+      }]
+    },
+    "production_allowed": {"type": "boolean"},
+    "control_examples": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "tests": {
+      "type": "object", "additionalProperties": false,
+      "required": ["arithmetic", "property", "full_pattern_golden", "toile"],
+      "properties": {
+        "arithmetic": {"type": ["string", "null"]},
+        "property": {"type": ["string", "null"]},
+        "full_pattern_golden": {"type": ["string", "null"]},
+        "toile": {"type": ["string", "null"]}
+      }
+    }
+  },
+  "allOf": [{
+    "if": {"properties": {"production_allowed": {"const": true}}, "required": ["production_allowed"]},
+    "then": {
+      "properties": {
+        "expected_fit_error_mm": {"type": "number", "minimum": 0},
+        "expert_review": {"properties": {"status": {"const": "reviewed"}}},
+        "tests": {"properties": {"arithmetic": {"type": "string", "minLength": 1}, "property": {"type": "string", "minLength": 1}, "full_pattern_golden": {"type": "string", "minLength": 1}, "toile": {"type": "string", "minLength": 1}}}
+      }
+    }
+  }]
+}

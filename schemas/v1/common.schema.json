@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kroika.local/schemas/v1/common.schema.json",
+  "title": "Kroika common contract types",
+  "$defs": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "date_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "millimetres": {
+      "type": "number",
+      "minimum": 0
+    },
+    "positive_millimetres": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "method_status": {
+      "type": "string",
+      "enum": ["experimental", "expert_reviewed", "toile_verified"]
+    },
+    "pattern_method": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "validation_status"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "validation_status": {"$ref": "#/$defs/method_status"}
+      }
+    },
+    "measurement_value": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unit", "source"],
+      "properties": {
+        "value": {"$ref": "#/$defs/positive_millimetres"},
+        "unit": {"type": "string", "const": "mm"},
+        "source": {"type": "string", "enum": ["user", "preset", "derived"]},
+        "formula_id": {"type": "string", "pattern": "^[A-Z][A-Z0-9_-]{1,63}$"},
+        "original_input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value", "unit"],
+          "properties": {
+            "value": {"type": "number", "exclusiveMinimum": 0},
+            "unit": {"type": "string", "enum": ["mm", "cm"]}
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"source": {"const": "derived"}}, "required": ["source"]},
+          "then": {"required": ["formula_id"]},
+          "else": {"not": {"required": ["formula_id"]}}
+        }
+      ]
+    },
+    "issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "message_ru", "json_pointer"],
+      "properties": {
+        "code": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$"},
+        "severity": {"type": "string", "enum": ["blocking_error", "warning", "info"]},
+        "message_ru": {"type": "string", "minLength": 1, "maxLength": 500},
+        "json_pointer": {"type": "string", "pattern": "^(?:/(?:[^~/]|~[01])*)*$"},
+        "piece_id": {"type": ["string", "null"]},
+        "formula_id": {"type": ["string", "null"]},
+        "measured_value": {"type": ["number", "null"]},
+        "limit_value": {"type": ["number", "null"]},
+        "unit": {"type": ["string", "null"], "enum": ["mm", "deg", "1", null]}
+      }
+    }
+  }
+}

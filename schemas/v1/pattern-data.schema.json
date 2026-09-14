@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kroika.local/schemas/v1/pattern-data.schema.json",
+  "title": "Canonical pattern geometry contract v1",
+  "description": "Формат геометрии для будущего ядра этапа 6. Координаты и размеры только в миллиметрах.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "unit", "pieces", "seam_pairs"],
+  "properties": {
+    "schema_version": {"$ref": "common.schema.json#/$defs/schema_version"},
+    "unit": {"type": "string", "const": "mm"},
+    "pieces": {
+      "type": "array", "minItems": 1,
+      "items": {"$ref": "#/$defs/pattern_piece"}
+    },
+    "seam_pairs": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/seam_pair"}
+    }
+  },
+  "$defs": {
+    "point": {
+      "type": "array", "prefixItems": [{"type": "number"}, {"type": "number"}], "items": false
+    },
+    "line_segment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "type", "start", "end"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "type": {"type": "string", "const": "line"},
+        "start": {"$ref": "#/$defs/point"},
+        "end": {"$ref": "#/$defs/point"}
+      }
+    },
+    "cubic_bezier_segment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "type", "start", "control_1", "control_2", "end"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "type": {"type": "string", "const": "cubic_bezier"},
+        "start": {"$ref": "#/$defs/point"},
+        "control_1": {"$ref": "#/$defs/point"},
+        "control_2": {"$ref": "#/$defs/point"},
+        "end": {"$ref": "#/$defs/point"}
+      }
+    },
+    "arc_segment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "type", "start", "end", "radius_x_mm", "radius_y_mm", "rotation_deg", "large_arc", "sweep"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "type": {"type": "string", "const": "arc"},
+        "start": {"$ref": "#/$defs/point"},
+        "end": {"$ref": "#/$defs/point"},
+        "radius_x_mm": {"$ref": "common.schema.json#/$defs/positive_millimetres"},
+        "radius_y_mm": {"$ref": "common.schema.json#/$defs/positive_millimetres"},
+        "rotation_deg": {"type": "number"},
+        "large_arc": {"type": "boolean"},
+        "sweep": {"type": "boolean"}
+      }
+    },
+    "segment": {
+      "oneOf": [
+        {"$ref": "#/$defs/line_segment"},
+        {"$ref": "#/$defs/cubic_bezier_segment"},
+        {"$ref": "#/$defs/arc_segment"}
+      ]
+    },
+    "path": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "closed", "segments"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "closed": {"type": "boolean"},
+        "segments": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/segment"}}
+      }
+    },
+    "closed_contour": {
+      "allOf": [
+        {"$ref": "#/$defs/path"},
+        {"properties": {"closed": {"const": true}}}
+      ]
+    },
+    "grainline": {
+      "type": "object", "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {"start": {"$ref": "#/$defs/point"}, "end": {"$ref": "#/$defs/point"}}
+    },
+    "notch": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "segment_id", "distance_from_start_mm", "kind"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "segment_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "distance_from_start_mm": {"$ref": "common.schema.json#/$defs/millimetres"},
+        "kind": {"type": "string", "enum": ["single", "double", "triple"]}
+      }
+    },
+    "annotation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "text_ru", "position"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "text_ru": {"type": "string", "minLength": 1, "maxLength": 250},
+        "position": {"$ref": "#/$defs/point"}
+      }
+    },
+    "pattern_piece": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "name_ru", "cut_quantity", "cut_on_fold", "mirrored_pair", "seam_contour", "cutting_contour", "internal_paths", "grainline", "notches", "annotations"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "name_ru": {"type": "string", "minLength": 1, "maxLength": 120},
+        "cut_quantity": {"type": "integer", "minimum": 1, "maximum": 20},
+        "cut_on_fold": {"type": "boolean"},
+        "mirrored_pair": {"type": "boolean"},
+        "seam_contour": {"$ref": "#/$defs/closed_contour"},
+        "cutting_contour": {"oneOf": [{"$ref": "#/$defs/closed_contour"}, {"type": "null"}]},
+        "internal_paths": {"type": "array", "items": {"$ref": "#/$defs/path"}},
+        "grainline": {"$ref": "#/$defs/grainline"},
+        "notches": {"type": "array", "items": {"$ref": "#/$defs/notch"}},
+        "annotations": {"type": "array", "items": {"$ref": "#/$defs/annotation"}}
+      }
+    },
+    "seam_pair": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "first_piece_id", "first_segment_ids", "second_piece_id", "second_segment_ids", "allowed_ease_mm", "tolerance_mm"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "first_piece_id": {"type": "string"},
+        "first_segment_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "second_piece_id": {"type": "string"},
+        "second_segment_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "allowed_ease_mm": {"type": "number"},
+        "tolerance_mm": {"$ref": "common.schema.json#/$defs/millimetres"}
+      }
+    }
+  }
+}

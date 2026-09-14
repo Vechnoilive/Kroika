@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kroika.local/schemas/v1/pattern-project.schema.json",
+  "title": "PatternProject v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project_id", "revision", "name", "locale", "status", "created_at", "updated_at", "privacy", "image_refs", "style_analysis_id", "pattern_method", "body_measurements", "garment_spec", "fit_settings", "fabric_properties", "latest_generation", "generation_history"],
+  "properties": {
+    "schema_version": {"$ref": "common.schema.json#/$defs/schema_version"},
+    "project_id": {"$ref": "common.schema.json#/$defs/uuid"},
+    "revision": {"type": "integer", "minimum": 1},
+    "name": {"type": "string", "minLength": 1, "maxLength": 120},
+    "locale": {"type": "string", "const": "ru-RU"},
+    "status": {"type": "string", "enum": ["draft", "inputs_confirmed", "generated", "validation_failed", "ready_for_production_export"]},
+    "created_at": {"$ref": "common.schema.json#/$defs/date_time"},
+    "updated_at": {"$ref": "common.schema.json#/$defs/date_time"},
+    "privacy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["storage", "image_retention_days", "allow_external_ai", "consent_recorded_at"],
+      "properties": {
+        "storage": {"type": "string", "const": "local"},
+        "image_retention_days": {"type": "integer", "minimum": 0, "maximum": 3650},
+        "allow_external_ai": {"type": "boolean"},
+        "consent_recorded_at": {"anyOf": [{"$ref": "common.schema.json#/$defs/date_time"}, {"type": "null"}]}
+      },
+      "allOf": [{
+        "if": {"properties": {"allow_external_ai": {"const": true}}, "required": ["allow_external_ai"]},
+        "then": {"properties": {"consent_recorded_at": {"$ref": "common.schema.json#/$defs/date_time"}}}
+      }]
+    },
+    "image_refs": {
+      "type": "array", "maxItems": 4, "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^img_[a-zA-Z0-9_-]{8,80}$"}
+    },
+    "style_analysis_id": {"anyOf": [{"$ref": "common.schema.json#/$defs/uuid"}, {"type": "null"}]},
+    "pattern_method": {"$ref": "common.schema.json#/$defs/pattern_method"},
+    "body_measurements": {"$ref": "body-measurements.schema.json"},
+    "garment_spec": {"$ref": "garment-spec.schema.json"},
+    "fit_settings": {"$ref": "fit-settings.schema.json"},
+    "fabric_properties": {"$ref": "fabric-properties.schema.json"},
+    "latest_generation": {"oneOf": [{"$ref": "pattern-engine-result.schema.json"}, {"type": "null"}]},
+    "generation_history": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["generation_id", "input_hash", "engine_version", "method_version", "created_at", "status"],
+        "properties": {
+          "generation_id": {"$ref": "common.schema.json#/$defs/uuid"},
+          "input_hash": {"$ref": "common.schema.json#/$defs/sha256"},
+          "engine_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+          "method_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+          "created_at": {"$ref": "common.schema.json#/$defs/date_time"},
+          "status": {"type": "string", "enum": ["succeeded", "rejected"]}
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"enum": ["generated", "validation_failed", "ready_for_production_export"]}}, "required": ["status"]},
+      "then": {"properties": {"latest_generation": {"$ref": "pattern-engine-result.schema.json"}, "generation_history": {"minItems": 1}}}
+    },
+    {
+      "if": {"properties": {"status": {"const": "ready_for_production_export"}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "pattern_method": {"properties": {"validation_status": {"const": "toile_verified"}}},
+          "latest_generation": {"properties": {"validation_report": {"properties": {"production_export_allowed": {"const": true}}}}}
+        }
+      }
+    }
+  ]
+}
