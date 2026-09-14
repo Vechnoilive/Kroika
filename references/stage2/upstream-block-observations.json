@@ -1,0 +1,174 @@
+{
+  "source_commit": "d449629979028123a5c4dc9e732a2ec19b7fce31",
+  "units": "mm",
+  "experimental": true,
+  "fixture_sha256": "9ac2a0633e6b02d08ef09666eb94d7a3ea51e3e5ab380fccd0e38bd3f45e9647",
+  "python_version": "3.12.14",
+  "scope": "Raw bodice and skirt blocks, before neck/armhole cuts and seam reconciliation; zero ease.",
+  "dependencies": {
+    "numpy": "2.3.5",
+    "scipy": "1.17.0",
+    "svgpathtools": "1.8.0",
+    "svgwrite": "1.4.3",
+    "cairosvg": "2.9.1",
+    "shapely": "2.1.2",
+    "matplotlib": "3.10.8",
+    "PyYAML": "6.0.3",
+    "psutil": "7.2.2"
+  },
+  "cases": [
+    {
+      "id": "S",
+      "extra_synthetic_inputs_mm": {
+        "height": 1600,
+        "head_length": 230,
+        "bum_span": 180,
+        "skirt_length_from_waist": 550
+      },
+      "skirt_flare_ratio": 1.1,
+      "diagnostics": "",
+      "panels": {
+        "bodice_front_half": {
+          "self_intersecting_upstream_check": false,
+          "interface_lengths_mm": {
+            "outside": 384.65371982646946,
+            "bottom": 165.0
+          }
+        },
+        "bodice_back_half": {
+          "self_intersecting_upstream_check": false,
+          "interface_lengths_mm": {
+            "outside": 376.0,
+            "bottom": 165.33297148942268
+          }
+        },
+        "skirt_front_full": {
+          "self_intersecting_upstream_check": false,
+          "interface_lengths_mm": {
+            "bottom": 485.99999999999994,
+            "right": 552.0770088374226,
+            "left": 552.0770088358416,
+            "top": 330.0
+          }
+        },
+        "skirt_back_full": {
+          "self_intersecting_upstream_check": false,
+          "interface_lengths_mm": {
+            "bottom": 526.0,
+            "right": 561.6401357900135,
+            "left": 561.6401357888233,
+            "top": 330.0
+          }
+        }
+      },
+      "raw_waist_residual_front_mm": 0.0,
+      "raw_waist_residual_back_mm": 0.6659429788453508,
+      "raw_bodice_side_residual_mm": 8.653719826469413,
+      "raw_skirt_side_residual_mm": 9.563126952590935,
+      "seams_reconciled": false,
+      "expert_reviewed": false
+    },
+    {
+      "id": "M",
+      "extra_synthetic_inputs_mm": {
+        "height": 1700,
+        "head_length": 230,
+        "bum_span": 200,
+        "skirt_length_from_waist": 550
+      },
+      "skirt_flare_ratio": 1.1,
+      "diagnostics": "",
+      "panels": {
+        "bodice_front_half": {
+          "self_intersecting_upstream_check": false,
+          "interface_lengths_mm": {
+            "outside": 415.9680531091746,
+            "bottom": 190.0
+          }
+        },
+        "bodice_back_half": {
+          "self_intersecting_upstream_check": false,
+          "interface_lengths_mm": {
+            "outside": 404.13066873566464,
+            "bottom": 180.39357696552585
+          }
+        },
+        "skirt_front_full": {
+          "self_intersecting_upstream_check": false,
+          "interface_lengths_mm": {
+            "bottom": 530.0,
+            "right": 552.3247495561185,
+            "left": 552.3247495528955,
+            "top": 380.0
+          }
+        },
+        "skirt_back_full": {
+          "self_intersecting_upstream_check": false,
+          "interface_lengths_mm": {
+            "bottom": 570.0,
+            "right": 562.391198980546,
+            "left": 562.3911989772523,
+            "top": 360.0
+          }
+        }
+      },
+      "raw_waist_residual_front_mm": 0.0,
+      "raw_waist_residual_back_mm": 0.7871539310517051,
+      "raw_bodice_side_residual_mm": 11.837384373509963,
+      "raw_skirt_side_residual_mm": 10.066449424427546,
+      "seams_reconciled": false,
+      "expert_reviewed": false
+    },
+    {
+      "id": "L",
+      "extra_synthetic_inputs_mm": {
+        "height": 1800,
+        "head_length": 230,
+        "bum_span": 220,
+        "skirt_length_from_waist": 550
+      },
+      "skirt_flare_ratio": 1.1,
+      "diagnostics": "",
+      "panels": {
+        "bodice_front_half": {
+          "self_intersecting_upstream_check": false,
+          "interface_lengths_mm": {
+            "outside": 450.3659431138972,
+            "bottom": 210.0
+          }
+        },
+        "bodice_back_half": {
+          "self_intersecting_upstream_check": false,
+          "interface_lengths_mm": {
+            "outside": 430.1927979816187,
+            "bottom": 200.45055575627626
+          }
+        },
+        "skirt_front_full": {
+          "self_intersecting_upstream_check": false,
+          "interface_lengths_mm": {
+            "bottom": 596.0000000000001,
+            "right": 552.7651111673524,
+            "left": 552.7651111685198,
+            "top": 420.0
+          }
+        },
+        "skirt_back_full": {
+          "self_intersecting_upstream_check": false,
+          "interface_lengths_mm": {
+            "bottom": 636.0000000000001,
+            "right": 563.8382055342227,
+            "left": 563.8382055353144,
+            "top": 400.0
+          }
+        }
+      },
+      "raw_waist_residual_front_mm": 0.0,
+      "raw_waist_residual_back_mm": 0.901111512552518,
+      "raw_bodice_side_residual_mm": 20.17314513227852,
+      "raw_skirt_side_residual_mm": 11.073094366870322,
+      "seams_reconciled": false,
+      "expert_reviewed": false
+    }
+  ]
+}

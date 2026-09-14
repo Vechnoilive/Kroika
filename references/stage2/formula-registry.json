@@ -1,0 +1,1844 @@
+{
+  "method_id": "kroika-gc-woven",
+  "method_version": "0.1.0",
+  "status": "experimental",
+  "source_commit": "d449629979028123a5c4dc9e732a2ec19b7fce31",
+  "units": "mm",
+  "input_units": {
+    "bust": "mm",
+    "waist": "mm",
+    "hips": "mm",
+    "back_bust_arc": "mm",
+    "back_waist_arc": "mm",
+    "back_hip_arc": "mm",
+    "shoulder_span": "mm",
+    "back_neck_to_waist": "mm",
+    "front_neck_to_waist_over_bust": "mm",
+    "bust_path_height": "mm",
+    "bust_vertical_height": "mm",
+    "bust_span": "mm",
+    "hip_depth": "mm",
+    "armscye_depth": "mm",
+    "shoulder_slope_deg": "deg",
+    "hip_inclination_deg": "deg",
+    "armhole_ease": "mm",
+    "sleeve_balance_reduction": "mm",
+    "back_dart_threshold": "mm",
+    "back_hip_factor": "1",
+    "front_dart_fraction": "1",
+    "side_dart_depth_factor": "1",
+    "dart_tip_factor": "1"
+  },
+  "constants": {
+    "armhole_ease": 25,
+    "sleeve_balance_reduction": 20,
+    "back_dart_threshold": 40,
+    "back_hip_factor": 1.05,
+    "front_dart_fraction": 0.6666666666666666,
+    "side_dart_depth_factor": 0.75,
+    "dart_tip_factor": 0.9
+  },
+  "records": [
+    {
+      "formula_id": "F01",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Тангенс наклона плеча",
+      "inputs": {
+        "shoulder_slope_deg": "deg"
+      },
+      "output": "shoulder_tan",
+      "output_unit": "1",
+      "expression": "tan(radians(shoulder_slope_deg))",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/bodice.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/bodice.py",
+        "snapshot": "references/garmentcode/bodice.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-10,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F02",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Полуугол бока по исходному правилу",
+      "inputs": {
+        "hip_inclination_deg": "deg"
+      },
+      "output": "hip_tan",
+      "output_unit": "1",
+      "expression": "tan(radians(hip_inclination_deg / 2))",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/bodies/body_params.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/bodies/body_params.py",
+        "snapshot": "references/garmentcode/body_params.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-10,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F03",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Ширина половины переда",
+      "inputs": {
+        "back_bust_arc": "mm",
+        "bust": "mm"
+      },
+      "output": "front_width",
+      "output_unit": "mm",
+      "expression": "(bust - back_bust_arc) / 2",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/bodice.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/bodice.py",
+        "snapshot": "references/garmentcode/bodice.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F04",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Ширина половины спинки",
+      "inputs": {
+        "back_bust_arc": "mm"
+      },
+      "output": "back_width",
+      "output_unit": "mm",
+      "expression": "back_bust_arc / 2",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/bodice.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/bodice.py",
+        "snapshot": "references/garmentcode/bodice.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F05",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Целевая половина передней дуги талии",
+      "inputs": {
+        "back_waist_arc": "mm",
+        "waist": "mm"
+      },
+      "output": "front_waist",
+      "output_unit": "mm",
+      "expression": "(waist - back_waist_arc) / 2",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/bodice.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/bodice.py",
+        "snapshot": "references/garmentcode/bodice.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F06",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Целевая половина задней дуги талии",
+      "inputs": {
+        "back_waist_arc": "mm"
+      },
+      "output": "back_waist",
+      "output_unit": "mm",
+      "expression": "back_waist_arc / 2",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/bodice.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/bodice.py",
+        "snapshot": "references/garmentcode/bodice.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F07",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Взвешенная высота по правилу upstream, не новая снятая мерка",
+      "inputs": {
+        "bust_path_height": "mm",
+        "bust_vertical_height": "mm"
+      },
+      "output": "bust_level",
+      "output_unit": "mm",
+      "expression": "(2 * bust_vertical_height + bust_path_height) / 3",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/bodies/body_params.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/bodies/body_params.py",
+        "snapshot": "references/garmentcode/body_params.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F08",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Конструктивный уровень груди от талии",
+      "inputs": {
+        "back_neck_to_waist": "mm",
+        "bust_level": "mm"
+      },
+      "output": "bust_from_waist",
+      "output_unit": "mm",
+      "expression": "back_neck_to_waist - bust_level",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/bodice.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/bodice.py",
+        "snapshot": "references/garmentcode/bodice.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F09",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Поправка наклона переда",
+      "inputs": {
+        "front_width": "mm",
+        "shoulder_span": "mm",
+        "shoulder_tan": "1"
+      },
+      "output": "front_adjustment",
+      "output_unit": "mm",
+      "expression": "shoulder_tan * (front_width - shoulder_span / 2)",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/bodice.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/bodice.py",
+        "snapshot": "references/garmentcode/bodice.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F10",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Поправка наклона спинки",
+      "inputs": {
+        "back_width": "mm",
+        "shoulder_span": "mm",
+        "shoulder_tan": "1"
+      },
+      "output": "back_adjustment",
+      "output_unit": "mm",
+      "expression": "shoulder_tan * (back_width - shoulder_span / 2)",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/bodice.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/bodice.py",
+        "snapshot": "references/garmentcode/bodice.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F11",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Длина заготовки переда",
+      "inputs": {
+        "front_adjustment": "mm",
+        "front_neck_to_waist_over_bust": "mm"
+      },
+      "output": "front_max_length",
+      "output_unit": "mm",
+      "expression": "front_neck_to_waist_over_bust - front_adjustment",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/bodice.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/bodice.py",
+        "snapshot": "references/garmentcode/bodice.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F12",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Длина заготовки спинки",
+      "inputs": {
+        "back_adjustment": "mm",
+        "back_neck_to_waist": "mm"
+      },
+      "output": "back_length",
+      "output_unit": "mm",
+      "expression": "back_neck_to_waist - back_adjustment",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/bodice.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/bodice.py",
+        "snapshot": "references/garmentcode/bodice.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F13",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Исходная длина бока до закрытия вытачки и проверки кривых",
+      "inputs": {
+        "back_length": "mm",
+        "back_width": "mm",
+        "front_width": "mm",
+        "shoulder_tan": "1"
+      },
+      "output": "front_side_target",
+      "output_unit": "mm",
+      "expression": "back_length - shoulder_tan * (front_width - back_width)",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/bodice.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/bodice.py",
+        "snapshot": "references/garmentcode/bodice.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F14",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Раствор боковой нагрудной вытачки",
+      "inputs": {
+        "front_max_length": "mm",
+        "front_side_target": "mm"
+      },
+      "output": "side_dart_width",
+      "output_unit": "mm",
+      "expression": "front_max_length - front_side_target",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/bodice.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/bodice.py",
+        "snapshot": "references/garmentcode/bodice.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F15",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Глубина боковой вытачки",
+      "inputs": {
+        "bust_span": "mm",
+        "front_width": "mm",
+        "side_dart_depth_factor": "1"
+      },
+      "output": "side_dart_depth",
+      "output_unit": "mm",
+      "expression": "side_dart_depth_factor * (front_width - bust_span / 2)",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/bodice.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/bodice.py",
+        "snapshot": "references/garmentcode/bodice.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F16",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Раствор талиевой вытачки переда",
+      "inputs": {
+        "front_dart_fraction": "1",
+        "front_waist": "mm",
+        "front_width": "mm"
+      },
+      "output": "front_waist_dart",
+      "output_unit": "mm",
+      "expression": "(front_width - front_waist) * front_dart_fraction",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/bodice.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/bodice.py",
+        "snapshot": "references/garmentcode/bodice.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F17",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Глубина талиевой вытачки переда",
+      "inputs": {
+        "bust_from_waist": "mm",
+        "dart_tip_factor": "1"
+      },
+      "output": "front_waist_dart_depth",
+      "output_unit": "mm",
+      "expression": "dart_tip_factor * bust_from_waist",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/bodice.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/bodice.py",
+        "snapshot": "references/garmentcode/bodice.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F18",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Суммарное уменьшение ширины спинки",
+      "inputs": {
+        "back_waist": "mm",
+        "back_width": "mm"
+      },
+      "output": "back_reduction",
+      "output_unit": "mm",
+      "expression": "back_width - back_waist",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/bodice.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/bodice.py",
+        "snapshot": "references/garmentcode/bodice.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F19",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Уменьшение у бокового среза: точная ветка порога 40 мм",
+      "inputs": {
+        "back_dart_threshold": "mm",
+        "back_reduction": "mm"
+      },
+      "output": "back_side_take",
+      "output_unit": "mm",
+      "expression": "0 if back_reduction < back_dart_threshold else back_reduction / 6",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/bodice.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/bodice.py",
+        "snapshot": "references/garmentcode/bodice.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F20",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Раствор каждой из двух вытачек половины спинки",
+      "inputs": {
+        "back_reduction": "mm",
+        "back_side_take": "mm"
+      },
+      "output": "back_each_dart",
+      "output_unit": "mm",
+      "expression": "(back_reduction - back_side_take) / 2",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/bodice.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/bodice.py",
+        "snapshot": "references/garmentcode/bodice.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F21",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Глубина длинной вытачки спинки",
+      "inputs": {
+        "back_length": "mm",
+        "bust_level": "mm"
+      },
+      "output": "back_dart_depth",
+      "output_unit": "mm",
+      "expression": "back_length - bust_level",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/bodice.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/bodice.py",
+        "snapshot": "references/garmentcode/bodice.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F22",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Глубина короткой вытачки спинки",
+      "inputs": {
+        "back_dart_depth": "mm",
+        "dart_tip_factor": "1"
+      },
+      "output": "back_short_dart_depth",
+      "output_unit": "mm",
+      "expression": "dart_tip_factor * back_dart_depth",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/bodice.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/bodice.py",
+        "snapshot": "references/garmentcode/bodice.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F23",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Четвертная передняя доля бёдер для панели юбки",
+      "inputs": {
+        "back_hip_arc": "mm",
+        "hips": "mm"
+      },
+      "output": "skirt_front_hip",
+      "output_unit": "mm",
+      "expression": "(hips - back_hip_arc) / 2",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/skirt_paneled.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/skirt_paneled.py",
+        "snapshot": "references/garmentcode/skirt_paneled.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F24",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Четвертная задняя доля бёдер",
+      "inputs": {
+        "back_hip_arc": "mm"
+      },
+      "output": "skirt_back_hip",
+      "output_unit": "mm",
+      "expression": "back_hip_arc / 2",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/skirt_paneled.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/skirt_paneled.py",
+        "snapshot": "references/garmentcode/skirt_paneled.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F25",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Исходная задняя глубина с коэффициентом 1.05",
+      "inputs": {
+        "back_hip_factor": "1",
+        "hip_depth": "mm"
+      },
+      "output": "skirt_back_depth",
+      "output_unit": "mm",
+      "expression": "hip_depth * back_hip_factor",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/skirt_paneled.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/skirt_paneled.py",
+        "snapshot": "references/garmentcode/skirt_paneled.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F26",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Заужение переда у бокового шва юбки",
+      "inputs": {
+        "front_waist": "mm",
+        "hip_depth": "mm",
+        "hip_tan": "1",
+        "skirt_front_hip": "mm"
+      },
+      "output": "skirt_front_side_take",
+      "output_unit": "mm",
+      "expression": "min(hip_tan * hip_depth, skirt_front_hip - front_waist)",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/skirt_paneled.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/skirt_paneled.py",
+        "snapshot": "references/garmentcode/skirt_paneled.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F27",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Заужение спинки у бокового шва юбки",
+      "inputs": {
+        "back_waist": "mm",
+        "hip_tan": "1",
+        "skirt_back_depth": "mm",
+        "skirt_back_hip": "mm"
+      },
+      "output": "skirt_back_side_take",
+      "output_unit": "mm",
+      "expression": "min(hip_tan * skirt_back_depth, skirt_back_hip - back_waist)",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/skirt_paneled.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/skirt_paneled.py",
+        "snapshot": "references/garmentcode/skirt_paneled.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F28",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Передняя вытачка на четверть юбки",
+      "inputs": {
+        "front_waist": "mm",
+        "skirt_front_hip": "mm",
+        "skirt_front_side_take": "mm"
+      },
+      "output": "skirt_front_dart",
+      "output_unit": "mm",
+      "expression": "skirt_front_hip - front_waist - skirt_front_side_take",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/skirt_paneled.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/skirt_paneled.py",
+        "snapshot": "references/garmentcode/skirt_paneled.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F29",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Сумма двух задних вытачек на четверть юбки",
+      "inputs": {
+        "back_waist": "mm",
+        "skirt_back_hip": "mm",
+        "skirt_back_side_take": "mm"
+      },
+      "output": "skirt_back_dart_total",
+      "output_unit": "mm",
+      "expression": "skirt_back_hip - back_waist - skirt_back_side_take",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/skirt_paneled.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/skirt_paneled.py",
+        "snapshot": "references/garmentcode/skirt_paneled.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F30",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Одна из двух задних вытачек",
+      "inputs": {
+        "skirt_back_dart_total": "mm"
+      },
+      "output": "skirt_back_each_dart",
+      "output_unit": "mm",
+      "expression": "skirt_back_dart_total / 2",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/skirt_paneled.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/skirt_paneled.py",
+        "snapshot": "references/garmentcode/skirt_paneled.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F31",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Глубина передней вытачки юбки",
+      "inputs": {
+        "hip_depth": "mm"
+      },
+      "output": "skirt_front_dart_depth",
+      "output_unit": "mm",
+      "expression": "hip_depth * 0.8",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/skirt_paneled.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/skirt_paneled.py",
+        "snapshot": "references/garmentcode/skirt_paneled.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F32",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Глубина задней вытачки с поправкой длины",
+      "inputs": {
+        "hip_depth": "mm",
+        "skirt_back_depth": "mm"
+      },
+      "output": "skirt_back_dart_depth",
+      "output_unit": "mm",
+      "expression": "hip_depth * 0.85 - (hip_depth - skirt_back_depth)",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/garment_programs/skirt_paneled.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/garment_programs/skirt_paneled.py",
+        "snapshot": "references/garmentcode/skirt_paneled.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F33",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Конструктивная глубина, добавка 2.5 cm = 25 mm",
+      "inputs": {
+        "armhole_ease": "mm",
+        "armscye_depth": "mm"
+      },
+      "output": "armhole_depth",
+      "output_unit": "mm",
+      "expression": "armscye_depth + armhole_ease",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/bodies/body_params.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/bodies/body_params.py",
+        "snapshot": "references/garmentcode/body_params.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F34",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Опорный размах рукава, уменьшение 2 cm = 20 mm",
+      "inputs": {
+        "shoulder_span": "mm",
+        "sleeve_balance_reduction": "mm"
+      },
+      "output": "sleeve_balance",
+      "output_unit": "mm",
+      "expression": "shoulder_span - sleeve_balance_reduction",
+      "source": {
+        "kind": "MIT_source",
+        "path": "assets/bodies/body_params.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/assets/bodies/body_params.py",
+        "snapshot": "references/garmentcode/body_params.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F35",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Контроль суммы целевых долей талии; не длина кривой",
+      "inputs": {
+        "back_waist": "mm",
+        "front_waist": "mm"
+      },
+      "output": "waist_projection",
+      "output_unit": "mm",
+      "expression": "2 * (front_waist + back_waist)",
+      "source": {
+        "kind": "mathematical_identity",
+        "description": "Independent arithmetic / Euclidean geometry; not a school-specific fit rule"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F36",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Контроль суммы долей бёдер",
+      "inputs": {
+        "skirt_back_hip": "mm",
+        "skirt_front_hip": "mm"
+      },
+      "output": "hip_projection",
+      "output_unit": "mm",
+      "expression": "2 * (skirt_front_hip + skirt_back_hip)",
+      "source": {
+        "kind": "mathematical_identity",
+        "description": "Independent arithmetic / Euclidean geometry; not a school-specific fit rule"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F37",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Контроль передней талии после исключения растворов",
+      "inputs": {
+        "skirt_front_dart": "mm",
+        "skirt_front_hip": "mm",
+        "skirt_front_side_take": "mm"
+      },
+      "output": "skirt_front_waist",
+      "output_unit": "mm",
+      "expression": "2 * (skirt_front_hip - skirt_front_side_take - skirt_front_dart)",
+      "source": {
+        "kind": "mathematical_identity",
+        "description": "Independent arithmetic / Euclidean geometry; not a school-specific fit rule"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F38",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Контроль задней талии после исключения растворов",
+      "inputs": {
+        "skirt_back_dart_total": "mm",
+        "skirt_back_hip": "mm",
+        "skirt_back_side_take": "mm"
+      },
+      "output": "skirt_back_waist",
+      "output_unit": "mm",
+      "expression": "2 * (skirt_back_hip - skirt_back_side_take - skirt_back_dart_total)",
+      "source": {
+        "kind": "mathematical_identity",
+        "description": "Independent arithmetic / Euclidean geometry; not a school-specific fit rule"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F39",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Явная разница глубин, которую нельзя скрывать при стачивании",
+      "inputs": {
+        "hip_depth": "mm",
+        "skirt_back_depth": "mm"
+      },
+      "output": "back_hip_extension",
+      "output_unit": "mm",
+      "expression": "skirt_back_depth - hip_depth",
+      "source": {
+        "kind": "mathematical_identity",
+        "description": "Independent arithmetic / Euclidean geometry; not a school-specific fit rule"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F40",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Длина стороны симметричной треугольной вытачки",
+      "inputs": {
+        "front_waist_dart": "mm",
+        "front_waist_dart_depth": "mm"
+      },
+      "output": "front_waist_dart_leg",
+      "output_unit": "mm",
+      "expression": "sqrt((front_waist_dart / 2) ** 2 + front_waist_dart_depth ** 2)",
+      "source": {
+        "kind": "MIT_source",
+        "path": "pygarment/garmentcode/edge_factory.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/pygarment/garmentcode/edge_factory.py",
+        "snapshot": "references/garmentcode/edge_factory.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    },
+    {
+      "formula_id": "F41",
+      "version": "0.1.0",
+      "pattern_method_id": "kroika-gc-woven",
+      "garment_type": [
+        "dress",
+        "sundress"
+      ],
+      "name": "Длина стороны боковой треугольной вытачки",
+      "inputs": {
+        "side_dart_depth": "mm",
+        "side_dart_width": "mm"
+      },
+      "output": "side_dart_leg",
+      "output_unit": "mm",
+      "expression": "sqrt((side_dart_width / 2) ** 2 + side_dart_depth ** 2)",
+      "source": {
+        "kind": "MIT_source",
+        "path": "pygarment/garmentcode/edge_factory.py",
+        "url": "https://github.com/maria-korosteleva/GarmentCode/blob/d449629979028123a5c4dc9e732a2ec19b7fce31/pygarment/garmentcode/edge_factory.py",
+        "snapshot": "references/garmentcode/edge_factory.py.txt"
+      },
+      "legal_status": "MIT source adaptation; original math identities where specified",
+      "applicability": "Only explicit measured inputs and valid positive dart domain; see docs/PATTERN_METHOD.md. Synthetic examples do not establish a population range.",
+      "expected_fit_error_mm": null,
+      "numeric_tolerance": 1e-06,
+      "expert_review": {
+        "status": "not_reviewed",
+        "author": null,
+        "date": null
+      },
+      "production_allowed": false,
+      "control_examples": [
+        "S",
+        "M",
+        "L"
+      ],
+      "tests": {
+        "arithmetic": "scripts/verify_stage2.py",
+        "property": null,
+        "full_pattern_golden": null,
+        "toile": null
+      }
+    }
+  ]
+}

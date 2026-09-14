@@ -1,0 +1,33 @@
+{
+  "version": "0.1.0",
+  "status": "experimental",
+  "source": "developer_choice_authorized_by_user",
+  "unit": "mm",
+  "presets": [
+    {
+      "id": "woven_fitted_trial",
+      "bust_ease": 40,
+      "waist_ease": 20,
+      "hip_ease": 40,
+      "upper_arm_ease": 40,
+      "back_share": 0.5
+    },
+    {
+      "id": "woven_semi_fitted_trial",
+      "bust_ease": 60,
+      "waist_ease": 40,
+      "hip_ease": 60,
+      "upper_arm_ease": 50,
+      "back_share": 0.5
+    }
+  ],
+  "seam_allowances": {
+    "normal": 15,
+    "neckline": 10,
+    "armhole": 10,
+    "zipper": 20,
+    "hem": 30,
+    "sleeve_hem": 25,
+    "fold": 0
+  }
+}

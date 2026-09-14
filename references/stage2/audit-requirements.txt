@@ -1,0 +1,10 @@
+# Optional isolated upstream experiment only; NOT application dependencies.
+numpy==2.3.5
+scipy==1.17.0
+svgpathtools==1.8.0
+svgwrite==1.4.3
+CairoSVG==2.9.1
+shapely==2.1.2
+matplotlib==3.10.8
+PyYAML==6.0.3
+psutil==7.2.2

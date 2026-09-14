@@ -1,0 +1,33 @@
+{
+  "repository": "https://github.com/maria-korosteleva/GarmentCode",
+  "commit": "d449629979028123a5c4dc9e732a2ec19b7fce31",
+  "license": "MIT",
+  "purpose": "read-only reference snapshots, not imported as application code",
+  "files": [
+    {
+      "upstream_path": "assets/bodies/body_params.py",
+      "snapshot_path": "references/garmentcode/body_params.py.txt",
+      "sha256": "087305820f7ae71d0be1839b686deff7f6bde834c5f12b437e6f0483c8f58f82"
+    },
+    {
+      "upstream_path": "assets/garment_programs/bodice.py",
+      "snapshot_path": "references/garmentcode/bodice.py.txt",
+      "sha256": "0063bbb8257992dcf67393ab1d27ad06d0ded8a08c557e47ca8ee4a25783d137"
+    },
+    {
+      "upstream_path": "assets/garment_programs/skirt_paneled.py",
+      "snapshot_path": "references/garmentcode/skirt_paneled.py.txt",
+      "sha256": "6839e3cb448f114dcb726addf553097fe2c88b26d47ef0c2ce892f0e7a62147c"
+    },
+    {
+      "upstream_path": "assets/garment_programs/sleeves.py",
+      "snapshot_path": "references/garmentcode/sleeves.py.txt",
+      "sha256": "ca57e8d1783c21b75d88ae8cffa5afb5a34259dafef1e994a61f13a222c233d0"
+    },
+    {
+      "upstream_path": "pygarment/garmentcode/edge_factory.py",
+      "snapshot_path": "references/garmentcode/edge_factory.py.txt",
+      "sha256": "c607ee29f5f5036feef9bd50bbc2915b37ce0bbd45a7cc164fb3e5b66de7e71f"
+    }
+  ]
+}
