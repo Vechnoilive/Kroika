@@ -39,14 +39,14 @@ with TemporaryDirectory(prefix="kroika-stage6-") as directory:
         assert response.status_code == 200, response.text
         result = response.json()
         validate_document("pattern-engine-result", result)
-        assert result["status"] == "rejected"
-        assert result["pattern"] is None
-        assert "GARMENT_ASSEMBLY_STAGE_NOT_READY" in {
+        assert result["status"] == "succeeded"
+        assert result["pattern"] is not None
+        assert "EXPERT_BLOCK_REVIEW_REQUIRED" in {
             issue["code"] for issue in result["validation_report"]["issues"]
         }
         assert result["validation_report"]["checks"][0]["status"] == "passed"
         assert client.get("/health/ready").json()["pattern_engine"] == (
-            "kroika-geometry:0.3.0"
+            "kroika-geometry:0.4.0"
         )
 
-print("Smoke-test этапа 6 пройден: API повторно проверяет ядро и не выдаёт базовые блоки за собранное изделие.")
+print("Smoke-test этапа 6 пройден: API повторно проверяет ядро внутри собранного изделия.")
