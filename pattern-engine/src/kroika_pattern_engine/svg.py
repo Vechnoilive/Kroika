@@ -152,9 +152,9 @@ def render_pattern_svg(pattern: Mapping[str, Any]) -> str:
         f'width="{_fmt(canvas_width)}mm" height="{_fmt(canvas_height)}mm">',
         "<title>Диагностический предпросмотр выкройки Kroika</title>",
         "<desc>Детали без припусков. Перед раскроем обязательны проверка закройщика и макет.</desc>",
-        "<defs><marker id="grain-arrow" viewBox="0 0 6 6" refX="5" refY="3" "
-        "markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L6,3 L0,6 Z" "
-        "fill="#6b587f"/></marker></defs>",
+        '<defs><marker id="grain-arrow" viewBox="0 0 6 6" refX="5" refY="3" '
+        'markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L6,3 L0,6 Z" '
+        'fill="#6b587f"/></marker></defs>',
         "<style>.sheet{fill:#fffdfb}.piece{fill:#fff5ed;stroke:#2f2833;stroke-width:1.1;"
         "vector-effect:non-scaling-stroke}.internal{fill:none;stroke:#b94b3d;stroke-width:.7;"
         "stroke-dasharray:4 3;vector-effect:non-scaling-stroke}.grain{stroke:#6b587f;"
