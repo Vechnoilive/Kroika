@@ -49,9 +49,9 @@ def test_health_checks_dependencies_and_request_id(client: TestClient):
     ready = client.get("/health/ready")
     assert live.status_code == ready.status_code == 200
     assert ready.json() == {
-        "status": "ok", "service": "kroika-backend", "version": "0.6.0",
+        "status": "ok", "service": "kroika-backend", "version": "0.7.0",
         "database": "ok", "ai_provider": "mock",
-        "pattern_engine": "kroika-geometry:0.2.0",
+        "pattern_engine": "kroika-geometry:0.3.0",
     }
     assert len(ready.headers["X-Request-ID"]) == 36
 

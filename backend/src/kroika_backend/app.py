@@ -1,4 +1,4 @@
-"""FastAPI composition root for the stage-6 modular monolith."""
+"""FastAPI composition root for the stage-7 modular monolith."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ from .models import (
 )
 from .repository import SQLiteRepository
 
-APP_VERSION = "0.6.0"
+APP_VERSION = "0.7.0"
 
 
 def _project_or_404(repository: SQLiteRepository, project_id: str) -> dict[str, Any]:
@@ -69,7 +69,7 @@ def create_app(
     app = FastAPI(
         title="Kroika API",
         version=APP_VERSION,
-        description="Локальный API Kroika с профилями мерок и геометрическим ядром.",
+        description="Локальный API Kroika с профилями мерок и экспериментальными базовыми блоками.",
         debug=settings.debug,
     )
     app.state.settings = settings
@@ -262,7 +262,7 @@ def create_app(
         if result["pattern"] is None:
             raise AppError(
                 409, "PATTERN_NOT_AVAILABLE",
-                "Предпросмотр появится после реализации и проверки базовых блоков одежды.",
+                "Предпросмотр появится после сборки деталей изделия на этапе 8.",
             )
         raise AppError(501, "SVG_RENDERER_NOT_READY", "SVG-экспорт появится на этапе 8.")
 

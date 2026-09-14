@@ -9,24 +9,99 @@
       "status": "ready",
       "normalized_unit": "mm",
       "values": {
-        "height": {"value": 1540, "unit": "mm", "source": "preset"},
-        "bust": {"value": 800, "unit": "mm", "source": "preset"},
-        "waist": {"value": 620, "unit": "mm", "source": "preset"},
-        "hips": {"value": 880, "unit": "mm", "source": "preset"},
-        "back_bust_arc": {"value": 385, "unit": "mm", "source": "preset"},
-        "back_waist_arc": {"value": 300, "unit": "mm", "source": "preset"},
-        "back_hip_arc": {"value": 450, "unit": "mm", "source": "preset"},
-        "shoulder_span": {"value": 350, "unit": "mm", "source": "preset"},
-        "back_neck_to_waist": {"value": 380, "unit": "mm", "source": "preset"},
-        "front_neck_to_waist_over_bust": {"value": 420, "unit": "mm", "source": "preset"},
-        "bust_path_height": {"value": 220, "unit": "mm", "source": "preset"},
-        "bust_vertical_height": {"value": 200, "unit": "mm", "source": "preset"},
-        "bust_span": {"value": 170, "unit": "mm", "source": "preset"},
-        "hip_depth": {"value": 180, "unit": "mm", "source": "preset"},
-        "armscye_depth": {"value": 170, "unit": "mm", "source": "preset"}
+        "height": {
+          "value": 1540,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "bust": {
+          "value": 800,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "waist": {
+          "value": 620,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "hips": {
+          "value": 880,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "back_bust_arc": {
+          "value": 385,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "back_waist_arc": {
+          "value": 300,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "back_hip_arc": {
+          "value": 450,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "shoulder_span": {
+          "value": 350,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "back_neck_to_waist": {
+          "value": 380,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "front_neck_to_waist_over_bust": {
+          "value": 420,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "bust_path_height": {
+          "value": 220,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "bust_vertical_height": {
+          "value": 200,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "bust_span": {
+          "value": 170,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "hip_depth": {
+          "value": 180,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "armscye_depth": {
+          "value": 170,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "shoulder_length": {
+          "value": 115,
+          "unit": "mm",
+          "source": "preset"
+        }
       },
-      "angles_deg": {"shoulder_slope": 10, "hip_inclination": 10},
-      "angle_provenance": {"shoulder_slope": {"source": "preset"}, "hip_inclination": {"source": "preset"}}
+      "angles_deg": {
+        "shoulder_slope": 10,
+        "hip_inclination": 10
+      },
+      "angle_provenance": {
+        "shoulder_slope": {
+          "source": "preset"
+        },
+        "hip_inclination": {
+          "source": "preset"
+        }
+      }
     },
     {
       "schema_version": "1.0.0",
@@ -35,24 +110,99 @@
       "status": "ready",
       "normalized_unit": "mm",
       "values": {
-        "height": {"value": 1680, "unit": "mm", "source": "preset"},
-        "bust": {"value": 920, "unit": "mm", "source": "preset"},
-        "waist": {"value": 740, "unit": "mm", "source": "preset"},
-        "hips": {"value": 1000, "unit": "mm", "source": "preset"},
-        "back_bust_arc": {"value": 440, "unit": "mm", "source": "preset"},
-        "back_waist_arc": {"value": 360, "unit": "mm", "source": "preset"},
-        "back_hip_arc": {"value": 520, "unit": "mm", "source": "preset"},
-        "shoulder_span": {"value": 380, "unit": "mm", "source": "preset"},
-        "back_neck_to_waist": {"value": 410, "unit": "mm", "source": "preset"},
-        "front_neck_to_waist_over_bust": {"value": 460, "unit": "mm", "source": "preset"},
-        "bust_path_height": {"value": 260, "unit": "mm", "source": "preset"},
-        "bust_vertical_height": {"value": 230, "unit": "mm", "source": "preset"},
-        "bust_span": {"value": 200, "unit": "mm", "source": "preset"},
-        "hip_depth": {"value": 200, "unit": "mm", "source": "preset"},
-        "armscye_depth": {"value": 190, "unit": "mm", "source": "preset"}
+        "height": {
+          "value": 1680,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "bust": {
+          "value": 920,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "waist": {
+          "value": 740,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "hips": {
+          "value": 1000,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "back_bust_arc": {
+          "value": 440,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "back_waist_arc": {
+          "value": 360,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "back_hip_arc": {
+          "value": 520,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "shoulder_span": {
+          "value": 380,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "back_neck_to_waist": {
+          "value": 410,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "front_neck_to_waist_over_bust": {
+          "value": 460,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "bust_path_height": {
+          "value": 260,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "bust_vertical_height": {
+          "value": 230,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "bust_span": {
+          "value": 200,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "hip_depth": {
+          "value": 200,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "armscye_depth": {
+          "value": 190,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "shoulder_length": {
+          "value": 130,
+          "unit": "mm",
+          "source": "preset"
+        }
       },
-      "angles_deg": {"shoulder_slope": 11.3, "hip_inclination": 11.4},
-      "angle_provenance": {"shoulder_slope": {"source": "preset"}, "hip_inclination": {"source": "preset"}}
+      "angles_deg": {
+        "shoulder_slope": 11.3,
+        "hip_inclination": 11.4
+      },
+      "angle_provenance": {
+        "shoulder_slope": {
+          "source": "preset"
+        },
+        "hip_inclination": {
+          "source": "preset"
+        }
+      }
     },
     {
       "schema_version": "1.0.0",
@@ -61,24 +211,99 @@
       "status": "ready",
       "normalized_unit": "mm",
       "values": {
-        "height": {"value": 1820, "unit": "mm", "source": "preset"},
-        "bust": {"value": 960, "unit": "mm", "source": "preset"},
-        "waist": {"value": 780, "unit": "mm", "source": "preset"},
-        "hips": {"value": 1040, "unit": "mm", "source": "preset"},
-        "back_bust_arc": {"value": 460, "unit": "mm", "source": "preset"},
-        "back_waist_arc": {"value": 380, "unit": "mm", "source": "preset"},
-        "back_hip_arc": {"value": 540, "unit": "mm", "source": "preset"},
-        "shoulder_span": {"value": 410, "unit": "mm", "source": "preset"},
-        "back_neck_to_waist": {"value": 450, "unit": "mm", "source": "preset"},
-        "front_neck_to_waist_over_bust": {"value": 500, "unit": "mm", "source": "preset"},
-        "bust_path_height": {"value": 285, "unit": "mm", "source": "preset"},
-        "bust_vertical_height": {"value": 250, "unit": "mm", "source": "preset"},
-        "bust_span": {"value": 210, "unit": "mm", "source": "preset"},
-        "hip_depth": {"value": 230, "unit": "mm", "source": "preset"},
-        "armscye_depth": {"value": 220, "unit": "mm", "source": "preset"}
+        "height": {
+          "value": 1820,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "bust": {
+          "value": 960,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "waist": {
+          "value": 780,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "hips": {
+          "value": 1040,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "back_bust_arc": {
+          "value": 460,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "back_waist_arc": {
+          "value": 380,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "back_hip_arc": {
+          "value": 540,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "shoulder_span": {
+          "value": 410,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "back_neck_to_waist": {
+          "value": 450,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "front_neck_to_waist_over_bust": {
+          "value": 500,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "bust_path_height": {
+          "value": 285,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "bust_vertical_height": {
+          "value": 250,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "bust_span": {
+          "value": 210,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "hip_depth": {
+          "value": 230,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "armscye_depth": {
+          "value": 220,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "shoulder_length": {
+          "value": 140,
+          "unit": "mm",
+          "source": "preset"
+        }
       },
-      "angles_deg": {"shoulder_slope": 12, "hip_inclination": 12},
-      "angle_provenance": {"shoulder_slope": {"source": "preset"}, "hip_inclination": {"source": "preset"}}
+      "angles_deg": {
+        "shoulder_slope": 12,
+        "hip_inclination": 12
+      },
+      "angle_provenance": {
+        "shoulder_slope": {
+          "source": "preset"
+        },
+        "hip_inclination": {
+          "source": "preset"
+        }
+      }
     },
     {
       "schema_version": "1.0.0",
@@ -87,24 +312,99 @@
       "status": "ready",
       "normalized_unit": "mm",
       "values": {
-        "height": {"value": 1700, "unit": "mm", "source": "preset"},
-        "bust": {"value": 1400, "unit": "mm", "source": "preset"},
-        "waist": {"value": 1250, "unit": "mm", "source": "preset"},
-        "hips": {"value": 1500, "unit": "mm", "source": "preset"},
-        "back_bust_arc": {"value": 690, "unit": "mm", "source": "preset"},
-        "back_waist_arc": {"value": 620, "unit": "mm", "source": "preset"},
-        "back_hip_arc": {"value": 780, "unit": "mm", "source": "preset"},
-        "shoulder_span": {"value": 500, "unit": "mm", "source": "preset"},
-        "back_neck_to_waist": {"value": 500, "unit": "mm", "source": "preset"},
-        "front_neck_to_waist_over_bust": {"value": 620, "unit": "mm", "source": "preset"},
-        "bust_path_height": {"value": 360, "unit": "mm", "source": "preset"},
-        "bust_vertical_height": {"value": 310, "unit": "mm", "source": "preset"},
-        "bust_span": {"value": 290, "unit": "mm", "source": "preset"},
-        "hip_depth": {"value": 270, "unit": "mm", "source": "preset"},
-        "armscye_depth": {"value": 300, "unit": "mm", "source": "preset"}
+        "height": {
+          "value": 1700,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "bust": {
+          "value": 1400,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "waist": {
+          "value": 1250,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "hips": {
+          "value": 1500,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "back_bust_arc": {
+          "value": 690,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "back_waist_arc": {
+          "value": 620,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "back_hip_arc": {
+          "value": 780,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "shoulder_span": {
+          "value": 500,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "back_neck_to_waist": {
+          "value": 500,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "front_neck_to_waist_over_bust": {
+          "value": 620,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "bust_path_height": {
+          "value": 360,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "bust_vertical_height": {
+          "value": 310,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "bust_span": {
+          "value": 290,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "hip_depth": {
+          "value": 270,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "armscye_depth": {
+          "value": 300,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "shoulder_length": {
+          "value": 160,
+          "unit": "mm",
+          "source": "preset"
+        }
       },
-      "angles_deg": {"shoulder_slope": 16, "hip_inclination": 15},
-      "angle_provenance": {"shoulder_slope": {"source": "preset"}, "hip_inclination": {"source": "preset"}}
+      "angles_deg": {
+        "shoulder_slope": 16,
+        "hip_inclination": 15
+      },
+      "angle_provenance": {
+        "shoulder_slope": {
+          "source": "preset"
+        },
+        "hip_inclination": {
+          "source": "preset"
+        }
+      }
     },
     {
       "schema_version": "1.0.0",
@@ -113,24 +413,99 @@
       "status": "ready",
       "normalized_unit": "mm",
       "values": {
-        "height": {"value": 2100, "unit": "mm", "source": "preset"},
-        "bust": {"value": 1800, "unit": "mm", "source": "preset"},
-        "waist": {"value": 1700, "unit": "mm", "source": "preset"},
-        "hips": {"value": 1900, "unit": "mm", "source": "preset"},
-        "back_bust_arc": {"value": 1100, "unit": "mm", "source": "preset"},
-        "back_waist_arc": {"value": 850, "unit": "mm", "source": "preset"},
-        "back_hip_arc": {"value": 1000, "unit": "mm", "source": "preset"},
-        "shoulder_span": {"value": 650, "unit": "mm", "source": "preset"},
-        "back_neck_to_waist": {"value": 650, "unit": "mm", "source": "preset"},
-        "front_neck_to_waist_over_bust": {"value": 750, "unit": "mm", "source": "preset"},
-        "bust_path_height": {"value": 450, "unit": "mm", "source": "preset"},
-        "bust_vertical_height": {"value": 400, "unit": "mm", "source": "preset"},
-        "bust_span": {"value": 350, "unit": "mm", "source": "preset"},
-        "hip_depth": {"value": 400, "unit": "mm", "source": "preset"},
-        "armscye_depth": {"value": 400, "unit": "mm", "source": "preset"}
+        "height": {
+          "value": 2100,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "bust": {
+          "value": 1800,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "waist": {
+          "value": 1700,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "hips": {
+          "value": 1900,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "back_bust_arc": {
+          "value": 1100,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "back_waist_arc": {
+          "value": 850,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "back_hip_arc": {
+          "value": 1000,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "shoulder_span": {
+          "value": 650,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "back_neck_to_waist": {
+          "value": 650,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "front_neck_to_waist_over_bust": {
+          "value": 750,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "bust_path_height": {
+          "value": 450,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "bust_vertical_height": {
+          "value": 400,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "bust_span": {
+          "value": 350,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "hip_depth": {
+          "value": 400,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "armscye_depth": {
+          "value": 400,
+          "unit": "mm",
+          "source": "preset"
+        },
+        "shoulder_length": {
+          "value": 200,
+          "unit": "mm",
+          "source": "preset"
+        }
       },
-      "angles_deg": {"shoulder_slope": 40, "hip_inclination": 40},
-      "angle_provenance": {"shoulder_slope": {"source": "preset"}, "hip_inclination": {"source": "preset"}}
+      "angles_deg": {
+        "shoulder_slope": 40,
+        "hip_inclination": 40
+      },
+      "angle_provenance": {
+        "shoulder_slope": {
+          "source": "preset"
+        },
+        "hip_inclination": {
+          "source": "preset"
+        }
+      }
     }
   ]
 }

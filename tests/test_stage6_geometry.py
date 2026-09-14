@@ -447,7 +447,9 @@ def test_core_diagnostic_and_engine_boundary_are_deterministic():
     assert first["status"] == "rejected"
     assert first["pattern"] is None
     assert first["validation_report"]["checks"][0]["status"] == "passed"
-    assert first["validation_report"]["issues"][0]["code"] == "BASE_BLOCKS_STAGE_NOT_READY"
+    assert "GARMENT_ASSEMBLY_STAGE_NOT_READY" in {
+        issue["code"] for issue in first["validation_report"]["issues"]
+    }
 
 
 def test_stage6_runtime_bootstrap_is_the_latest_layer():
@@ -456,7 +458,7 @@ def test_stage6_runtime_bootstrap_is_the_latest_layer():
     requirements = (ROOT / "requirements-stage6.txt").read_text(encoding="utf-8")
     assert 'ROOT / "requirements-stage5.txt"' in launcher
     assert '"requirements-stage6.txt"' in launcher
-    assert '"-r", str(ROOT / "requirements-stage6.txt")' in launcher
+    assert '"-r", str(ROOT / "requirements-stage7.txt")' in launcher
     assert "requirements-stage6.txt" in dockerfile
     assert "-r requirements-stage6.txt" in dockerfile
     assert "-r requirements-stage5.txt" in requirements

@@ -13,7 +13,7 @@ describe('accessible stage flow', () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       const body = url.includes('/health/')
-        ? {status: 'ok', service: 'kroika-backend', version: '0.6.0', database: 'ok', ai_provider: 'mock', pattern_engine: 'kroika-geometry:0.2.0'}
+        ? {status: 'ok', service: 'kroika-backend', version: '0.7.0', database: 'ok', ai_provider: 'mock', pattern_engine: 'kroika-geometry:0.3.0'}
         : {items: []};
       return new Response(JSON.stringify(body), {status: 200, headers: {'Content-Type': 'application/json'}});
     }));
@@ -35,7 +35,7 @@ describe('accessible stage flow', () => {
   it('lets a keyboard user edit the project name', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const body = String(input).includes('/health/')
-        ? {status: 'ok', service: 'kroika-backend', version: '0.6.0', database: 'ok', ai_provider: 'mock', pattern_engine: 'kroika-geometry:0.2.0'}
+        ? {status: 'ok', service: 'kroika-backend', version: '0.7.0', database: 'ok', ai_provider: 'mock', pattern_engine: 'kroika-geometry:0.3.0'}
         : {items: []};
       return new Response(JSON.stringify(body), {status: 200, headers: {'Content-Type': 'application/json'}});
     }));

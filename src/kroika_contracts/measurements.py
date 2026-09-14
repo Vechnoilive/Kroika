@@ -89,7 +89,7 @@ MEASUREMENTS: tuple[MeasurementDefinition, ...] = (
             "shoulder", UPPER, ("dress", "sundress")),
     _linear("shoulder_length", "Длина плеча", "Плечо и баланс", 80, 220,
             "От основания шеи проведите ленту до плечевой точки по середине плеча.",
-            "shoulder", UPPER),
+            "shoulder", UPPER, ("dress", "sundress")),
     _linear("back_neck_to_waist", "Длина спины до талии", "Длины корпуса", 300, 650,
             "От седьмого шейного позвонка измерьте по позвоночнику до установочной ленты талии.",
             "back-length", UPPER, ("dress", "sundress")),

@@ -1,0 +1,44 @@
+{
+  "version": "0.1.0",
+  "unit": "mm",
+  "source": "Independent hand substitution into the pinned F01-F41 equations; not a patternmaker approval.",
+  "expert_reviewed": false,
+  "cases": [
+    {
+      "id": "S",
+      "shoulder_length": 120,
+      "expected_mm": {
+        "front_bodice_raw_waist": 201.66666666666666,
+        "back_bodice_raw_waist": 200,
+        "front_skirt_raw_waist": 201,
+        "back_skirt_raw_waist": 220.05,
+        "front_underarm_height": 207,
+        "back_underarm_height": 171
+      }
+    },
+    {
+      "id": "M",
+      "shoulder_length": 130,
+      "expected_mm": {
+        "front_bodice_raw_waist": 223.33333333333334,
+        "back_bodice_raw_waist": 213.33333333333334,
+        "front_skirt_raw_waist": 220,
+        "back_skirt_raw_waist": 239,
+        "front_underarm_height": 235,
+        "back_underarm_height": 189
+      }
+    },
+    {
+      "id": "L",
+      "shoulder_length": 140,
+      "expected_mm": {
+        "front_bodice_raw_waist": 250,
+        "back_bodice_raw_waist": 241.66666666666666,
+        "front_skirt_raw_waist": 248,
+        "back_skirt_raw_waist": 266.9,
+        "front_underarm_height": 251,
+        "back_underarm_height": 195
+      }
+    }
+  ]
+}

@@ -191,7 +191,7 @@ export default function App() {
         </aside>
 
         <section className="content">
-          <div className="stage-badge">Геометрическое ядро · этап 6 из 15</div>
+          <div className="stage-badge">Базовые блоки · этап 7 из 15</div>
           {!project ? (
             <>
               <div className="intro">
@@ -260,7 +260,7 @@ export default function App() {
                   <div className="action-card__icon" aria-hidden="true">02</div>
                   <div className="action-card__body">
                     <h2>Проверим анализ эскиза</h2>
-                    <p>На этапе 5 настоящий Qwen ещё не подключён. Нажмите кнопку — mock покажет безопасный пример ответа.</p>
+                    <p>Настоящий Qwen подключим на этапе 10. Сейчас mock безопасно показывает последовательность работы без передачи фотографии.</p>
                     <div className="mock-preview" aria-hidden="true">
                       <svg viewBox="0 0 240 250" role="img">
                         <path d="M92 23c8 12 48 12 56 0l23 23-19 30-7-8 15 155H80L95 68l-7 8-19-30 23-23Z" />
