@@ -221,25 +221,26 @@ def test_one_piece_sleeve_cap_is_solved_to_the_built_armhole_length():
     )
 
 
-def test_engine_executes_blocks_but_keeps_stage8_and_production_closed():
+def test_engine_reuses_validated_blocks_inside_stage8_assembly():
     request = request_for_case(CASES[1])
     fixed = datetime(2026, 9, 14, 12, 0, tzinfo=timezone.utc)
     result = GeometryPatternEngine(clock=lambda: fixed).generate(request)
     validate_document("pattern-engine-result", result)
-    assert result["engine_version"] == "0.3.0"
-    assert result["status"] == "rejected"
-    assert result["pattern"] is None
+    assert result["engine_version"] == "0.4.0"
+    assert result["status"] == "succeeded"
+    assert result["pattern"] is not None
     report = result["validation_report"]
     assert report["production_export_allowed"] is False
     assert {item["code"] for item in report["issues"]} == {
         "EXPERT_BLOCK_REVIEW_REQUIRED",
-        "GARMENT_ASSEMBLY_STAGE_NOT_READY",
+        "SEAM_TRUEING_REVIEW_REQUIRED",
+        "CUTTING_CONTOUR_NOT_AVAILABLE",
     }
     by_id = {item["id"]: item for item in report["checks"]}
     assert by_id["engine.pattern_blocks.formulas"]["status"] == "passed"
     assert by_id["engine.pattern_blocks.geometry"]["status"] == "passed"
     assert by_id["engine.pattern_blocks.controls"]["measured_value"] <= 0.001
-    assert by_id["engine.garment_assembly"]["status"] == "not_run"
+    assert by_id["engine.garment_assembly"]["status"] == "passed"
 
 
 def test_stage7_is_latest_bootstrap_and_documented_layer():
