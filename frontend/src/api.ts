@@ -8,6 +8,8 @@ import type {
   ProjectDocument,
   ProjectList,
   PatternEngineResult,
+  PatternLayer,
+  ProjectHistoryEntry,
   Readiness,
   StyleAnalysis,
   VisionProviderId,
@@ -126,6 +128,15 @@ export const api = {
       headers: {'If-Match': String(project.revision)},
       body: JSON.stringify(project),
     }),
+  projectHistory: (projectId: string) =>
+    request<{items: ProjectHistoryEntry[]}>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/history`,
+    ),
+  restoreProjectRevision: (project: ProjectDocument, revision: number) =>
+    request<ProjectDocument>(
+      `/api/v1/projects/${encodeURIComponent(project.project_id)}/history/${revision}/restore`,
+      {method: 'POST', headers: {'If-Match': String(project.revision)}},
+    ),
   measurementCatalog: (garmentType: string, sleeveType: string) =>
     request<MeasurementCatalog>(
       `/api/v1/measurements/catalog?garment_type=${encodeURIComponent(garmentType)}&sleeve_type=${encodeURIComponent(sleeveType)}`,
@@ -155,10 +166,14 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(await buildEngineRequest(project)),
     }),
-  patternPreviewUrl: (generationId: string) =>
-    `/api/v1/patterns/${encodeURIComponent(generationId)}/preview.svg`,
+  patternPreviewUrl: (generationId: string, layers?: PatternLayer[]) => {
+    const path = `/api/v1/patterns/${encodeURIComponent(generationId)}/preview.svg`;
+    return layers ? `${path}?layers=${encodeURIComponent(layers.join(','))}` : path;
+  },
   printSvgUrl: (generationId: string) =>
     `/api/v1/patterns/${encodeURIComponent(generationId)}/export/print.svg`,
+  projectJsonUrl: (generationId: string) =>
+    `/api/v1/patterns/${encodeURIComponent(generationId)}/export/project-json`,
   downloadA4Pdf: (generationId: string) =>
     requestBlob(`/api/v1/patterns/${encodeURIComponent(generationId)}/export/a4-pdf`, {
       method: 'POST',

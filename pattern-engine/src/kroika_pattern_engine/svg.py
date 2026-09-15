@@ -1,9 +1,10 @@
-"""Safe deterministic stage-9 SVG with seam, cutting and print reference marks."""
+"""Safe deterministic SVG with selectable preview layers and complete print output."""
 
 from __future__ import annotations
 
 from html import escape
 import math
+from collections.abc import Collection
 from typing import Any, Mapping
 
 from .geometry import curve_from_data, curve_points
@@ -12,6 +13,11 @@ from .print_layout import PlacedPiece, layout_pattern, notch_geometry
 
 class SVGRenderError(ValueError):
     pass
+
+
+SVG_PREVIEW_LAYERS = frozenset({
+    "cutting", "seam", "internal", "fold", "grain", "notches", "labels", "dimensions",
+})
 
 
 def _number(value: object, name: str) -> float:
@@ -61,8 +67,15 @@ def _fold_paths(placed: PlacedPiece, shift_y: float) -> list[str]:
     ]
 
 
-def render_pattern_svg(pattern: Mapping[str, Any]) -> str:
+def render_pattern_svg(
+    pattern: Mapping[str, Any], visible_layers: Collection[str] | None = None,
+) -> str:
     """Render a printable 1:1 unified SVG without scripts or external resources."""
+
+    layers = SVG_PREVIEW_LAYERS if visible_layers is None else frozenset(visible_layers)
+    unknown = layers - SVG_PREVIEW_LAYERS
+    if unknown:
+        raise SVGRenderError(f"Неизвестные слои SVG: {', '.join(sorted(unknown))}.")
 
     try:
         layout = layout_pattern(pattern)
@@ -79,7 +92,7 @@ def render_pattern_svg(pattern: Mapping[str, Any]) -> str:
         "<desc>Экспериментальная выкройка. Проверьте квадрат 50 на 50 мм и изготовьте макет до раскроя ткани.</desc>",
         "<metadata>unit=mm; scale=1:1; export=diagnostic; production-ready=false</metadata>",
         '<defs><marker id="grain-arrow" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#604a70"/></marker></defs>',
-        "<style>.sheet{fill:#fff}.cutting{fill:#fffaf4;stroke:#17141a;stroke-width:1;vector-effect:non-scaling-stroke}.seam{fill:none;stroke:#b84539;stroke-width:.65;stroke-dasharray:5 3;vector-effect:non-scaling-stroke}.internal{fill:none;stroke:#806378;stroke-width:.55;stroke-dasharray:4 3;vector-effect:non-scaling-stroke}.grain{stroke:#604a70;stroke-width:.7;stroke-dasharray:8 3;marker-end:url(#grain-arrow);vector-effect:non-scaling-stroke}.notch{stroke:#17141a;stroke-width:1.2;vector-effect:non-scaling-stroke}.fold{fill:none;stroke:#17746f;stroke-width:1.5;stroke-dasharray:10 3 2 3;vector-effect:non-scaling-stroke}.label{font:700 7px sans-serif;fill:#17141a}.meta{font:5px sans-serif;fill:#5f5762}.title{font:700 9px sans-serif;fill:#17141a}.warning{font:700 6px sans-serif;fill:#a43e34}.calibration{fill:none;stroke:#17141a;stroke-width:.45}.legend{font:5.5px sans-serif;fill:#302b32}.watermark{font:700 18px sans-serif;fill:#b84539;opacity:.08}</style>",
+        "<style>.sheet{fill:#fff}.cutting{fill:#fffaf4;stroke:#17141a;stroke-width:1;vector-effect:non-scaling-stroke}.seam{fill:none;stroke:#b84539;stroke-width:.65;stroke-dasharray:5 3;vector-effect:non-scaling-stroke}.internal{fill:none;stroke:#806378;stroke-width:.55;stroke-dasharray:4 3;vector-effect:non-scaling-stroke}.grain{stroke:#604a70;stroke-width:.7;stroke-dasharray:8 3;marker-end:url(#grain-arrow);vector-effect:non-scaling-stroke}.notch{stroke:#17141a;stroke-width:1.2;vector-effect:non-scaling-stroke}.fold{fill:none;stroke:#17746f;stroke-width:1.5;stroke-dasharray:10 3 2 3;vector-effect:non-scaling-stroke}.label{font:700 7px sans-serif;fill:#17141a}.meta{font:5px sans-serif;fill:#5f5762}.dimension{font:4.5px sans-serif;fill:#6b587f}.title{font:700 9px sans-serif;fill:#17141a}.warning{font:700 6px sans-serif;fill:#a43e34}.calibration{fill:none;stroke:#17141a;stroke-width:.45}.legend{font:5.5px sans-serif;fill:#302b32}.watermark{font:700 18px sans-serif;fill:#b84539;opacity:.08}</style>",
         f'<rect class="sheet" width="{_fmt(canvas_width)}" height="{_fmt(canvas_height)}"/>',
         '<text class="title" x="18" y="13">Kroika · печатный SVG 1:1</text>',
         f'<text class="legend" x="18" y="20">{escape(mode)} · единицы: мм</text>',
@@ -100,25 +113,34 @@ def render_pattern_svg(pattern: Mapping[str, Any]) -> str:
         center_y = header_height + placed.offset_y_mm + placed.height_mm / 2
         fragments.append(f'<g id="piece-{escape(str(piece["id"]))}">')
         cutting = piece.get("cutting_contour")
-        if cutting:
-            fragments.append(f'<path class="cutting" d="{_path_data(cutting, placed, header_height)}"/>')
-        fragments.append(f'<path class="seam" d="{_path_data(piece["seam_contour"], placed, header_height)}"/>')
-        for path in piece.get("internal_paths", ()):
-            fragments.append(f'<path class="internal" d="{_path_data(path, placed, header_height)}"/>')
-        for fold_path in _fold_paths(placed, header_height):
-            fragments.append(f'<path class="fold" d="{fold_path}"/>')
-        grain_start = _point(placed, piece["grainline"]["start"], header_height)
-        grain_end = _point(placed, piece["grainline"]["end"], header_height)
-        fragments.append(f'<line class="grain" x1="{_fmt(grain_start[0])}" y1="{_fmt(grain_start[1])}" x2="{_fmt(grain_end[0])}" y2="{_fmt(grain_end[1])}"/>')
-        for notch in piece.get("notches", ()):
-            notch_line = notch_geometry(placed, notch)
-            if notch_line:
-                (x1, y1), (x2, y2) = notch_line
-                fragments.append(f'<line class="notch" data-match="{escape(str(notch["match_id"]))}" x1="{_fmt(x1)}" y1="{_fmt(y1 + header_height)}" x2="{_fmt(x2)}" y2="{_fmt(y2 + header_height)}"/>')
+        if cutting and "cutting" in layers:
+            fragments.append(f'<path class="cutting" data-layer="cutting" d="{_path_data(cutting, placed, header_height)}"/>')
+        if "seam" in layers:
+            fragments.append(f'<path class="seam" data-layer="seam" d="{_path_data(piece["seam_contour"], placed, header_height)}"/>')
+        if "internal" in layers:
+            for path in piece.get("internal_paths", ()):
+                fragments.append(f'<path class="internal" data-layer="internal" d="{_path_data(path, placed, header_height)}"/>')
+        if "fold" in layers:
+            for fold_path in _fold_paths(placed, header_height):
+                fragments.append(f'<path class="fold" data-layer="fold" d="{fold_path}"/>')
+        if "grain" in layers:
+            grain_start = _point(placed, piece["grainline"]["start"], header_height)
+            grain_end = _point(placed, piece["grainline"]["end"], header_height)
+            fragments.append(f'<line class="grain" data-layer="grain" x1="{_fmt(grain_start[0])}" y1="{_fmt(grain_start[1])}" x2="{_fmt(grain_end[0])}" y2="{_fmt(grain_end[1])}"/>')
+        if "notches" in layers:
+            for notch in piece.get("notches", ()):
+                notch_line = notch_geometry(placed, notch)
+                if notch_line:
+                    (x1, y1), (x2, y2) = notch_line
+                    fragments.append(f'<line class="notch" data-layer="notches" data-match="{escape(str(notch["match_id"]))}" x1="{_fmt(x1)}" y1="{_fmt(y1 + header_height)}" x2="{_fmt(x2)}" y2="{_fmt(y2 + header_height)}"/>')
         fold_text = " · СГИБ" if piece["cut_on_fold"] else ""
         meta = f"Крой: {piece['cut_quantity']}{fold_text}"
-        fragments.append(f'<text class="label" text-anchor="middle" x="{_fmt(center_x)}" y="{_fmt(center_y)}">{name}</text>')
-        fragments.append(f'<text class="meta" text-anchor="middle" x="{_fmt(center_x)}" y="{_fmt(center_y + 8)}">{escape(meta)}</text>')
+        if "labels" in layers:
+            fragments.append(f'<text class="label" data-layer="labels" text-anchor="middle" x="{_fmt(center_x)}" y="{_fmt(center_y)}">{name}</text>')
+            fragments.append(f'<text class="meta" data-layer="labels" text-anchor="middle" x="{_fmt(center_x)}" y="{_fmt(center_y + 8)}">{escape(meta)}</text>')
+        if "dimensions" in layers:
+            dimensions = f"{_fmt(placed.width_mm)} × {_fmt(placed.height_mm)} мм"
+            fragments.append(f'<text class="dimension" data-layer="dimensions" text-anchor="middle" x="{_fmt(center_x)}" y="{_fmt(center_y + 16)}">{dimensions}</text>')
         fragments.append("</g>")
     fragments.append("</svg>")
     return "".join(fragments)

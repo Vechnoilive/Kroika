@@ -1,4 +1,4 @@
-"""FastAPI composition root for the stage-10 modular monolith."""
+"""FastAPI composition root for the stage-11 versioned workflow."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from time import perf_counter
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
-from fastapi import Body, FastAPI, Header, Request
+from fastapi import Body, FastAPI, Header, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
@@ -23,6 +23,7 @@ from kroika_pattern_engine import (
     PDFRenderError,
     render_pattern_pdf,
     render_pattern_svg,
+    SVG_PREVIEW_LAYERS,
 )
 
 from .config import Settings
@@ -38,13 +39,14 @@ from .models import (
     MeasurementProfileRecord,
     MeasurementProfileSummary,
     ProjectListResponse,
+    ProjectHistoryResponse,
     ProjectSummary,
     ReadinessResponse,
 )
 from .repository import SQLiteRepository
 from .vision_providers import ProviderRegistry, build_provider_registry
 
-APP_VERSION = "0.10.0"
+APP_VERSION = "0.11.0"
 
 
 def _project_or_404(repository: SQLiteRepository, project_id: str) -> dict[str, Any]:
@@ -76,7 +78,9 @@ def create_app(
     if ai_provider is not None:
         overridden = dict(provider_registry.providers)
         overridden[ai_provider.provider_id] = ai_provider
-        provider_registry = ProviderRegistry(ai_provider.provider_id, overridden)
+        provider_registry = ProviderRegistry(
+            ai_provider.provider_id, overridden, provider_registry.enabled_for_users
+        )
     active_provider = provider_registry.get()
     pattern_engine = pattern_engine or GeometryPatternEngine()
     logger = configure_logging(settings.log_level)
@@ -169,6 +173,23 @@ def create_app(
         if_match: int = Header(..., alias="If-Match", ge=1),
     ) -> dict[str, Any]:
         return repository.replace_project(str(project_id), if_match, project)
+
+    @app.get(
+        "/api/v1/projects/{project_id}/history",
+        response_model=ProjectHistoryResponse,
+        tags=["projects"],
+    )
+    def get_project_history(project_id: UUID) -> dict[str, Any]:
+        _project_or_404(repository, str(project_id))
+        return {"items": repository.list_project_history(str(project_id))}
+
+    @app.post("/api/v1/projects/{project_id}/history/{revision}/restore", tags=["projects"])
+    def restore_project_revision(
+        project_id: UUID,
+        revision: int,
+        if_match: int = Header(..., alias="If-Match", ge=1),
+    ) -> dict[str, Any]:
+        return repository.restore_project_revision(str(project_id), revision, if_match)
 
     @app.get("/api/v1/measurements/catalog", tags=["measurements"])
     def get_measurement_catalog(
@@ -292,7 +313,7 @@ def create_app(
             pattern_engine.engine_version,
         )
         if existing is not None:
-            return existing
+            return repository.activate_generation(existing)
         result = pattern_engine.generate(request_document)
         validate_document("pattern-engine-result", result)
         validate_validation_report(result["validation_report"])
@@ -309,14 +330,29 @@ def create_app(
         return _generation_or_404(repository, str(generation_id))["validation_report"]
 
     @app.get("/api/v1/patterns/{generation_id}/preview.svg", tags=["patterns"])
-    def get_preview(generation_id: UUID) -> Response:
+    def get_preview(
+        generation_id: UUID,
+        layers: str | None = Query(
+            default=None,
+            description="Слои через запятую: cutting,seam,internal,fold,grain,notches,labels,dimensions",
+        ),
+    ) -> Response:
         result = _generation_or_404(repository, str(generation_id))
         if result["pattern"] is None:
             raise AppError(
                 409, "PATTERN_NOT_AVAILABLE",
                 "Для отклонённого построения предпросмотр недоступен.",
             )
-        svg = render_pattern_svg(result["pattern"])
+        selected_layers = None
+        if layers is not None:
+            selected_layers = {item.strip() for item in layers.split(",") if item.strip()}
+            unknown = selected_layers - SVG_PREVIEW_LAYERS
+            if unknown:
+                raise AppError(
+                    422, "SVG_LAYER_UNKNOWN",
+                    f"Неизвестные слои: {', '.join(sorted(unknown))}.",
+                )
+        svg = render_pattern_svg(result["pattern"], selected_layers)
         return Response(
             content=svg,
             media_type="image/svg+xml",

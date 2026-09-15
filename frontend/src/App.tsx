@@ -2,24 +2,44 @@ import {FormEvent, useEffect, useState} from 'react';
 import {api, ApiError} from './api';
 import {makeDemoProject} from './demoProject';
 import {MeasurementWizard} from './MeasurementWizard';
+import {ConstructionEditor, ProjectHistory, StyleEditor} from './ProjectWorkflow';
 import {VisionAnalyzer} from './VisionAnalyzer';
-import type {BodyMeasurements} from './types';
-import type {PatternEngineResult, ProjectDocument, ProjectSummary, StyleAnalysis} from './types';
+import type {
+  BodyMeasurements,
+  PatternEngineResult,
+  PatternLayer,
+  ProjectDocument,
+  ProjectSummary,
+  StyleAnalysis,
+  VisionProviderId,
+} from './types';
 
 const LAST_PROJECT_KEY = 'kroika:last-project-id';
 
-const labels: Record<string, string> = {
-  dress: 'Платье',
-  semi_fitted: 'Полуприлегающий',
-  round: 'Круглая',
-  sleeveless: 'Без рукавов',
-  a_line: 'А-силуэт',
-  midi: 'Миди',
+const PROVIDER_NAMES: Record<VisionProviderId, string> = {
+  mock: 'Демо-режим',
+  qwen: 'Qwen',
+  gemini: 'Gemini',
 };
 
-function human(value: string): string {
-  return labels[value] ?? value;
-}
+const STATUS_NAMES: Record<string, string> = {
+  draft: 'Черновик',
+  inputs_confirmed: 'Входы подтверждены',
+  generated: 'Выкройка построена',
+  validation_failed: 'Нужна проверка',
+  ready_for_production_export: 'Готово к экспорту',
+};
+
+const LAYERS: Array<{id: PatternLayer; label: string}> = [
+  {id: 'cutting', label: 'Линия среза'},
+  {id: 'seam', label: 'Линия шва'},
+  {id: 'internal', label: 'Вытачки и внутренние'},
+  {id: 'fold', label: 'Сгибы'},
+  {id: 'grain', label: 'Долевая'},
+  {id: 'notches', label: 'Надсечки'},
+  {id: 'labels', label: 'Подписи'},
+  {id: 'dimensions', label: 'Размеры деталей'},
+];
 
 function Logo() {
   return <div className="brand-mark" aria-hidden="true"><span>K</span></div>;
@@ -52,14 +72,18 @@ function FriendlyError({error}: {error: ApiError}) {
 export function PatternResultCard({
   result,
   onRebuild,
+  onNewVersion,
   busy = false,
 }: {
   result: PatternEngineResult;
   onRebuild?: () => void;
+  onNewVersion?: () => void;
   busy?: boolean;
 }) {
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(100);
+  const [layers, setLayers] = useState<PatternLayer[]>(LAYERS.map((item) => item.id));
   const pattern = result.pattern;
   if (!pattern) return null;
   if (!pattern.print_layout) {
@@ -70,18 +94,10 @@ export function PatternResultCard({
           <div>
             <p className="eyebrow">Сохранённый результат</p>
             <h2 id="pattern-result-title">Выкройку нужно обновить для печати</h2>
-            <p>Это результат предыдущей версии. Мерки сохранены — приложение только заново построит линии среза.</p>
+            <p>Мерки сохранены. Приложение только заново построит линии среза.</p>
           </div>
         </div>
-        <div className="notice notice--warning">
-          <strong>Старый файл не отправляется на печать</strong>
-          <span>Перестройте выкройку, чтобы получить проверяемый SVG и PDF A4 1:1.</span>
-        </div>
-        {onRebuild && (
-          <button className="primary-button" onClick={onRebuild} disabled={busy}>
-            {busy ? 'Обновляем…' : 'Перестроить для печати'} <span aria-hidden="true">→</span>
-          </button>
-        )}
+        {onRebuild && <button className="primary-button" onClick={onRebuild} disabled={busy}>{busy ? 'Обновляем…' : 'Перестроить для печати'} <span aria-hidden="true">→</span></button>}
       </section>
     );
   }
@@ -100,12 +116,16 @@ export function PatternResultCard({
       anchor.remove();
       URL.revokeObjectURL(url);
     } catch (caught) {
-      setDownloadError(
-        caught instanceof ApiError ? caught.message : 'Не удалось скачать PDF. Попробуйте ещё раз.',
-      );
+      setDownloadError(caught instanceof ApiError ? caught.message : 'Не удалось скачать PDF.');
     } finally {
       setDownloading(false);
     }
+  }
+
+  function toggleLayer(layer: PatternLayer) {
+    setLayers((current) => current.includes(layer)
+      ? current.filter((item) => item !== layer)
+      : [...current, layer]);
   }
 
   return (
@@ -113,17 +133,36 @@ export function PatternResultCard({
       <div className="pattern-result__heading">
         <div className="success-mark" aria-hidden="true">✓</div>
         <div>
-          <p className="eyebrow">Шаг 5 · пробная печать</p>
-          <h2 id="pattern-result-title">Выкройка готова к проверке на бумаге</h2>
-          <p>Чёрная линия показывает срез, красный пунктир — шов. Припуски уже отличаются для низа, молнии, горловины, проймы и обычных швов.</p>
+          <p className="eyebrow">Шаг 7 · просмотр и пробная печать</p>
+          <h2 id="pattern-result-title">Выкройка готова к проверке</h2>
+          <p>Масштабируйте чертёж и оставьте только нужные слои. Скачиваемые SVG и PDF всегда содержат полный комплект.</p>
         </div>
+      </div>
+
+      <div className="preview-tools">
+        <fieldset>
+          <legend>Показывать на чертеже</legend>
+          {LAYERS.map((layer) => (
+            <label key={layer.id}>
+              <input type="checkbox" checked={layers.includes(layer.id)} onChange={() => toggleLayer(layer.id)} />
+              <span>{layer.label}</span>
+            </label>
+          ))}
+        </fieldset>
+        <label className="zoom-control" htmlFor="pattern-zoom">
+          <span>Масштаб просмотра: {zoom}%</span>
+          <input id="pattern-zoom" type="range" min="50" max="180" step="10" value={zoom} onChange={(event) => setZoom(Number(event.target.value))} />
+        </label>
       </div>
       <div className="preview-frame">
         <img
-          src={api.patternPreviewUrl(result.generation_id)}
-          alt="Предпросмотр деталей с линиями шва и среза, долевыми и контрольными метками"
+          key={layers.join(',')}
+          style={{width: `${zoom}%`}}
+          src={api.patternPreviewUrl(result.generation_id, layers)}
+          alt="Интерактивный предпросмотр деталей выкройки"
         />
       </div>
+
       <dl className="result-facts">
         <div><dt>Детали</dt><dd>{pattern.pieces.length}</dd></div>
         <div><dt>Пары швов</dt><dd>{pattern.seam_pairs.length}</dd></div>
@@ -131,38 +170,73 @@ export function PatternResultCard({
       </dl>
       <div className="notice notice--warning">
         <strong>Печатать можно для проверки — кроить ткань пока нельзя</strong>
-        <span>Сначала измерьте контрольный квадрат, соберите бумажные листы и изготовьте макет. Методика и посадка всё ещё имеют статус experimental.</span>
+        <span>Методика experimental: проверьте квадрат, соберите бумагу и изготовьте макет.</span>
       </div>
       <section className="print-guide" aria-labelledby="print-guide-title">
         <h3 id="print-guide-title">Как распечатать без ошибки</h3>
         <ol>
-          <li><span>1</span><p><strong>Выберите 100%</strong>В окне печати включите «Actual size / Реальный размер» и отключите подгонку.</p></li>
-          <li><span>2</span><p><strong>Проверьте 50 × 50 мм</strong>Сначала измерьте квадрат на странице с картой. Ошибка даже в 1 мм означает неверный масштаб.</p></li>
-          <li><span>3</span><p><strong>Соберите по меткам</strong>Совместите A1, B1 и следующие листы по крестам и области нахлёста {pattern.print_layout.overlap_mm} мм.</p></li>
+          <li><span>1</span><p><strong>Выберите 100%</strong>Отключите подгонку к странице.</p></li>
+          <li><span>2</span><p><strong>Проверьте 50 × 50 мм</strong>Измерьте квадрат линейкой.</p></li>
+          <li><span>3</span><p><strong>Соберите по меткам</strong>Нахлёст листов — {pattern.print_layout.overlap_mm} мм.</p></li>
         </ol>
       </section>
       {downloadError && <div className="inline-error" role="alert">{downloadError}</div>}
-      <div className="export-actions">
-        <a className="secondary-link" href={api.printSvgUrl(result.generation_id)} download>
-          Скачать единый SVG
-        </a>
-        <button className="primary-button" onClick={() => void downloadPdf()} disabled={downloading}>
-          {downloading ? 'Готовим листы…' : 'Скачать PDF A4 для проверки'} <span aria-hidden="true">↓</span>
-        </button>
+      <div className="export-actions export-actions--three">
+        <a className="secondary-link" href={api.printSvgUrl(result.generation_id)} download>Единый SVG</a>
+        <a className="secondary-link" href={api.projectJsonUrl(result.generation_id)} download>JSON проекта</a>
+        <button className="primary-button" onClick={() => void downloadPdf()} disabled={downloading}>{downloading ? 'Готовим…' : 'PDF A4 для проверки'} <span aria-hidden="true">↓</span></button>
       </div>
+      {onNewVersion && (
+        <button className="text-button new-version-button" type="button" onClick={onNewVersion} disabled={busy}>
+          Изменить параметры и создать новую версию
+        </button>
+      )}
     </section>
   );
+}
+
+function proposalFromAnalysis(project: ProjectDocument, analysis: StyleAnalysis): ProjectDocument['garment_spec'] {
+  const current = project.garment_spec;
+  const garmentType = analysis.garment_category === 'sundress' ? 'sundress' : 'dress';
+  const bodiceFit = analysis.silhouette.fit === 'fitted' ? 'fitted' : 'semi_fitted';
+  return {
+    ...current,
+    selection_status: 'proposed',
+    garment_type: garmentType,
+    parameters: {
+      ...current.parameters,
+      bodice_fit: bodiceFit,
+      neckline: {...current.parameters.neckline, type: 'round'},
+      sleeve: {type: 'sleeveless', length_mm: null},
+      skirt: {...current.parameters.skirt, type: 'a_line'},
+    },
+    unsupported_features: [],
+    confirmed_at: null,
+  };
 }
 
 export default function App() {
   const [connection, setConnection] = useState<'checking' | 'ready' | 'offline'>('checking');
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [project, setProject] = useState<ProjectDocument | null>(null);
-  const [analysis, setAnalysis] = useState<StyleAnalysis | null>(null);
-  const [analysisProvider, setAnalysisProvider] = useState('Демо-режим');
   const [projectName, setProjectName] = useState('Моё первое платье');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
+
+  function remember(updated: ProjectDocument) {
+    setProject(updated);
+    localStorage.setItem(LAST_PROJECT_KEY, updated.project_id);
+    setProjects((items) => {
+      const summary: ProjectSummary = {
+        project_id: updated.project_id,
+        name: updated.name,
+        revision: updated.revision,
+        status: updated.status,
+        updated_at: updated.updated_at,
+      };
+      return [summary, ...items.filter((item) => item.project_id !== updated.project_id)];
+    });
+  }
 
   useEffect(() => {
     let active = true;
@@ -176,7 +250,8 @@ export default function App() {
         const remembered = localStorage.getItem(LAST_PROJECT_KEY);
         if (remembered) {
           try {
-            setProject(await api.getProject(remembered));
+            const loaded = await api.getProject(remembered);
+            if (active) setProject(loaded);
           } catch {
             localStorage.removeItem(LAST_PROJECT_KEY);
           }
@@ -194,14 +269,9 @@ export default function App() {
     setBusy(true);
     setError(null);
     try {
-      const created = await api.createProject(makeDemoProject(projectName));
-      setProject(created);
-      setProjects((current) => [created, ...current]);
-      localStorage.setItem(LAST_PROJECT_KEY, created.project_id);
+      remember(await api.createProject(makeDemoProject(projectName)));
     } catch (caught) {
-      setError(caught instanceof ApiError
-        ? caught
-        : new ApiError('Не удалось создать проект.', 0, 'UNKNOWN_ERROR'));
+      setError(caught instanceof ApiError ? caught : new ApiError('Не удалось создать проект.', 0, 'UNKNOWN_ERROR'));
     } finally {
       setBusy(false);
     }
@@ -210,15 +280,10 @@ export default function App() {
   async function openProject(projectId: string) {
     setBusy(true);
     setError(null);
-    setAnalysis(null);
     try {
-      const loaded = await api.getProject(projectId);
-      setProject(loaded);
-      localStorage.setItem(LAST_PROJECT_KEY, loaded.project_id);
+      remember(await api.getProject(projectId));
     } catch (caught) {
-      setError(caught instanceof ApiError
-        ? caught
-        : new ApiError('Не удалось открыть проект.', 0, 'UNKNOWN_ERROR'));
+      setError(caught instanceof ApiError ? caught : new ApiError('Не удалось открыть проект.', 0, 'UNKNOWN_ERROR'));
     } finally {
       setBusy(false);
     }
@@ -226,231 +291,151 @@ export default function App() {
 
   function startAnother() {
     setProject(null);
-    setAnalysis(null);
     setError(null);
     localStorage.removeItem(LAST_PROJECT_KEY);
   }
 
-  async function saveMeasurements(profile: BodyMeasurements): Promise<ProjectDocument> {
-    if (!project) throw new ApiError('Сначала откройте проект.', 0, 'PROJECT_REQUIRED');
-    const updated = await api.replaceProject({...project, status: 'draft', body_measurements: profile});
-    setProject(updated);
-    setProjects((items) => items.map((item) => item.project_id === updated.project_id
-      ? {
-          project_id: updated.project_id,
-          name: updated.name,
-          revision: updated.revision,
-          status: updated.status,
-          updated_at: updated.updated_at,
-        }
-      : item));
+  async function saveProject(candidate: ProjectDocument): Promise<ProjectDocument> {
+    const updated = await api.replaceProject(candidate);
+    remember(updated);
     return updated;
   }
 
+  async function saveAnalysis(
+    analysis: StyleAnalysis,
+    details: {providerId: VisionProviderId; providerName: string; imageRefs: string[]},
+  ) {
+    if (!project) throw new ApiError('Сначала откройте проект.', 0, 'PROJECT_REQUIRED');
+    const external = details.providerId !== 'mock';
+    const candidate: ProjectDocument = {
+      ...project,
+      status: 'draft',
+      image_refs: details.imageRefs,
+      style_analysis_id: crypto.randomUUID(),
+      style_analysis_provider: details.providerId,
+      style_analysis: analysis,
+      garment_spec: proposalFromAnalysis(project, analysis),
+      privacy: {
+        ...project.privacy,
+        allow_external_ai: external,
+        consent_recorded_at: external ? new Date().toISOString() : null,
+      },
+      fit_settings: {...project.fit_settings, status: 'draft', confirmed_at: null},
+      fabric_properties: {...project.fabric_properties, status: 'draft', confirmed_at: null},
+    };
+    await saveProject(candidate);
+  }
+
+  async function saveMeasurements(profile: BodyMeasurements): Promise<ProjectDocument> {
+    if (!project) throw new ApiError('Сначала откройте проект.', 0, 'PROJECT_REQUIRED');
+    return saveProject({...project, status: 'draft', body_measurements: profile});
+  }
+
   async function generatePattern() {
-    if (!project || project.body_measurements.status !== 'ready') return;
+    if (!project
+        || project.body_measurements.status !== 'ready'
+        || project.garment_spec.selection_status !== 'confirmed'
+        || project.fit_settings.status !== 'confirmed'
+        || project.fabric_properties.status !== 'confirmed') return;
     setBusy(true);
     setError(null);
     try {
       const result = await api.generatePattern(project);
       if (result.status !== 'succeeded' || !result.pattern) {
         const firstIssue = result.validation_report.issues[0];
-        throw new ApiError(
-          firstIssue?.message_ru ?? 'Построение остановлено проверкой входных данных.',
-          422,
-          firstIssue?.code ?? 'PATTERN_REJECTED',
-          undefined,
-          result.validation_report.issues,
-        );
+        throw new ApiError(firstIssue?.message_ru ?? 'Построение остановлено проверкой входов.', 422, firstIssue?.code ?? 'PATTERN_REJECTED', undefined, result.validation_report.issues);
       }
-      const refreshed = await api.getProject(project.project_id);
-      setProject(refreshed);
-      setProjects((items) => items.map((item) => item.project_id === refreshed.project_id
-        ? {
-            project_id: refreshed.project_id,
-            name: refreshed.name,
-            revision: refreshed.revision,
-            status: refreshed.status,
-            updated_at: refreshed.updated_at,
-          }
-        : item));
+      remember(await api.getProject(project.project_id));
     } catch (caught) {
-      setError(caught instanceof ApiError
-        ? caught
-        : new ApiError('Не удалось построить выкройку.', 0, 'UNKNOWN_ERROR'));
+      setError(caught instanceof ApiError ? caught : new ApiError('Не удалось построить выкройку.', 0, 'UNKNOWN_ERROR'));
     } finally {
       setBusy(false);
     }
   }
 
+  async function startNewVersion() {
+    if (!project) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await saveProject({
+        ...project,
+        status: 'draft',
+        garment_spec: {...project.garment_spec, selection_status: 'proposed', confirmed_at: null},
+        fit_settings: {...project.fit_settings, status: 'draft', confirmed_at: null},
+        fabric_properties: {...project.fabric_properties, status: 'draft', confirmed_at: null},
+      });
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught : new ApiError('Не удалось начать новую версию.', 0, 'UNKNOWN_ERROR'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const analysis = project?.style_analysis ?? null;
+  const analysisProvider = project?.style_analysis_provider
+    ? PROVIDER_NAMES[project.style_analysis_provider]
+    : 'Анализ фасона';
   const activeStep = !project ? 1
-    : project.latest_generation?.status === 'succeeded' ? 5
     : !analysis ? 2
-    : project.body_measurements.status === 'ready' ? 4 : 3;
+    : project.garment_spec.selection_status !== 'confirmed' ? 3
+    : project.body_measurements.status !== 'ready' ? 4
+    : project.fit_settings.status !== 'confirmed' || project.fabric_properties.status !== 'confirmed' ? 5
+    : project.latest_generation?.status === 'succeeded' ? 7
+    : 6;
 
   return (
     <div className="app-shell">
       <header className="topbar">
-        <a className="brand" href="/" aria-label="Kroika — главная">
-          <Logo />
-          <span><strong>Kroika</strong><small>Выкройка шаг за шагом</small></span>
-        </a>
-        <div className={`connection connection--${connection}`} aria-live="polite">
-          <span aria-hidden="true" />
-          {connection === 'ready' && 'Работает локально'}
-          {connection === 'checking' && 'Проверяем запуск…'}
-          {connection === 'offline' && 'Нет связи с приложением'}
-        </div>
+        <a className="brand" href="/" aria-label="Kroika — главная"><Logo /><span><strong>Kroika</strong><small>Выкройка шаг за шагом</small></span></a>
+        <div className={`connection connection--${connection}`} aria-live="polite"><span aria-hidden="true" />{connection === 'ready' && 'Работает локально'}{connection === 'checking' && 'Проверяем запуск…'}{connection === 'offline' && 'Нет связи с приложением'}</div>
       </header>
 
       <main className="workspace">
         <aside className="journey" aria-label="Этапы создания выкройки">
           <p className="eyebrow">Ваш путь</p>
-          <h2>Пять понятных шагов</h2>
+          <h2>Семь понятных шагов</h2>
           <ol>
-            <Step number={1} title="Создать проект" state={activeStep > 1 ? 'done' : 'active'} />
-            <Step number={2} title="Добавить эскиз" state={activeStep > 2 ? 'done' : activeStep === 2 ? 'active' : 'locked'} />
-            <Step number={3} title="Ввести мерки" state={activeStep > 3 ? 'done' : activeStep === 3 ? 'active' : 'locked'} />
-            <Step number={4} title="Проверить фасон" state={activeStep > 4 ? 'done' : activeStep === 4 ? 'active' : 'locked'} />
-            <Step number={5} title="Получить выкройку" state={activeStep === 5 ? 'active' : 'locked'} />
+            {['Создать проект', 'Добавить эскиз', 'Подтвердить фасон', 'Ввести мерки', 'Ткань и прибавки', 'Построить', 'Проверить и скачать'].map((title, index) => {
+              const number = index + 1;
+              return <Step key={title} number={number} title={title} state={activeStep > number ? 'done' : activeStep === number ? 'active' : 'locked'} />;
+            })}
           </ol>
-          <div className="privacy-note">
-            <span aria-hidden="true">⌂</span>
-            <p><strong>Мерки остаются на компьютере</strong>Фото отправляется внешней модели только после отдельного согласия.</p>
-          </div>
+          <div className="privacy-note"><span aria-hidden="true">⌂</span><p><strong>Мерки остаются на компьютере</strong>Фото отправляется Qwen только после отдельного согласия.</p></div>
         </aside>
 
         <section className="content">
-          <div className="stage-badge">Qwen и Gemini · этап 10 из 15</div>
+          <div className="stage-badge">Qwen · полный сценарий · этап 11 из 15</div>
           {!project ? (
             <>
-              <div className="intro">
-                <p className="eyebrow">Начнём спокойно</p>
-                <h1>Создадим выкройку<br /><em>последовательно</em></h1>
-                <p>На каждом шаге приложение объяснит, что требуется. Ничего не будет рассчитано или отправлено без вашего подтверждения.</p>
-              </div>
-
-              {connection === 'offline' && (
-                <div className="notice notice--error" role="alert">
-                  <strong>Backend пока недоступен</strong>
-                  <span>Запустите приложение по инструкции и обновите страницу.</span>
-                </div>
-              )}
+              <div className="intro"><p className="eyebrow">Начнём спокойно</p><h1>Создадим выкройку<br /><em>последовательно</em></h1><p>Каждый шаг сохраняется. Никакие мерки не угадываются, а результат AI всегда подтверждает человек.</p></div>
+              {connection === 'offline' && <div className="notice notice--error" role="alert"><strong>Backend пока недоступен</strong><span>Запустите приложение по инструкции и обновите страницу.</span></div>}
               {error && <FriendlyError error={error} />}
-
               <form className="action-card" onSubmit={createProject}>
                 <div className="action-card__icon" aria-hidden="true">01</div>
-                <div className="action-card__body">
-                  <h2>Как назовём проект?</h2>
-                  <p>Название поможет найти работу позже. Его можно будет изменить.</p>
-                  <label htmlFor="project-name">Название проекта</label>
-                  <input
-                    id="project-name"
-                    value={projectName}
-                    onChange={(event) => setProjectName(event.target.value)}
-                    maxLength={120}
-                    autoComplete="off"
-                    disabled={busy || connection !== 'ready'}
-                  />
-                  <button className="primary-button" disabled={busy || connection !== 'ready'}>
-                    {busy ? 'Создаём…' : 'Создать проект'} <span aria-hidden="true">→</span>
-                  </button>
-                  <p className="demo-warning"><strong>Без автозаполнения:</strong> новый профиль мерок будет пустым. Все значения вводятся человеком.</p>
-                </div>
+                <div className="action-card__body"><h2>Как назовём проект?</h2><p>Название поможет найти работу позже.</p><label htmlFor="project-name">Название проекта</label><input id="project-name" value={projectName} onChange={(event) => setProjectName(event.target.value)} maxLength={120} autoComplete="off" disabled={busy || connection !== 'ready'} /><button className="primary-button" disabled={busy || connection !== 'ready'}>{busy ? 'Создаём…' : 'Создать проект'} <span aria-hidden="true">→</span></button><p className="demo-warning"><strong>Без автозаполнения мерок:</strong> все размеры вводит человек.</p></div>
               </form>
-
-              {projects.length > 0 && (
-                <div className="recent-projects">
-                  <h2>Недавние проекты</h2>
-                  <div className="project-list">
-                    {projects.slice(0, 4).map((item) => (
-                      <button key={item.project_id} onClick={() => void openProject(item.project_id)} disabled={busy}>
-                        <span><strong>{item.name}</strong><small>Черновик · версия {item.revision}</small></span>
-                        <span aria-hidden="true">→</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {projects.length > 0 && <div className="recent-projects"><h2>Недавние проекты</h2><div className="project-list">{projects.slice(0, 4).map((item) => <button key={item.project_id} onClick={() => void openProject(item.project_id)} disabled={busy}><span><strong>{item.name}</strong><small>{STATUS_NAMES[item.status] ?? item.status} · версия {item.revision}</small></span><span aria-hidden="true">→</span></button>)}</div></div>}
             </>
           ) : (
             <>
-              <div className="project-heading">
-                <div>
-                  <p className="eyebrow">Проект сохранён</p>
-                  <h1>{project.name}</h1>
-                  <p>Можно закрыть страницу: проект останется в локальном хранилище.</p>
-                </div>
-                <button className="text-button" onClick={startAnother}>Другой проект</button>
-              </div>
+              <div className="project-heading"><div><p className="eyebrow">{STATUS_NAMES[project.status]} · версия {project.revision}</p><h1>{project.name}</h1><p>Черновик сохраняется на каждом завершённом шаге.</p></div><button className="text-button" onClick={startAnother}>Другой проект</button></div>
               {error && <FriendlyError error={error} />}
 
-              {project.latest_generation?.status === 'succeeded' && project.latest_generation.pattern ? (
-                <PatternResultCard
-                  result={project.latest_generation}
-                  onRebuild={() => void generatePattern()}
-                  busy={busy}
-                />
-              ) : !analysis ? (
-                <VisionAnalyzer
-                  projectId={project.project_id}
-                  onComplete={(result, providerName) => {
-                    setAnalysisProvider(providerName);
-                    setAnalysis(result);
-                  }}
-                />
-              ) : (
-                <>
-                  <div className="analysis-card analysis-card--compact">
-                    <div className="success-mark" aria-hidden="true">✓</div>
-                    <div>
-                      <p className="eyebrow">{analysisProvider} · результат получен</p>
-                      <h2>Похоже на платье А-силуэта</h2>
-                      <p>Это предложение, а не окончательное решение. Перед построением все признаки нужно будет подтвердить.</p>
-                    </div>
-                    <dl className="feature-grid">
-                      <div><dt>Изделие</dt><dd>{human(analysis.garment_category)}</dd></div>
-                      <div><dt>Посадка</dt><dd>{human(analysis.silhouette.fit)}</dd></div>
-                      <div><dt>Горловина</dt><dd>{human(analysis.neckline.front)}</dd></div>
-                      <div><dt>Рукав</dt><dd>{human(analysis.sleeves.length)}</dd></div>
-                      <div><dt>Юбка</dt><dd>{human(analysis.lower_part.type)}</dd></div>
-                      <div><dt>Длина</dt><dd>{human(analysis.lower_part.length_category)}</dd></div>
-                    </dl>
-                    <div className="questions">
-                      <strong>Позже приложение уточнит:</strong>
-                      <ul>{analysis.targeted_questions.map((item) => <li key={item}>{item}</li>)}</ul>
-                    </div>
-                  </div>
-                  <MeasurementWizard project={project} onSaveProject={saveMeasurements} />
-                  {project.body_measurements.status === 'ready' && (
-                    <section className="generation-card" aria-labelledby="generation-title">
-                      <div className="action-card__icon" aria-hidden="true">04</div>
-                      <div>
-                        <p className="eyebrow">Последняя проверка</p>
-                        <h2 id="generation-title">Построить выкройку для пробной печати?</h2>
-                        <p>Будут созданы лиф, юбка, две обтачки, разные припуски, линии среза, контрольные метки и пары швов. Исходные мерки останутся без изменений.</p>
-                        <ul>
-                          <li>{project.garment_spec.garment_type === 'sundress' ? 'Сарафан' : 'Платье'} без рукавов</li>
-                          <li>Круглая горловина и А-силуэт</li>
-                          <li>Молния по центру спинки</li>
-                        </ul>
-                        <button className="primary-button" onClick={() => void generatePattern()} disabled={busy}>
-                          {busy ? 'Строим и проверяем…' : 'Построить линии шва и среза'} <span aria-hidden="true">→</span>
-                        </button>
-                        <p className="demo-warning"><strong>Пробный режим:</strong> PDF можно печатать на бумаге; раскрой ткани останется заблокирован.</p>
-                      </div>
-                    </section>
-                  )}
-                </>
+              {activeStep === 2 && <VisionAnalyzer projectId={project.project_id} onComplete={saveAnalysis} />}
+              {activeStep === 3 && analysis && <StyleEditor project={project} analysis={analysis as StyleAnalysis} providerName={analysisProvider} onSave={saveProject} />}
+              {activeStep === 4 && <MeasurementWizard key={`${project.project_id}-${project.garment_spec.confirmed_at}`} project={project} onSaveProject={saveMeasurements} />}
+              {activeStep === 5 && <ConstructionEditor project={project} onSave={saveProject} />}
+              {activeStep === 6 && (
+                <section className="generation-card" aria-labelledby="generation-title"><div className="action-card__icon" aria-hidden="true">06</div><div><p className="eyebrow">Все входы подтверждены</p><h2 id="generation-title">Построить выкройку?</h2><p>Формульный движок создаст детали из сохранённых мерок, фасона, ткани и прибавок, затем проверит геометрию.</p><ul><li>{project.garment_spec.garment_type === 'sundress' ? 'Сарафан' : 'Платье'} · {project.garment_spec.parameters.bodice_fit === 'fitted' ? 'прилегающий лиф' : 'полуприлегающий лиф'}</li><li>Длина юбки {project.garment_spec.parameters.skirt.length_from_waist_mm / 10} см</li><li>Стабильная тканая ткань · пробный статус</li></ul><button className="primary-button" onClick={() => void generatePattern()} disabled={busy}>{busy ? 'Строим и проверяем…' : 'Построить выкройку'} <span aria-hidden="true">→</span></button></div></section>
               )}
+              {activeStep === 7 && project.latest_generation && <PatternResultCard result={project.latest_generation} onRebuild={() => void generatePattern()} onNewVersion={() => void startNewVersion()} busy={busy} />}
+              <ProjectHistory project={project} onRestored={remember} />
             </>
           )}
         </section>
       </main>
-      <footer>
-        <span>Kroika · локальный прототип</span>
-        <span>Методика имеет статус experimental — не для производственного пошива</span>
-      </footer>
+      <footer><span>Kroika · локальный прототип</span><span>Методика experimental — перед раскроем обязателен макет</span></footer>
     </div>
   );
 }

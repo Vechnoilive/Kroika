@@ -4,7 +4,7 @@ from . import blocks, geometry
 from .assembly import GarmentAssembly, assemble_garment
 from .pdf import PDFRenderError, PDFRenderResult, render_pattern_pdf
 from .scaffold import GeometryPatternEngine, ScaffoldPatternEngine
-from .svg import SVGRenderError, render_pattern_svg
+from .svg import SVG_PREVIEW_LAYERS, SVGRenderError, render_pattern_svg
 
 __all__ = [
     "GarmentAssembly",
@@ -12,6 +12,7 @@ __all__ = [
     "PDFRenderError",
     "PDFRenderResult",
     "SVGRenderError",
+    "SVG_PREVIEW_LAYERS",
     "ScaffoldPatternEngine",
     "assemble_garment",
     "blocks",
