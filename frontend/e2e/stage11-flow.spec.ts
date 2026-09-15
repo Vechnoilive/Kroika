@@ -65,9 +65,19 @@ async function completeFlow(page: Page, provider: 'mock' | 'qwen') {
   await expect(page.getByRole('heading', {name: /подтвердите прибавки/i})).toBeVisible();
   await page.getByRole('button', {name: /подтвердить ткань и настройки/i}).click();
   await expect(page.getByRole('heading', {name: 'Построить выкройку?'})).toBeVisible();
+  const generationResponsePromise = page.waitForResponse(
+    (response) => response.url().includes('/api/v1/patterns/generate')
+      && response.request().method() === 'POST',
+    {timeout: 60_000},
+  );
   await page.getByRole('button', {name: 'Построить выкройку'}).click();
+  const generationResponse = await generationResponsePromise;
+  const generationBody = await generationResponse.text();
+  expect(generationResponse.status(), generationBody).toBe(200);
+  expect((JSON.parse(generationBody) as {status: string}).status, generationBody).toBe('succeeded');
 
-  await expect(page.getByRole('heading', {name: /выкройка готова к проверке/i})).toBeVisible();
+  await expect(page.getByRole('heading', {name: /выкройка готова к проверке/i}))
+    .toBeVisible({timeout: 30_000});
   await expect(page.getByRole('link', {name: 'Единый SVG'})).toBeVisible();
   await expect(page.getByRole('link', {name: 'JSON проекта'})).toBeVisible();
   await expect(page.getByRole('button', {name: /pdf a4/i})).toBeVisible();
