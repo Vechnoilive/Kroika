@@ -151,6 +151,12 @@ export interface PatternData {
   unit: 'mm';
   pieces: PatternPieceSummary[];
   seam_pairs: Array<{id: string}>;
+  print_layout?: {
+    page_format: 'A4';
+    overlap_mm: number;
+    scale: 1;
+    control_square_mm: 50;
+  };
 }
 
 export interface ValidationReport {

@@ -1,4 +1,4 @@
-"""FastAPI composition root for the stage-8 modular monolith."""
+"""FastAPI composition root for the stage-9 modular monolith."""
 
 from __future__ import annotations
 
@@ -18,7 +18,12 @@ from kroika_contracts.semantic import (
     validate_engine_request,
     validate_validation_report,
 )
-from kroika_pattern_engine import GeometryPatternEngine, render_pattern_svg
+from kroika_pattern_engine import (
+    GeometryPatternEngine,
+    PDFRenderError,
+    render_pattern_pdf,
+    render_pattern_svg,
+)
 
 from .config import Settings
 from .errors import AppError, install_exception_handlers
@@ -35,7 +40,7 @@ from .models import (
 )
 from .repository import SQLiteRepository
 
-APP_VERSION = "0.8.0"
+APP_VERSION = "0.9.0"
 
 
 def _project_or_404(repository: SQLiteRepository, project_id: str) -> dict[str, Any]:
@@ -69,7 +74,7 @@ def create_app(
     app = FastAPI(
         title="Kroika API",
         version=APP_VERSION,
-        description="Локальный API Kroika с профилями мерок и диагностическим SVG изделий.",
+        description="Локальный API Kroika с диагностическим экспортом SVG и PDF A4 1:1.",
         debug=settings.debug,
     )
     app.state.settings = settings
@@ -83,7 +88,13 @@ def create_app(
         allow_credentials=False,
         allow_methods=["GET", "POST", "PUT"],
         allow_headers=["Content-Type", "If-Match", "X-Request-ID"],
-        expose_headers=["X-Request-ID"],
+        expose_headers=[
+            "X-Request-ID",
+            "Content-Disposition",
+            "X-Kroika-Sheet-Count",
+            "X-Kroika-Export-Mode",
+            "X-Kroika-Production-Ready",
+        ],
     )
     install_exception_handlers(app)
 
@@ -237,7 +248,9 @@ def create_app(
         validate_engine_request(request_document)
         _project_or_404(repository, request_document["project_id"])
         existing = repository.get_generation_by_hash(
-            request_document["project_id"], request_document["input_hash"]
+            request_document["project_id"],
+            request_document["input_hash"],
+            pattern_engine.engine_version,
         )
         if existing is not None:
             return existing
@@ -277,15 +290,53 @@ def create_app(
             },
         )
 
+    @app.get("/api/v1/patterns/{generation_id}/export/print.svg", tags=["patterns"])
+    def export_print_svg(generation_id: UUID) -> Response:
+        result = _generation_or_404(repository, str(generation_id))
+        if result["pattern"] is None or not result["validation_report"]["diagnostic_export_allowed"]:
+            raise AppError(
+                409,
+                "DIAGNOSTIC_EXPORT_BLOCKED",
+                "Диагностический экспорт недоступен для отклонённого построения.",
+            )
+        svg = render_pattern_svg(result["pattern"])
+        return Response(
+            content=svg,
+            media_type="image/svg+xml",
+            headers={
+                "Cache-Control": "no-store",
+                "Content-Disposition": f'attachment; filename="kroika-{generation_id}-print.svg"',
+                "X-Content-Type-Options": "nosniff",
+                "X-Kroika-Export-Mode": "diagnostic",
+                "X-Kroika-Production-Ready": "false",
+            },
+        )
+
     @app.post("/api/v1/patterns/{generation_id}/export/a4-pdf", tags=["patterns"])
     def export_pdf(generation_id: UUID) -> Response:
         result = _generation_or_404(repository, str(generation_id))
-        if not result["validation_report"]["production_export_allowed"]:
+        if result["pattern"] is None or not result["validation_report"]["diagnostic_export_allowed"]:
             raise AppError(
-                409, "PRODUCTION_EXPORT_BLOCKED",
-                "Печать заблокирована до проверки методики и макета изделия.",
+                409,
+                "DIAGNOSTIC_EXPORT_BLOCKED",
+                "Диагностическая печать недоступна для отклонённого построения.",
             )
-        raise AppError(501, "PDF_RENDERER_NOT_READY", "PDF-экспорт появится на этапе 9.")
+        try:
+            rendered = render_pattern_pdf(result["pattern"])
+        except PDFRenderError as error:
+            raise AppError(409, "PDF_EXPORT_INVALID", str(error)) from error
+        return Response(
+            content=rendered.content,
+            media_type="application/pdf",
+            headers={
+                "Cache-Control": "no-store",
+                "Content-Disposition": f'attachment; filename="kroika-{generation_id}-a4.pdf"',
+                "X-Content-Type-Options": "nosniff",
+                "X-Kroika-Sheet-Count": str(rendered.tile_count),
+                "X-Kroika-Export-Mode": "diagnostic",
+                "X-Kroika-Production-Ready": "false",
+            },
+        )
 
     @app.get("/api/v1/patterns/{generation_id}/export/project-json", tags=["patterns"])
     def export_project(generation_id: UUID) -> JSONResponse:

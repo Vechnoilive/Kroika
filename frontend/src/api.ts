@@ -58,6 +58,37 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function requestBlob(path: string, init?: RequestInit): Promise<{blob: Blob; filename: string}> {
+  let response: Response;
+  try {
+    response = await fetch(path, init);
+  } catch {
+    throw new ApiError(
+      'Не удалось связаться с приложением. Проверьте, что оно запущено.',
+      0,
+      'NETWORK_ERROR',
+    );
+  }
+  if (!response.ok) {
+    let body: ApiErrorBody = {};
+    try {
+      body = (await response.json()) as ApiErrorBody;
+    } catch {
+      // A proxy may return non-JSON. Do not show its technical body to the user.
+    }
+    throw new ApiError(
+      body.message_ru ?? 'Не удалось подготовить файл. Попробуйте ещё раз.',
+      response.status,
+      body.code ?? 'UNKNOWN_ERROR',
+      body.request_id,
+      body.issues ?? [],
+    );
+  }
+  const disposition = response.headers.get('Content-Disposition') ?? '';
+  const match = /filename="?([^";]+)"?/i.exec(disposition);
+  return {blob: await response.blob(), filename: match?.[1] ?? 'kroika-pattern-a4.pdf'};
+}
+
 export const api = {
   readiness: () => request<Readiness>('/health/ready'),
   listProjects: () => request<ProjectList>('/api/v1/projects'),
@@ -105,6 +136,12 @@ export const api = {
     }),
   patternPreviewUrl: (generationId: string) =>
     `/api/v1/patterns/${encodeURIComponent(generationId)}/preview.svg`,
+  printSvgUrl: (generationId: string) =>
+    `/api/v1/patterns/${encodeURIComponent(generationId)}/export/print.svg`,
+  downloadA4Pdf: (generationId: string) =>
+    requestBlob(`/api/v1/patterns/${encodeURIComponent(generationId)}/export/a4-pdf`, {
+      method: 'POST',
+    }),
   analyzeDemo: (projectId: string) =>
     request<StyleAnalysis>('/api/v1/garments/analyze-image', {
       method: 'POST',

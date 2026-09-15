@@ -105,22 +105,21 @@ def _length(piece: DraftPiece, segment_ids: tuple[str, ...]) -> float:
     return sum(_segment(piece, segment_id).length_mm for segment_id in segment_ids)
 
 
-def _add_notches(piece: dict[str, Any], specifications: tuple[tuple[str, str, float], ...]) -> None:
-    segments = {
-        segment["id"]: segment
-        for segment in piece["seam_contour"]["segments"]
-    }
-    for notch_id, segment_id, fraction in specifications:
-        segment = segments.get(segment_id)
-        if segment is None:
+def _add_notches(
+    data: dict[str, Any],
+    piece: DraftPiece,
+    specifications: tuple[tuple[str, str, str, float], ...],
+) -> None:
+    for notch_id, match_id, segment_id, fraction in specifications:
+        try:
+            segment = _segment(piece, segment_id)
+        except BlockConstructionError:
             continue
-        start = segment["start"]
-        end = segment["end"]
-        chord = ((end[0] - start[0]) ** 2 + (end[1] - start[1]) ** 2) ** 0.5
-        piece["notches"].append({
+        data["notches"].append({
             "id": notch_id,
+            "match_id": match_id,
             "segment_id": segment_id,
-            "distance_from_start_mm": chord * fraction,
+            "distance_from_start_mm": round(segment.length_mm * fraction, 6),
             "kind": "single",
         })
 
@@ -140,39 +139,41 @@ def _decorate_piece(piece: DraftPiece, garment_name: str) -> dict[str, Any]:
             (center.min_y_mm + center.max_y_mm) / 2.0 + 12.0,
         ],
     })
-    notch_map: dict[str, tuple[tuple[str, str, float], ...]] = {
+    notch_map: dict[str, tuple[tuple[str, str, str, float], ...]] = {
         "front_bodice": (
-            ("front_waist_match", "front_waist", 0.2),
-            ("front_side_match", "front_side", 0.45),
-            ("front_shoulder_match", "front_shoulder", 0.5),
-            ("front_armhole_match", "front_armhole", 0.55),
-            ("front_neckline_match", "front_neckline", 0.5),
+            ("front_waist_match", "front_waist_join", "front_waist", 0.2),
+            ("front_side_match", "bodice_side_join", "front_side", 0.45),
+            ("front_shoulder_match", "bodice_shoulder_join", "front_shoulder", 0.5),
+            ("front_armhole_match", "front_armhole_facing", "front_armhole", 0.55),
+            ("front_neckline_match", "front_neckline_facing", "front_neckline", 0.5),
         ),
         "back_bodice": (
-            ("back_waist_match", "back_waist", 0.2),
-            ("back_side_match", "back_side", 0.45),
-            ("back_shoulder_match", "back_shoulder", 0.5),
-            ("back_armhole_match", "back_armhole", 0.55),
-            ("back_neckline_match", "back_neckline", 0.5),
+            ("back_waist_match", "back_waist_join", "back_waist", 0.2),
+            ("back_side_match", "bodice_side_join", "back_side", 0.45),
+            ("back_shoulder_match", "bodice_shoulder_join", "back_shoulder", 0.5),
+            ("back_armhole_match", "back_armhole_facing", "back_armhole", 0.55),
+            ("back_neckline_match", "back_neckline_facing", "back_neckline", 0.5),
         ),
         "front_skirt": (
-            ("front_skirt_waist_match", "front_skirt_waist", 0.8),
-            ("front_skirt_side_match", "front_skirt_side_upper", 0.5),
+            ("front_skirt_waist_match", "front_waist_join", "front_skirt_waist", 0.8),
+            ("front_skirt_side_match", "skirt_side_join", "front_skirt_side_upper", 0.5),
         ),
         "back_skirt": (
-            ("back_skirt_waist_match", "back_skirt_waist", 0.8),
-            ("back_skirt_side_match", "back_skirt_side_upper", 0.5),
+            ("back_skirt_waist_match", "back_waist_join", "back_skirt_waist", 0.8),
+            ("back_skirt_side_match", "skirt_side_join", "back_skirt_side_upper", 0.5),
         ),
         "front_facing": (
-            ("front_facing_neck_match", "front_facing_neckline", 0.5),
-            ("front_facing_arm_match", "front_facing_armhole", 0.45),
+            ("front_facing_neck_match", "front_neckline_facing", "front_facing_neckline", 0.5),
+            ("front_facing_arm_match", "front_armhole_facing", "front_facing_armhole", 0.45),
+            ("front_facing_shoulder_match", "facing_shoulder_join", "front_facing_shoulder", 0.5),
         ),
         "back_facing": (
-            ("back_facing_neck_match", "back_facing_neckline", 0.5),
-            ("back_facing_arm_match", "back_facing_armhole", 0.45),
+            ("back_facing_neck_match", "back_neckline_facing", "back_facing_neckline", 0.5),
+            ("back_facing_arm_match", "back_armhole_facing", "back_facing_armhole", 0.45),
+            ("back_facing_shoulder_match", "facing_shoulder_join", "back_facing_shoulder", 0.5),
         ),
     }
-    _add_notches(data, notch_map.get(piece.id, ()))
+    _add_notches(data, piece, notch_map.get(piece.id, ()))
     return data
 
 

@@ -313,39 +313,54 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          description: Базовые детали одежды ещё не созданы
+          description: Геометрия изделия недоступна
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /api/v1/patterns/{generation_id}/export/a4-pdf:
-    post:
-      operationId: exportPatternA4Pdf
-      summary: Сформировать A4 PDF 1:1 после проверки политики экспорта
+  /api/v1/patterns/{generation_id}/export/print.svg:
+    get:
+      operationId: exportPatternPrintSvg
+      summary: Скачать единый диагностический SVG 1:1 с линиями шва и среза
       parameters:
         - $ref: '#/components/parameters/GenerationId'
       responses:
         '200':
-          description: Многостраничный PDF
+          description: Печатный SVG в миллиметрах
           content:
-            application/pdf:
+            image/svg+xml:
               schema:
                 type: string
-                format: binary
         '409':
-          description: Экспорт заблокирован отчётом проверки
+          description: Диагностический экспорт заблокирован
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           $ref: '#/components/responses/NotFound'
-        '501':
-          description: PDF-рендерер появится на этапе 9
+  /api/v1/patterns/{generation_id}/export/a4-pdf:
+    post:
+      operationId: exportPatternA4Pdf
+      summary: Сформировать диагностический A4 PDF 1:1 для бумажной проверки
+      parameters:
+        - $ref: '#/components/parameters/GenerationId'
+      responses:
+        '200':
+          description: Карта сборки и листы выкройки с предупреждением experimental
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '409':
+          description: Диагностический экспорт заблокирован или макет некорректен
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/patterns/{generation_id}/export/project-json:
     get:
       operationId: exportPatternProject

@@ -49,9 +49,9 @@ def test_health_checks_dependencies_and_request_id(client: TestClient):
     ready = client.get("/health/ready")
     assert live.status_code == ready.status_code == 200
     assert ready.json() == {
-        "status": "ok", "service": "kroika-backend", "version": "0.8.0",
+        "status": "ok", "service": "kroika-backend", "version": "0.9.0",
         "database": "ok", "ai_provider": "mock",
-        "pattern_engine": "kroika-geometry:0.4.0",
+        "pattern_engine": "kroika-geometry:0.5.0",
     }
     assert len(ready.headers["X-Request-ID"]) == 36
 
@@ -134,7 +134,7 @@ def test_generation_is_idempotent_per_project_and_succeeds(client: TestClient):
     assert other_result.json()["generation_id"] != result["generation_id"]
 
 
-def test_svg_preview_works_but_production_export_stays_blocked(client: TestClient):
+def test_svg_preview_and_diagnostic_pdf_work_but_production_stays_blocked(client: TestClient):
     create_example_project(client)
     result = client.post(
         "/api/v1/patterns/generate", json=example("example-engine-request.json")
@@ -145,9 +145,9 @@ def test_svg_preview_works_but_production_export_stays_blocked(client: TestClien
     assert preview.status_code == 200
     assert preview.headers["content-type"].startswith("image/svg+xml")
     assert "<svg" in preview.text
-    blocked = client.post(f"/api/v1/patterns/{generation_id}/export/a4-pdf")
-    assert blocked.status_code == 409
-    assert blocked.json()["code"] == "PRODUCTION_EXPORT_BLOCKED"
+    diagnostic = client.post(f"/api/v1/patterns/{generation_id}/export/a4-pdf")
+    assert diagnostic.status_code == 200
+    assert diagnostic.headers["x-kroika-production-ready"] == "false"
     exported = client.get(f"/api/v1/patterns/{generation_id}/export/project-json")
     assert exported.status_code == 200
     assert exported.headers["content-disposition"].startswith("attachment;")

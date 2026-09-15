@@ -46,7 +46,7 @@ with TemporaryDirectory(prefix="kroika-stage6-") as directory:
         }
         assert result["validation_report"]["checks"][0]["status"] == "passed"
         assert client.get("/health/ready").json()["pattern_engine"] == (
-            "kroika-geometry:0.4.0"
+            "kroika-geometry:0.5.0"
         )
 
 print("Smoke-test этапа 6 пройден: API повторно проверяет ядро внутри собранного изделия.")

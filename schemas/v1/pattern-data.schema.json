@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://kroika.local/schemas/v1/pattern-data.schema.json",
   "title": "Canonical pattern geometry contract v1",
-  "description": "Формат геометрии ядра этапа 6. Координаты и размеры только в миллиметрах.",
+  "description": "Формат геометрии ядра этапа 9. Координаты и размеры только в миллиметрах.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "unit", "pieces", "seam_pairs"],
@@ -16,6 +16,19 @@
     "seam_pairs": {
       "type": "array",
       "items": {"$ref": "#/$defs/seam_pair"}
+    },
+    "print_layout": {
+      "type": "object", "additionalProperties": false,
+      "required": ["page_format", "page_width_mm", "page_height_mm", "margin_mm", "overlap_mm", "scale", "control_square_mm"],
+      "properties": {
+        "page_format": {"type": "string", "const": "A4"},
+        "page_width_mm": {"type": "number", "const": 210},
+        "page_height_mm": {"type": "number", "const": 297},
+        "margin_mm": {"type": "number", "minimum": 5, "maximum": 15},
+        "overlap_mm": {"type": "number", "minimum": 5, "maximum": 20},
+        "scale": {"type": "number", "const": 1},
+        "control_square_mm": {"type": "number", "const": 50}
+      }
     }
   },
   "$defs": {
@@ -91,6 +104,7 @@
       "required": ["id", "segment_id", "distance_from_start_mm", "kind"],
       "properties": {
         "id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "match_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
         "segment_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
         "distance_from_start_mm": {"$ref": "common.schema.json#/$defs/millimetres"},
         "kind": {"type": "string", "enum": ["single", "double", "triple"]}
@@ -116,6 +130,18 @@
         "mirrored_pair": {"type": "boolean"},
         "seam_contour": {"$ref": "#/$defs/closed_contour"},
         "cutting_contour": {"oneOf": [{"$ref": "#/$defs/closed_contour"}, {"type": "null"}]},
+        "edge_allowances": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["segment_id", "edge_type", "allowance_mm"],
+            "properties": {
+              "segment_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+              "edge_type": {"type": "string", "enum": ["normal", "neckline", "armhole", "zipper", "hem", "sleeve_hem", "fold"]},
+              "allowance_mm": {"$ref": "common.schema.json#/$defs/millimetres"}
+            }
+          }
+        },
         "internal_paths": {"type": "array", "items": {"$ref": "#/$defs/path"}},
         "grainline": {"$ref": "#/$defs/grainline"},
         "notches": {"type": "array", "items": {"$ref": "#/$defs/notch"}},

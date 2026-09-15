@@ -1,10 +1,13 @@
-"""Safe deterministic SVG preview for canonical pattern data."""
+"""Safe deterministic stage-9 SVG with seam, cutting and print reference marks."""
 
 from __future__ import annotations
 
 from html import escape
 import math
 from typing import Any, Mapping
+
+from .geometry import curve_from_data, curve_points
+from .print_layout import PlacedPiece, layout_pattern, notch_geometry
 
 
 class SVGRenderError(ValueError):
@@ -19,191 +22,103 @@ def _number(value: object, name: str) -> float:
 
 def _fmt(value: float) -> str:
     rounded = round(value, 3)
-    if rounded == 0:
-        rounded = 0.0
-    return f"{rounded:.3f}".rstrip("0").rstrip(".")
+    return f"{0.0 if rounded == 0 else rounded:.3f}".rstrip("0").rstrip(".")
 
 
-def _points(path: Mapping[str, Any]) -> list[tuple[float, float]]:
-    points: list[tuple[float, float]] = []
-    for segment in path["segments"]:
-        for key in ("start", "control_1", "control_2", "end"):
-            if key in segment:
-                raw = segment[key]
-                points.append((_number(raw[0], key), _number(raw[1], key)))
-    return points
+def _point(placed: PlacedPiece, raw: list[float], shift_y: float) -> tuple[float, float]:
+    x, y = placed.point(raw)
+    return x, y + shift_y
 
 
-def _piece_bounds(piece: Mapping[str, Any]) -> tuple[float, float, float, float]:
-    points = _points(piece["seam_contour"])
-    for path in piece["internal_paths"]:
-        points.extend(_points(path))
-    grainline = piece["grainline"]
-    for raw in (grainline["start"], grainline["end"]):
-        points.append((_number(raw[0], "grainline"), _number(raw[1], "grainline")))
-    if not points:
-        raise SVGRenderError("Деталь не содержит точек.")
-    return (
-        min(point[0] for point in points),
-        min(point[1] for point in points),
-        max(point[0] for point in points),
-        max(point[1] for point in points),
-    )
-
-
-def _transform(point: list[float], bounds, offset_x: float, offset_y: float) -> tuple[float, float]:
-    return (
-        offset_x + _number(point[0], "x") - bounds[0],
-        offset_y + bounds[3] - _number(point[1], "y"),
-    )
-
-
-def _path_data(
-    path: Mapping[str, Any], bounds, offset_x: float, offset_y: float
-) -> str:
-    segments = path["segments"]
-    if not segments:
+def _path_data(path: Mapping[str, Any], placed: PlacedPiece, shift_y: float) -> str:
+    segments = path.get("segments")
+    if not isinstance(segments, list) or not segments:
         raise SVGRenderError("Пустой путь нельзя показать.")
-    start = _transform(segments[0]["start"], bounds, offset_x, offset_y)
-    commands = [f"M {_fmt(start[0])} {_fmt(start[1])}"]
-    for segment in segments:
-        end = _transform(segment["end"], bounds, offset_x, offset_y)
-        kind = segment["type"]
-        if kind == "line":
+    commands: list[str] = []
+    for segment_index, segment in enumerate(segments):
+        samples = curve_points(curve_from_data(segment), flatness_mm=0.1)
+        if segment_index == 0:
+            start = _point(placed, [samples[0][1].x_mm, samples[0][1].y_mm], shift_y)
+            commands.append(f"M {_fmt(start[0])} {_fmt(start[1])}")
+        for _, sample in samples[1:]:
+            end = _point(placed, [sample.x_mm, sample.y_mm], shift_y)
             commands.append(f"L {_fmt(end[0])} {_fmt(end[1])}")
-        elif kind == "cubic_bezier":
-            first = _transform(segment["control_1"], bounds, offset_x, offset_y)
-            second = _transform(segment["control_2"], bounds, offset_x, offset_y)
-            commands.append(
-                f"C {_fmt(first[0])} {_fmt(first[1])} "
-                f"{_fmt(second[0])} {_fmt(second[1])} "
-                f"{_fmt(end[0])} {_fmt(end[1])}"
-            )
-        elif kind == "arc":
-            commands.append(
-                f"A {_fmt(_number(segment['radius_x_mm'], 'radius_x_mm'))} "
-                f"{_fmt(_number(segment['radius_y_mm'], 'radius_y_mm'))} "
-                f"{_fmt(-_number(segment['rotation_deg'], 'rotation_deg'))} "
-                f"{1 if segment['large_arc'] else 0} "
-                f"{0 if segment['sweep'] else 1} "
-                f"{_fmt(end[0])} {_fmt(end[1])}"
-            )
-        else:
-            raise SVGRenderError("Неизвестный тип сегмента.")
-    if path["closed"]:
+    if path.get("closed"):
         commands.append("Z")
     return " ".join(commands)
 
 
-def _notch_line(piece: Mapping[str, Any], notch: Mapping[str, Any], bounds, ox, oy) -> str:
-    segments = {
-        segment["id"]: segment for segment in piece["seam_contour"]["segments"]
+def _fold_paths(placed: PlacedPiece, shift_y: float) -> list[str]:
+    fold_ids = {
+        item["segment_id"]
+        for item in placed.piece.get("edge_allowances", ())
+        if item.get("edge_type") == "fold"
     }
-    segment = segments.get(notch["segment_id"])
-    if segment is None:
-        return ""
-    start = segment["start"]
-    end = segment["end"]
-    chord = math.hypot(end[0] - start[0], end[1] - start[1])
-    fraction = 0.5 if chord <= 1e-9 else min(
-        1.0, max(0.0, _number(notch["distance_from_start_mm"], "notch") / chord)
-    )
-    raw = [
-        start[0] + (end[0] - start[0]) * fraction,
-        start[1] + (end[1] - start[1]) * fraction,
+    return [
+        _path_data({"closed": False, "segments": [segment]}, placed, shift_y)
+        for segment in placed.piece["seam_contour"]["segments"]
+        if segment["id"] in fold_ids
     ]
-    x, y = _transform(raw, bounds, ox, oy)
-    return (
-        f'<line class="notch" x1="{_fmt(x - 3)}" y1="{_fmt(y - 3)}" '
-        f'x2="{_fmt(x + 3)}" y2="{_fmt(y + 3)}"/>'
-    )
 
 
 def render_pattern_svg(pattern: Mapping[str, Any]) -> str:
-    """Render a responsive diagnostic preview without scripts or external assets."""
+    """Render a printable 1:1 unified SVG without scripts or external resources."""
 
-    pieces = pattern.get("pieces")
-    if not isinstance(pieces, list) or not pieces:
-        raise SVGRenderError("Для предпросмотра нужна хотя бы одна деталь.")
-    margin = 18.0
-    gap = 24.0
-    label_height = 16.0
-    columns = 2
-    bounds = [_piece_bounds(piece) for piece in pieces]
-    widths = [item[2] - item[0] for item in bounds]
-    heights = [item[3] - item[1] for item in bounds]
-    rows = (len(pieces) + columns - 1) // columns
-    column_widths = [
-        max((widths[index] for index in range(column, len(pieces), columns)), default=0.0)
-        for column in range(columns)
-    ]
-    row_heights = [
-        max(
-            (heights[index] for index in range(row * columns, min((row + 1) * columns, len(pieces)))),
-            default=0.0,
-        )
-        for row in range(rows)
-    ]
-    canvas_width = margin * 2 + sum(column_widths) + gap * (columns - 1)
-    canvas_height = margin * 2 + sum(height + label_height for height in row_heights) + gap * max(0, rows - 1)
+    try:
+        layout = layout_pattern(pattern)
+    except (KeyError, TypeError, ValueError) as error:
+        raise SVGRenderError("Не удалось разместить детали на общем листе.") from error
+    header_height = 88.0
+    canvas_width = max(layout.width_mm, 210.0)
+    canvas_height = layout.height_mm + header_height
+    has_cutting = all(piece.piece.get("cutting_contour") for piece in layout.pieces)
+    mode = "линия шва и линия среза" if has_cutting else "только линия шва"
     fragments = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" role="img" '
-        f'viewBox="0 0 {_fmt(canvas_width)} {_fmt(canvas_height)}" '
-        f'width="{_fmt(canvas_width)}mm" height="{_fmt(canvas_height)}mm">',
-        "<title>Диагностический предпросмотр выкройки Kroika</title>",
-        "<desc>Детали без припусков. Перед раскроем обязательны проверка закройщика и макет.</desc>",
-        '<defs><marker id="grain-arrow" viewBox="0 0 6 6" refX="5" refY="3" '
-        'markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L6,3 L0,6 Z" '
-        'fill="#6b587f"/></marker></defs>',
-        "<style>.sheet{fill:#fffdfb}.piece{fill:#fff5ed;stroke:#2f2833;stroke-width:1.1;"
-        "vector-effect:non-scaling-stroke}.internal{fill:none;stroke:#b94b3d;stroke-width:.7;"
-        "stroke-dasharray:4 3;vector-effect:non-scaling-stroke}.grain{stroke:#6b587f;"
-        "stroke-width:.7;stroke-dasharray:7 3;marker-end:url(#grain-arrow);"
-        "vector-effect:non-scaling-stroke}.notch{stroke:#2f2833;stroke-width:1.4;"
-        "vector-effect:non-scaling-stroke}.label{font:700 7px system-ui,sans-serif;fill:#2f2833}"
-        ".meta{font:5px system-ui,sans-serif;fill:#756b78}</style>",
+        f'<svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="0 0 {_fmt(canvas_width)} {_fmt(canvas_height)}" width="{_fmt(canvas_width)}mm" height="{_fmt(canvas_height)}mm">',
+        "<title>Выкройка Kroika для диагностической печати 1:1</title>",
+        "<desc>Экспериментальная выкройка. Проверьте квадрат 50 на 50 мм и изготовьте макет до раскроя ткани.</desc>",
+        "<metadata>unit=mm; scale=1:1; export=diagnostic; production-ready=false</metadata>",
+        '<defs><marker id="grain-arrow" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#604a70"/></marker></defs>',
+        "<style>.sheet{fill:#fff}.cutting{fill:#fffaf4;stroke:#17141a;stroke-width:1;vector-effect:non-scaling-stroke}.seam{fill:none;stroke:#b84539;stroke-width:.65;stroke-dasharray:5 3;vector-effect:non-scaling-stroke}.internal{fill:none;stroke:#806378;stroke-width:.55;stroke-dasharray:4 3;vector-effect:non-scaling-stroke}.grain{stroke:#604a70;stroke-width:.7;stroke-dasharray:8 3;marker-end:url(#grain-arrow);vector-effect:non-scaling-stroke}.notch{stroke:#17141a;stroke-width:1.2;vector-effect:non-scaling-stroke}.fold{fill:none;stroke:#17746f;stroke-width:1.5;stroke-dasharray:10 3 2 3;vector-effect:non-scaling-stroke}.label{font:700 7px sans-serif;fill:#17141a}.meta{font:5px sans-serif;fill:#5f5762}.title{font:700 9px sans-serif;fill:#17141a}.warning{font:700 6px sans-serif;fill:#a43e34}.calibration{fill:none;stroke:#17141a;stroke-width:.45}.legend{font:5.5px sans-serif;fill:#302b32}.watermark{font:700 18px sans-serif;fill:#b84539;opacity:.08}</style>",
         f'<rect class="sheet" width="{_fmt(canvas_width)}" height="{_fmt(canvas_height)}"/>',
+        '<text class="title" x="18" y="13">Kroika · печатный SVG 1:1</text>',
+        f'<text class="legend" x="18" y="20">{escape(mode)} · единицы: мм</text>',
+        '<rect id="control-square-50mm" class="calibration" x="18" y="26" width="50" height="50"/>',
+        '<text class="legend" x="18" y="83">Контрольный квадрат 50 × 50 мм</text>',
+        '<text class="legend" x="82" y="31">Сплошная чёрная — линия среза</text>',
+        '<text class="legend" x="82" y="40">Красный пунктир — линия шва</text>',
+        '<text class="legend" x="82" y="49">Зелёный штрихпунктир — сгиб</text>',
+        '<text class="warning" x="82" y="61">Печатать 100% / Actual size</text>',
+        '<text class="warning" x="82" y="70">Не использовать «Подогнать к странице»</text>',
+        f'<text class="watermark" x="{_fmt(canvas_width / 2 - 75)}" y="{_fmt(header_height + 22)}">ЭКСПЕРИМЕНТАЛЬНО</text>',
     ]
-    column_offsets = [margin]
-    for column in range(1, columns):
-        column_offsets.append(column_offsets[-1] + column_widths[column - 1] + gap)
-    row_offsets = [margin]
-    for row in range(1, rows):
-        row_offsets.append(row_offsets[-1] + row_heights[row - 1] + label_height + gap)
 
-    for index, piece in enumerate(pieces):
-        column = index % columns
-        row = index // columns
-        ox = column_offsets[column]
-        oy = row_offsets[row] + label_height
-        piece_bounds = bounds[index]
+    for placed in layout.pieces:
+        piece = placed.piece
         name = escape(str(piece["name_ru"]))
-        meta = (
-            f"Крой: {piece['cut_quantity']} "
-            f"{'со сгибом' if piece['cut_on_fold'] else 'зеркально'} · без припусков"
-        )
+        center_x = placed.offset_x_mm + placed.width_mm / 2
+        center_y = header_height + placed.offset_y_mm + placed.height_mm / 2
         fragments.append(f'<g id="piece-{escape(str(piece["id"]))}">')
-        fragments.append(
-            f'<text class="label" x="{_fmt(ox)}" y="{_fmt(oy - 8)}">{name}</text>'
-        )
-        fragments.append(
-            f'<text class="meta" x="{_fmt(ox)}" y="{_fmt(oy - 2)}">{escape(meta)}</text>'
-        )
-        fragments.append(
-            f'<path class="piece" d="{_path_data(piece["seam_contour"], piece_bounds, ox, oy)}"/>'
-        )
-        for path in piece["internal_paths"]:
-            fragments.append(
-                f'<path class="internal" d="{_path_data(path, piece_bounds, ox, oy)}"/>'
-            )
-        grain_start = _transform(piece["grainline"]["start"], piece_bounds, ox, oy)
-        grain_end = _transform(piece["grainline"]["end"], piece_bounds, ox, oy)
-        fragments.append(
-            f'<line class="grain" x1="{_fmt(grain_start[0])}" y1="{_fmt(grain_start[1])}" '
-            f'x2="{_fmt(grain_end[0])}" y2="{_fmt(grain_end[1])}"/>'
-        )
-        for notch in piece["notches"]:
-            fragments.append(_notch_line(piece, notch, piece_bounds, ox, oy))
+        cutting = piece.get("cutting_contour")
+        if cutting:
+            fragments.append(f'<path class="cutting" d="{_path_data(cutting, placed, header_height)}"/>')
+        fragments.append(f'<path class="seam" d="{_path_data(piece["seam_contour"], placed, header_height)}"/>')
+        for path in piece.get("internal_paths", ()):
+            fragments.append(f'<path class="internal" d="{_path_data(path, placed, header_height)}"/>')
+        for fold_path in _fold_paths(placed, header_height):
+            fragments.append(f'<path class="fold" d="{fold_path}"/>')
+        grain_start = _point(placed, piece["grainline"]["start"], header_height)
+        grain_end = _point(placed, piece["grainline"]["end"], header_height)
+        fragments.append(f'<line class="grain" x1="{_fmt(grain_start[0])}" y1="{_fmt(grain_start[1])}" x2="{_fmt(grain_end[0])}" y2="{_fmt(grain_end[1])}"/>')
+        for notch in piece.get("notches", ()):
+            notch_line = notch_geometry(placed, notch)
+            if notch_line:
+                (x1, y1), (x2, y2) = notch_line
+                fragments.append(f'<line class="notch" data-match="{escape(str(notch["match_id"]))}" x1="{_fmt(x1)}" y1="{_fmt(y1 + header_height)}" x2="{_fmt(x2)}" y2="{_fmt(y2 + header_height)}"/>')
+        fold_text = " · СГИБ" if piece["cut_on_fold"] else ""
+        meta = f"Крой: {piece['cut_quantity']}{fold_text}"
+        fragments.append(f'<text class="label" text-anchor="middle" x="{_fmt(center_x)}" y="{_fmt(center_y)}">{name}</text>')
+        fragments.append(f'<text class="meta" text-anchor="middle" x="{_fmt(center_x)}" y="{_fmt(center_y + 8)}">{escape(meta)}</text>')
         fragments.append("</g>")
     fragments.append("</svg>")
     return "".join(fragments)

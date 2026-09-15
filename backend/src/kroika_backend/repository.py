@@ -53,9 +53,10 @@ class SQLiteRepository:
                     generation_id TEXT PRIMARY KEY,
                     project_id TEXT NOT NULL,
                     input_hash TEXT NOT NULL,
+                    engine_version TEXT NOT NULL,
                     payload TEXT NOT NULL,
                     created_at TEXT NOT NULL,
-                    UNIQUE (project_id, input_hash),
+                    UNIQUE (project_id, input_hash, engine_version),
                     FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
                 );
                 CREATE INDEX IF NOT EXISTS generations_project_idx
@@ -67,6 +68,46 @@ class SQLiteRepository:
                     updated_at TEXT NOT NULL
                 );
             """)
+            columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(generations)")
+            }
+            if "engine_version" not in columns:
+                rows = connection.execute(
+                    "SELECT generation_id, project_id, input_hash, payload, created_at FROM generations"
+                ).fetchall()
+                connection.executescript("""
+                    CREATE TABLE generations_stage9 (
+                        generation_id TEXT PRIMARY KEY,
+                        project_id TEXT NOT NULL,
+                        input_hash TEXT NOT NULL,
+                        engine_version TEXT NOT NULL,
+                        payload TEXT NOT NULL,
+                        created_at TEXT NOT NULL,
+                        UNIQUE (project_id, input_hash, engine_version),
+                        FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
+                    );
+                """)
+                for row in rows:
+                    payload = _load(row["payload"])
+                    connection.execute(
+                        "INSERT INTO generations_stage9 "
+                        "(generation_id, project_id, input_hash, engine_version, payload, created_at) "
+                        "VALUES (?, ?, ?, ?, ?, ?)",
+                        (
+                            row["generation_id"],
+                            row["project_id"],
+                            row["input_hash"],
+                            str(payload.get("engine_version", "0.0.0")),
+                            row["payload"],
+                            row["created_at"],
+                        ),
+                    )
+                connection.executescript("""
+                    DROP TABLE generations;
+                    ALTER TABLE generations_stage9 RENAME TO generations;
+                    CREATE INDEX generations_project_idx
+                        ON generations(project_id, created_at);
+                """)
 
     def health(self) -> bool:
         with self._connect() as connection:
@@ -236,11 +277,14 @@ class SQLiteRepository:
             ).fetchone()
         return _load(row["payload"]) if row else None
 
-    def get_generation_by_hash(self, project_id: str, input_hash: str) -> dict[str, Any] | None:
+    def get_generation_by_hash(
+        self, project_id: str, input_hash: str, engine_version: str
+    ) -> dict[str, Any] | None:
         with self._connect() as connection:
             row = connection.execute(
-                "SELECT payload FROM generations WHERE project_id = ? AND input_hash = ?",
-                (project_id, input_hash),
+                "SELECT payload FROM generations "
+                "WHERE project_id = ? AND input_hash = ? AND engine_version = ?",
+                (project_id, input_hash, engine_version),
             ).fetchone()
         return _load(row["payload"]) if row else None
 
@@ -249,8 +293,9 @@ class SQLiteRepository:
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             existing = connection.execute(
-                "SELECT payload FROM generations WHERE project_id = ? AND input_hash = ?",
-                (project_id, result["input_hash"]),
+                "SELECT payload FROM generations "
+                "WHERE project_id = ? AND input_hash = ? AND engine_version = ?",
+                (project_id, result["input_hash"], result["engine_version"]),
             ).fetchone()
             if existing:
                 return _load(existing["payload"])
@@ -278,10 +323,17 @@ class SQLiteRepository:
             validate_project(project)
 
             connection.execute(
-                "INSERT INTO generations(generation_id, project_id, input_hash, payload, created_at) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (result["generation_id"], project_id, result["input_hash"],
-                 _dump(result), result["created_at"]),
+                "INSERT INTO generations"
+                "(generation_id, project_id, input_hash, engine_version, payload, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    result["generation_id"],
+                    project_id,
+                    result["input_hash"],
+                    result["engine_version"],
+                    _dump(result),
+                    result["created_at"],
+                ),
             )
             connection.execute(
                 "UPDATE projects SET revision = ?, payload = ?, updated_at = ? WHERE project_id = ?",

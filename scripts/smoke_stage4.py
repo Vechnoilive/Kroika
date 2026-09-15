@@ -50,7 +50,9 @@ def main() -> int:
             generation_id = first.json()["generation_id"]
             assert client.get(f"/api/v1/patterns/{generation_id}/validation").status_code == 200
             assert client.get(f"/api/v1/patterns/{generation_id}/preview.svg").status_code == 200
-            assert client.post(f"/api/v1/patterns/{generation_id}/export/a4-pdf").status_code == 409
+            pdf = client.post(f"/api/v1/patterns/{generation_id}/export/a4-pdf")
+            assert pdf.status_code == 200
+            assert pdf.headers["x-kroika-production-ready"] == "false"
 
     print("Smoke-test этапа 4 пройден: health, SQLite, mock, проекты и движок работают.")
     return 0

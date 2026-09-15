@@ -65,7 +65,7 @@ def test_supported_variant_matrix_builds_valid_complete_geometry(
 
     validate_document("pattern-engine-result", result)
     validate_validation_report(result["validation_report"])
-    assert result["engine_version"] == "0.4.0"
+    assert result["engine_version"] == "0.5.0"
     assert result["status"] == "succeeded"
     assert result["validation_report"]["status"] == "warnings"
     assert result["validation_report"]["diagnostic_export_allowed"] is True
@@ -92,7 +92,7 @@ def test_supported_variant_matrix_builds_valid_complete_geometry(
     }
     for piece in pattern["pieces"]:
         validate_simple_contour(contour_from_data(piece["seam_contour"]))
-        assert piece["cutting_contour"] is None
+        validate_simple_contour(contour_from_data(piece["cutting_contour"]))
         assert piece["grainline"]["start"] != piece["grainline"]["end"]
         assert piece["annotations"]
 
@@ -151,8 +151,9 @@ def test_supported_variant_matrix_builds_valid_complete_geometry(
     root = ElementTree.fromstring(svg)
     assert root.tag == "{http://www.w3.org/2000/svg}svg"
     assert root.attrib["role"] == "img"
-    assert svg.count('class="piece"') == 6
-    assert "без припусков" in svg
+    assert svg.count('class="cutting"') == 6
+    assert svg.count('class="seam"') == 6
+    assert "50 × 50 мм" in svg
     assert "<script" not in svg.lower()
 
 
