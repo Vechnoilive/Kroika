@@ -21,6 +21,41 @@ class ReadinessResponse(HealthResponse):
     pattern_engine: str
 
 
+class ImageUploadRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    file_name: str = Field(min_length=1, max_length=120)
+    media_type: Literal["image/jpeg", "image/png", "image/webp"]
+    data_base64: str = Field(min_length=4, max_length=28_000_000)
+
+
+class ImageUploadResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    image_ref: str
+    media_type: Literal["image/jpeg", "image/png", "image/webp"]
+    size_bytes: int = Field(ge=1)
+
+
+class AIProviderStatus(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    provider_id: Literal["mock", "qwen", "gemini"]
+    name: str
+    model: str
+    configured: bool
+    is_default: bool
+    sends_images_external: bool
+    message_ru: str
+
+
+class AIProviderListResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    default_provider: Literal["mock", "qwen", "gemini"]
+    items: list[AIProviderStatus]
+
+
 class ProjectSummary(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

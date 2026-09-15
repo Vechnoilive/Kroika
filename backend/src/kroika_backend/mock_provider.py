@@ -56,10 +56,14 @@ _DEMO_ANALYSIS: dict[str, Any] = {
 }
 
 
-class MockAIProvider:
+class MockVisionProvider:
     provider_id = "mock"
 
     async def analyze_style(self, request: Mapping[str, Any]) -> dict[str, Any]:
         # Deliberately read only fields permitted by AIAnalysisRequest.
         _ = tuple(request["image_refs"])
         return deepcopy(_DEMO_ANALYSIS)
+
+
+# Backwards-compatible name for integrations created before stage 10.
+MockAIProvider = MockVisionProvider

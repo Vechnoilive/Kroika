@@ -1,6 +1,6 @@
 # Локальный запуск Kroika
 
-Этап 9 запускается без API-ключей. Вместо Qwen используется подписанный `mock`, а проекты и явно сохранённые профили мерок находятся только в локальной SQLite.
+Этап 10 запускается без API-ключей в подписанном `mock`. Проекты, профили мерок и загруженные изображения находятся локально; внешний Qwen/Gemini включается только настройкой backend и явным выбором в интерфейсе.
 
 ## Самый простой способ без Docker
 
@@ -52,7 +52,7 @@ docker compose down
 
 ## Проверка текущего этапа
 
-После подготовки окружения выполните `.venv/bin/python scripts/verify_stage9.py` на macOS/Linux или `.venv\Scripts\python.exe scripts\verify_stage9.py` в Windows PowerShell.
+После подготовки окружения выполните `.venv/bin/python scripts/verify_stage10.py` на macOS/Linux или `.venv\Scripts\python.exe scripts\verify_stage10.py` в Windows PowerShell. Эта команда не запускает тесты прошлых этапов.
 
 Команда проверяет только этап 9: линии среза и припуски, SVG/PDF, frontend, production build и HTTP smoke. Общая историческая регрессия `scripts/verify_all.py` запускается отдельно, когда она действительно нужна.
 

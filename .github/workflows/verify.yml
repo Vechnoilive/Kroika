@@ -20,7 +20,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: requirements-stage9.txt
+          cache-dependency-path: requirements-stage10.txt
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
@@ -29,10 +29,10 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements-stage9.txt
+          python -m pip install -r requirements-stage10.txt
           python -m pip install --no-deps -e . -e pattern-engine -e backend
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
-      - name: Run stage 9
-        run: python scripts/verify_stage9.py
+      - name: Run stage 10 only
+        run: python scripts/verify_stage10.py

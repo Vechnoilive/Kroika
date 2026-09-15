@@ -49,7 +49,7 @@ def test_health_checks_dependencies_and_request_id(client: TestClient):
     ready = client.get("/health/ready")
     assert live.status_code == ready.status_code == 200
     assert ready.json() == {
-        "status": "ok", "service": "kroika-backend", "version": "0.9.0",
+        "status": "ok", "service": "kroika-backend", "version": "0.10.0",
         "database": "ok", "ai_provider": "mock",
         "pattern_engine": "kroika-geometry:0.5.0",
     }
@@ -232,7 +232,7 @@ def test_compose_defines_both_health_checked_services():
     assert compose["services"]["frontend"]["depends_on"]["backend"]["condition"] == "service_healthy"
 
 
-def test_only_mock_provider_is_allowed_in_stage4(tmp_path: Path):
-    settings = Settings(database_path=tmp_path / "db.sqlite", ai_provider="qwen")
-    with pytest.raises(ValueError, match="этапа 10"):
+def test_unknown_provider_is_rejected(tmp_path: Path):
+    settings = Settings(database_path=tmp_path / "db.sqlite", ai_provider="unknown")
+    with pytest.raises(ValueError, match="mock, qwen или gemini"):
         settings.validate()
