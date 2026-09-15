@@ -13,6 +13,7 @@ class ProviderErrorCode(StrEnum):
     AUTH = 'auth'
     RATE_LIMIT = 'rate_limit'
     INVALID_SCHEMA = 'invalid_schema'
+    INVALID_IMAGE = 'invalid_image'
     PROVIDER_UNAVAILABLE = 'provider_unavailable'
 
 

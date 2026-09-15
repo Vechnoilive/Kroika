@@ -1,0 +1,728 @@
+{
+  "dataset_id": "kroika-stage10-synthetic-v1",
+  "purpose": "Adapter regression and A/B harness seed; not a substitute for real garments.",
+  "case_count": 50,
+  "eligible_for_default_selection": false,
+  "cases": [
+    {
+      "case_id": "synthetic-01",
+      "image": "images/synthetic-01.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "dress",
+        "silhouette.fit": "fitted",
+        "neckline.front": "round",
+        "sleeves.length": "sleeveless",
+        "lower_part.type": "a_line"
+      },
+      "requires_question": true
+    },
+    {
+      "case_id": "synthetic-02",
+      "image": "images/synthetic-02.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "blouse",
+        "silhouette.fit": "semi_fitted",
+        "neckline.front": "v",
+        "sleeves.length": "short"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-03",
+      "image": "images/synthetic-03.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "top",
+        "silhouette.fit": "loose",
+        "neckline.front": "round",
+        "sleeves.length": "elbow"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-04",
+      "image": "images/synthetic-04.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "skirt",
+        "silhouette.fit": "fitted",
+        "neckline.front": "v",
+        "sleeves.length": "long",
+        "lower_part.type": "a_line"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-05",
+      "image": "images/synthetic-05.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "trousers",
+        "silhouette.fit": "semi_fitted",
+        "neckline.front": "round",
+        "sleeves.length": "sleeveless"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-06",
+      "image": "images/synthetic-06.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "dress",
+        "silhouette.fit": "loose",
+        "neckline.front": "v",
+        "sleeves.length": "short",
+        "lower_part.type": "a_line"
+      },
+      "requires_question": true
+    },
+    {
+      "case_id": "synthetic-07",
+      "image": "images/synthetic-07.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "blouse",
+        "silhouette.fit": "fitted",
+        "neckline.front": "round",
+        "sleeves.length": "elbow"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-08",
+      "image": "images/synthetic-08.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "top",
+        "silhouette.fit": "semi_fitted",
+        "neckline.front": "v",
+        "sleeves.length": "long"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-09",
+      "image": "images/synthetic-09.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "skirt",
+        "silhouette.fit": "loose",
+        "neckline.front": "round",
+        "sleeves.length": "sleeveless",
+        "lower_part.type": "a_line"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-10",
+      "image": "images/synthetic-10.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "trousers",
+        "silhouette.fit": "fitted",
+        "neckline.front": "v",
+        "sleeves.length": "short"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-11",
+      "image": "images/synthetic-11.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "dress",
+        "silhouette.fit": "semi_fitted",
+        "neckline.front": "round",
+        "sleeves.length": "elbow",
+        "lower_part.type": "a_line"
+      },
+      "requires_question": true
+    },
+    {
+      "case_id": "synthetic-12",
+      "image": "images/synthetic-12.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "blouse",
+        "silhouette.fit": "loose",
+        "neckline.front": "v",
+        "sleeves.length": "long"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-13",
+      "image": "images/synthetic-13.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "top",
+        "silhouette.fit": "fitted",
+        "neckline.front": "round",
+        "sleeves.length": "sleeveless"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-14",
+      "image": "images/synthetic-14.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "skirt",
+        "silhouette.fit": "semi_fitted",
+        "neckline.front": "v",
+        "sleeves.length": "short",
+        "lower_part.type": "a_line"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-15",
+      "image": "images/synthetic-15.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "trousers",
+        "silhouette.fit": "loose",
+        "neckline.front": "round",
+        "sleeves.length": "elbow"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-16",
+      "image": "images/synthetic-16.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "dress",
+        "silhouette.fit": "fitted",
+        "neckline.front": "v",
+        "sleeves.length": "long",
+        "lower_part.type": "a_line"
+      },
+      "requires_question": true
+    },
+    {
+      "case_id": "synthetic-17",
+      "image": "images/synthetic-17.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "blouse",
+        "silhouette.fit": "semi_fitted",
+        "neckline.front": "round",
+        "sleeves.length": "sleeveless"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-18",
+      "image": "images/synthetic-18.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "top",
+        "silhouette.fit": "loose",
+        "neckline.front": "v",
+        "sleeves.length": "short"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-19",
+      "image": "images/synthetic-19.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "skirt",
+        "silhouette.fit": "fitted",
+        "neckline.front": "round",
+        "sleeves.length": "elbow",
+        "lower_part.type": "a_line"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-20",
+      "image": "images/synthetic-20.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "trousers",
+        "silhouette.fit": "semi_fitted",
+        "neckline.front": "v",
+        "sleeves.length": "long"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-21",
+      "image": "images/synthetic-21.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "dress",
+        "silhouette.fit": "loose",
+        "neckline.front": "round",
+        "sleeves.length": "sleeveless",
+        "lower_part.type": "a_line"
+      },
+      "requires_question": true
+    },
+    {
+      "case_id": "synthetic-22",
+      "image": "images/synthetic-22.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "blouse",
+        "silhouette.fit": "fitted",
+        "neckline.front": "v",
+        "sleeves.length": "short"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-23",
+      "image": "images/synthetic-23.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "top",
+        "silhouette.fit": "semi_fitted",
+        "neckline.front": "round",
+        "sleeves.length": "elbow"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-24",
+      "image": "images/synthetic-24.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "skirt",
+        "silhouette.fit": "loose",
+        "neckline.front": "v",
+        "sleeves.length": "long",
+        "lower_part.type": "a_line"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-25",
+      "image": "images/synthetic-25.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "trousers",
+        "silhouette.fit": "fitted",
+        "neckline.front": "round",
+        "sleeves.length": "sleeveless"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-26",
+      "image": "images/synthetic-26.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "dress",
+        "silhouette.fit": "semi_fitted",
+        "neckline.front": "v",
+        "sleeves.length": "short",
+        "lower_part.type": "a_line"
+      },
+      "requires_question": true
+    },
+    {
+      "case_id": "synthetic-27",
+      "image": "images/synthetic-27.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "blouse",
+        "silhouette.fit": "loose",
+        "neckline.front": "round",
+        "sleeves.length": "elbow"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-28",
+      "image": "images/synthetic-28.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "top",
+        "silhouette.fit": "fitted",
+        "neckline.front": "v",
+        "sleeves.length": "long"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-29",
+      "image": "images/synthetic-29.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "skirt",
+        "silhouette.fit": "semi_fitted",
+        "neckline.front": "round",
+        "sleeves.length": "sleeveless",
+        "lower_part.type": "a_line"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-30",
+      "image": "images/synthetic-30.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "trousers",
+        "silhouette.fit": "loose",
+        "neckline.front": "v",
+        "sleeves.length": "short"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-31",
+      "image": "images/synthetic-31.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "dress",
+        "silhouette.fit": "fitted",
+        "neckline.front": "round",
+        "sleeves.length": "elbow",
+        "lower_part.type": "a_line"
+      },
+      "requires_question": true
+    },
+    {
+      "case_id": "synthetic-32",
+      "image": "images/synthetic-32.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "blouse",
+        "silhouette.fit": "semi_fitted",
+        "neckline.front": "v",
+        "sleeves.length": "long"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-33",
+      "image": "images/synthetic-33.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "top",
+        "silhouette.fit": "loose",
+        "neckline.front": "round",
+        "sleeves.length": "sleeveless"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-34",
+      "image": "images/synthetic-34.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "skirt",
+        "silhouette.fit": "fitted",
+        "neckline.front": "v",
+        "sleeves.length": "short",
+        "lower_part.type": "a_line"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-35",
+      "image": "images/synthetic-35.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "trousers",
+        "silhouette.fit": "semi_fitted",
+        "neckline.front": "round",
+        "sleeves.length": "elbow"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-36",
+      "image": "images/synthetic-36.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "dress",
+        "silhouette.fit": "loose",
+        "neckline.front": "v",
+        "sleeves.length": "long",
+        "lower_part.type": "a_line"
+      },
+      "requires_question": true
+    },
+    {
+      "case_id": "synthetic-37",
+      "image": "images/synthetic-37.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "blouse",
+        "silhouette.fit": "fitted",
+        "neckline.front": "round",
+        "sleeves.length": "sleeveless"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-38",
+      "image": "images/synthetic-38.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "top",
+        "silhouette.fit": "semi_fitted",
+        "neckline.front": "v",
+        "sleeves.length": "short"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-39",
+      "image": "images/synthetic-39.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "skirt",
+        "silhouette.fit": "loose",
+        "neckline.front": "round",
+        "sleeves.length": "elbow",
+        "lower_part.type": "a_line"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-40",
+      "image": "images/synthetic-40.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "trousers",
+        "silhouette.fit": "fitted",
+        "neckline.front": "v",
+        "sleeves.length": "long"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-41",
+      "image": "images/synthetic-41.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "dress",
+        "silhouette.fit": "semi_fitted",
+        "neckline.front": "round",
+        "sleeves.length": "sleeveless",
+        "lower_part.type": "a_line"
+      },
+      "requires_question": true
+    },
+    {
+      "case_id": "synthetic-42",
+      "image": "images/synthetic-42.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "blouse",
+        "silhouette.fit": "loose",
+        "neckline.front": "v",
+        "sleeves.length": "short"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-43",
+      "image": "images/synthetic-43.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "top",
+        "silhouette.fit": "fitted",
+        "neckline.front": "round",
+        "sleeves.length": "elbow"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-44",
+      "image": "images/synthetic-44.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "skirt",
+        "silhouette.fit": "semi_fitted",
+        "neckline.front": "v",
+        "sleeves.length": "long",
+        "lower_part.type": "a_line"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-45",
+      "image": "images/synthetic-45.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "trousers",
+        "silhouette.fit": "loose",
+        "neckline.front": "round",
+        "sleeves.length": "sleeveless"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-46",
+      "image": "images/synthetic-46.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "dress",
+        "silhouette.fit": "fitted",
+        "neckline.front": "v",
+        "sleeves.length": "short",
+        "lower_part.type": "a_line"
+      },
+      "requires_question": true
+    },
+    {
+      "case_id": "synthetic-47",
+      "image": "images/synthetic-47.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "blouse",
+        "silhouette.fit": "semi_fitted",
+        "neckline.front": "round",
+        "sleeves.length": "elbow"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-48",
+      "image": "images/synthetic-48.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "top",
+        "silhouette.fit": "loose",
+        "neckline.front": "v",
+        "sleeves.length": "long"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-49",
+      "image": "images/synthetic-49.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "skirt",
+        "silhouette.fit": "fitted",
+        "neckline.front": "round",
+        "sleeves.length": "sleeveless",
+        "lower_part.type": "a_line"
+      },
+      "requires_question": false
+    },
+    {
+      "case_id": "synthetic-50",
+      "image": "images/synthetic-50.png",
+      "license": "CC0-1.0",
+      "source": "generated-by-kroika",
+      "annotation_status": "developer_seed",
+      "labels": {
+        "garment_category": "trousers",
+        "silhouette.fit": "semi_fitted",
+        "neckline.front": "v",
+        "sleeves.length": "short"
+      },
+      "requires_question": false
+    }
+  ]
+}

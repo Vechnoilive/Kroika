@@ -10,6 +10,9 @@ import type {
   PatternEngineResult,
   Readiness,
   StyleAnalysis,
+  VisionProviderId,
+  VisionProviderList,
+  ImageUploadResult,
 } from './types';
 import {buildEngineRequest} from './generation';
 
@@ -89,6 +92,24 @@ async function requestBlob(path: string, init?: RequestInit): Promise<{blob: Blo
   return {blob: await response.blob(), filename: match?.[1] ?? 'kroika-pattern-a4.pdf'};
 }
 
+function fileBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new ApiError(
+      'Не удалось прочитать изображение. Выберите файл ещё раз.', 0, 'FILE_READ_ERROR',
+    ));
+    reader.onload = () => {
+      const result = String(reader.result ?? '');
+      const marker = result.indexOf(',');
+      if (marker < 0) reject(new ApiError(
+        'Не удалось прочитать изображение. Выберите файл ещё раз.', 0, 'FILE_READ_ERROR',
+      ));
+      else resolve(result.slice(marker + 1));
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export const api = {
   readiness: () => request<Readiness>('/health/ready'),
   listProjects: () => request<ProjectList>('/api/v1/projects'),
@@ -142,15 +163,28 @@ export const api = {
     requestBlob(`/api/v1/patterns/${encodeURIComponent(generationId)}/export/a4-pdf`, {
       method: 'POST',
     }),
-  analyzeDemo: (projectId: string) =>
-    request<StyleAnalysis>('/api/v1/garments/analyze-image', {
+  visionProviders: () => request<VisionProviderList>('/api/v1/ai/providers'),
+  uploadImage: async (file: File) => request<ImageUploadResult>('/api/v1/images', {
+    method: 'POST',
+    body: JSON.stringify({
+      file_name: file.name,
+      media_type: file.type,
+      data_base64: await fileBase64(file),
+    }),
+  }),
+  analyzeImages: (
+    projectId: string,
+    imageRefs: string[],
+    provider: VisionProviderId,
+  ) =>
+    request<StyleAnalysis>(`/api/v1/garments/analyze-image?provider=${provider}`, {
       method: 'POST',
       body: JSON.stringify({
         schema_version: '1.0.0',
         request_id: crypto.randomUUID(),
         project_id: projectId,
         locale: 'ru-RU',
-        image_refs: ['img_demo_front_12345678'],
+        image_refs: imageRefs,
         supported_garment_categories: ['dress', 'sundress'],
         supported_features: {
           neckline: ['round', 'v', 'square'],
@@ -160,4 +194,7 @@ export const api = {
         image_transmission_confirmed: true,
       }),
     }),
+  analyzeDemo: (projectId: string) => api.analyzeImages(
+    projectId, ['img_demo_front_12345678'], 'mock',
+  ),
 };

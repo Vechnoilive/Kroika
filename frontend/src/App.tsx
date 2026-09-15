@@ -2,6 +2,7 @@ import {FormEvent, useEffect, useState} from 'react';
 import {api, ApiError} from './api';
 import {makeDemoProject} from './demoProject';
 import {MeasurementWizard} from './MeasurementWizard';
+import {VisionAnalyzer} from './VisionAnalyzer';
 import type {BodyMeasurements} from './types';
 import type {PatternEngineResult, ProjectDocument, ProjectSummary, StyleAnalysis} from './types';
 
@@ -158,6 +159,7 @@ export default function App() {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [project, setProject] = useState<ProjectDocument | null>(null);
   const [analysis, setAnalysis] = useState<StyleAnalysis | null>(null);
+  const [analysisProvider, setAnalysisProvider] = useState('Демо-режим');
   const [projectName, setProjectName] = useState('Моё первое платье');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
@@ -217,21 +219,6 @@ export default function App() {
       setError(caught instanceof ApiError
         ? caught
         : new ApiError('Не удалось открыть проект.', 0, 'UNKNOWN_ERROR'));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function analyzeDemo() {
-    if (!project) return;
-    setBusy(true);
-    setError(null);
-    try {
-      setAnalysis(await api.analyzeDemo(project.project_id));
-    } catch (caught) {
-      setError(caught instanceof ApiError
-        ? caught
-        : new ApiError('Не удалось проверить mock-анализ.', 0, 'UNKNOWN_ERROR'));
     } finally {
       setBusy(false);
     }
@@ -329,12 +316,12 @@ export default function App() {
           </ol>
           <div className="privacy-note">
             <span aria-hidden="true">⌂</span>
-            <p><strong>Данные остаются на компьютере</strong>Сейчас используется локальная SQLite-база и безопасный mock.</p>
+            <p><strong>Мерки остаются на компьютере</strong>Фото отправляется внешней модели только после отдельного согласия.</p>
           </div>
         </aside>
 
         <section className="content">
-          <div className="stage-badge">Припуски и печать · этап 9 из 15</div>
+          <div className="stage-badge">Qwen и Gemini · этап 10 из 15</div>
           {!project ? (
             <>
               <div className="intro">
@@ -405,30 +392,19 @@ export default function App() {
                   busy={busy}
                 />
               ) : !analysis ? (
-                <div className="action-card action-card--sketch">
-                  <div className="action-card__icon" aria-hidden="true">02</div>
-                  <div className="action-card__body">
-                    <h2>Проверим анализ эскиза</h2>
-                    <p>Настоящий Qwen подключим на этапе 10. Сейчас mock безопасно показывает последовательность работы без передачи фотографии.</p>
-                    <div className="mock-preview" aria-hidden="true">
-                      <svg viewBox="0 0 240 250" role="img">
-                        <path d="M92 23c8 12 48 12 56 0l23 23-19 30-7-8 15 155H80L95 68l-7 8-19-30 23-23Z" />
-                        <path d="M95 68c17 9 33 9 50 0M88 126h64M120 35v188" />
-                      </svg>
-                      <span>Демонстрационный эскиз</span>
-                    </div>
-                    <button className="primary-button" onClick={() => void analyzeDemo()} disabled={busy}>
-                      {busy ? 'Проверяем…' : 'Запустить mock-анализ'} <span aria-hidden="true">→</span>
-                    </button>
-                    <p className="demo-warning"><strong>Без передачи фото:</strong> это заранее подготовленный ответ для проверки интерфейса.</p>
-                  </div>
-                </div>
+                <VisionAnalyzer
+                  projectId={project.project_id}
+                  onComplete={(result, providerName) => {
+                    setAnalysisProvider(providerName);
+                    setAnalysis(result);
+                  }}
+                />
               ) : (
                 <>
                   <div className="analysis-card analysis-card--compact">
                     <div className="success-mark" aria-hidden="true">✓</div>
                     <div>
-                      <p className="eyebrow">Mock ответил</p>
+                      <p className="eyebrow">{analysisProvider} · результат получен</p>
                       <h2>Похоже на платье А-силуэта</h2>
                       <p>Это предложение, а не окончательное решение. Перед построением все признаки нужно будет подтвердить.</p>
                     </div>

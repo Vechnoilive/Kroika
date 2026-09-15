@@ -132,6 +132,29 @@ export interface StyleAnalysis {
   targeted_questions: string[];
 }
 
+export type VisionProviderId = 'mock' | 'qwen' | 'gemini';
+
+export interface VisionProviderStatus {
+  provider_id: VisionProviderId;
+  name: string;
+  model: string;
+  configured: boolean;
+  is_default: boolean;
+  sends_images_external: boolean;
+  message_ru: string;
+}
+
+export interface VisionProviderList {
+  default_provider: VisionProviderId;
+  items: VisionProviderStatus[];
+}
+
+export interface ImageUploadResult {
+  image_ref: string;
+  media_type: 'image/jpeg' | 'image/png' | 'image/webp';
+  size_bytes: number;
+}
+
 export interface ApiErrorBody {
   code?: string;
   message_ru?: string;

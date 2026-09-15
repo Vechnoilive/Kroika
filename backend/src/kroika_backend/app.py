@@ -1,4 +1,4 @@
-"""FastAPI composition root for the stage-9 modular monolith."""
+"""FastAPI composition root for the stage-10 modular monolith."""
 
 from __future__ import annotations
 
@@ -28,9 +28,12 @@ from kroika_pattern_engine import (
 from .config import Settings
 from .errors import AppError, install_exception_handlers
 from .logging_config import configure_logging
-from .mock_provider import MockAIProvider
+from .image_store import LocalImageStore
 from .models import (
+    AIProviderListResponse,
     HealthResponse,
+    ImageUploadRequest,
+    ImageUploadResponse,
     MeasurementProfileListResponse,
     MeasurementProfileRecord,
     MeasurementProfileSummary,
@@ -39,8 +42,9 @@ from .models import (
     ReadinessResponse,
 )
 from .repository import SQLiteRepository
+from .vision_providers import ProviderRegistry, build_provider_registry
 
-APP_VERSION = "0.9.0"
+APP_VERSION = "0.10.0"
 
 
 def _project_or_404(repository: SQLiteRepository, project_id: str) -> dict[str, Any]:
@@ -67,19 +71,27 @@ def create_app(
     settings.validate()
     repository = repository or SQLiteRepository(settings.database_path)
     repository.initialize()
-    ai_provider = ai_provider or MockAIProvider()
+    image_store = LocalImageStore(settings.image_storage_path, settings.max_image_bytes)
+    provider_registry = build_provider_registry(settings, image_store)
+    if ai_provider is not None:
+        overridden = dict(provider_registry.providers)
+        overridden[ai_provider.provider_id] = ai_provider
+        provider_registry = ProviderRegistry(ai_provider.provider_id, overridden)
+    active_provider = provider_registry.get()
     pattern_engine = pattern_engine or GeometryPatternEngine()
     logger = configure_logging(settings.log_level)
 
     app = FastAPI(
         title="Kroika API",
         version=APP_VERSION,
-        description="Локальный API Kroika с диагностическим экспортом SVG и PDF A4 1:1.",
+        description="Kroika: локальные проекты, управляемый vision-анализ и диагностическая печать.",
         debug=settings.debug,
     )
     app.state.settings = settings
     app.state.repository = repository
-    app.state.ai_provider = ai_provider
+    app.state.image_store = image_store
+    app.state.ai_provider = active_provider
+    app.state.provider_registry = provider_registry
     app.state.pattern_engine = pattern_engine
     app.state.logger = logger
     app.add_middleware(
@@ -130,7 +142,7 @@ def create_app(
             service="kroika-backend",
             version=APP_VERSION,
             database="ok",
-            ai_provider=ai_provider.provider_id,
+            ai_provider=active_provider.provider_id,
             pattern_engine=f"{pattern_engine.engine_id}:{pattern_engine.engine_version}",
         )
 
@@ -236,10 +248,37 @@ def create_app(
     ) -> dict[str, Any]:
         return repository.replace_measurement_profile(str(profile_id), if_match, profile)
 
+    @app.get(
+        "/api/v1/ai/providers", response_model=AIProviderListResponse, tags=["garments"]
+    )
+    def list_ai_providers() -> dict[str, Any]:
+        return {
+            "default_provider": provider_registry.default_provider,
+            "items": provider_registry.statuses(),
+        }
+
+    @app.post(
+        "/api/v1/images", status_code=201,
+        response_model=ImageUploadResponse, tags=["garments"],
+    )
+    def upload_image(request_document: ImageUploadRequest) -> dict[str, Any]:
+        asset = image_store.save_base64(
+            request_document.data_base64, request_document.media_type
+        )
+        return {
+            "image_ref": asset.image_ref,
+            "media_type": asset.media_type,
+            "size_bytes": len(asset.data),
+        }
+
     @app.post("/api/v1/garments/analyze-image", tags=["garments"])
-    async def analyze_image(request_document: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    async def analyze_image(
+        request_document: dict[str, Any] = Body(...),
+        provider: Literal["mock", "qwen", "gemini"] | None = None,
+    ) -> dict[str, Any]:
         validate_document("ai-analysis-request", request_document)
-        result = await ai_provider.analyze_style(request_document)
+        selected_provider = provider_registry.get(provider)
+        result = await selected_provider.analyze_style(request_document)
         validate_ai_analysis(result)
         return result
 

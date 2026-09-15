@@ -3,8 +3,8 @@ info:
   title: Kroika API contracts
   version: 1.0.0
   description: >-
-    Контракт локального API. На этапе 5 обработчики работают с SQLite,
-    профилями и каталогом мерок, mock AI и проверенным геометрическим ядром pattern-engine.
+    Контракт API. Этап 10 добавляет сменные Qwen/Gemini/mock адаптеры,
+    локальную загрузку изображений и явный выбор провайдера.
 servers:
   - url: http://localhost:8000
     description: Локальный сервер
@@ -37,6 +37,14 @@ paths:
     post:
       operationId: analyzeGarmentImages
       summary: Предложить признаки фасона по изображениям
+      parameters:
+        - name: provider
+          in: query
+          required: false
+          description: Явный выбор; без параметра используется серверный default
+          schema:
+            type: string
+            enum: [mock, qwen, gemini]
       requestBody:
         required: true
         content:
@@ -54,8 +62,42 @@ paths:
           $ref: '#/components/responses/ContractError'
         '422':
           $ref: '#/components/responses/ContractError'
+        '429':
+          $ref: '#/components/responses/ProviderUnavailable'
         '503':
           $ref: '#/components/responses/ProviderUnavailable'
+        '504':
+          $ref: '#/components/responses/ProviderUnavailable'
+  /api/v1/ai/providers:
+    get:
+      operationId: listAIProviders
+      summary: Показать доступные способы анализа без проверки платного API
+      responses:
+        '200':
+          description: Настройка и безопасная подсказка для каждого адаптера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIProviderList'
+  /api/v1/images:
+    post:
+      operationId: uploadGarmentImage
+      summary: Сохранить проверенное изображение локально перед анализом
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImageUploadRequest'
+      responses:
+        '201':
+          description: Непрозрачная локальная ссылка без исходного имени пути
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageUploadResponse'
+        '422':
+          $ref: '#/components/responses/ContractError'
   /api/v1/projects:
     get:
       operationId: listProjects
@@ -437,6 +479,46 @@ components:
         pattern_engine:
           type: string
           minLength: 1
+    AIProviderStatus:
+      type: object
+      additionalProperties: false
+      required: [provider_id, name, model, configured, is_default, sends_images_external, message_ru]
+      properties:
+        provider_id: {type: string, enum: [mock, qwen, gemini]}
+        name: {type: string, minLength: 1}
+        model: {type: string, minLength: 1}
+        configured: {type: boolean}
+        is_default: {type: boolean}
+        sends_images_external: {type: boolean}
+        message_ru: {type: string, minLength: 1}
+    AIProviderList:
+      type: object
+      additionalProperties: false
+      required: [default_provider, items]
+      properties:
+        default_provider: {type: string, enum: [mock, qwen, gemini]}
+        items:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            $ref: '#/components/schemas/AIProviderStatus'
+    ImageUploadRequest:
+      type: object
+      additionalProperties: false
+      required: [file_name, media_type, data_base64]
+      properties:
+        file_name: {type: string, minLength: 1, maxLength: 120}
+        media_type: {type: string, enum: [image/jpeg, image/png, image/webp]}
+        data_base64: {type: string, minLength: 4, maxLength: 28000000}
+    ImageUploadResponse:
+      type: object
+      additionalProperties: false
+      required: [image_ref, media_type, size_bytes]
+      properties:
+        image_ref: {type: string, pattern: '^img_[a-f0-9]{32}$'}
+        media_type: {type: string, enum: [image/jpeg, image/png, image/webp]}
+        size_bytes: {type: integer, minimum: 1}
     ProjectSummary:
       type: object
       additionalProperties: false

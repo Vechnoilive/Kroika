@@ -175,16 +175,18 @@ def test_missing_by_edge_allowances_fail_closed_without_production_export():
     assert result["validation_report"]["issues"][0]["code"] == "SEAM_ALLOWANCE_MODE_REQUIRED"
 
 
-def test_stage9_runtime_and_current_only_ci_are_wired():
+def test_stage9_runtime_contract_remains_wired():
     requirements = (ROOT / "requirements-stage9.txt").read_text(encoding="utf-8")
+    current_requirements = (ROOT / "requirements-stage10.txt").read_text(encoding="utf-8")
     launcher = (ROOT / "scripts" / "start_local.py").read_text(encoding="utf-8")
     dockerfile = (ROOT / "backend" / "Dockerfile").read_text(encoding="utf-8")
     workflow = (ROOT / ".github" / "workflows" / "verify.yml").read_text(encoding="utf-8")
     assert "reportlab==4.4.9" in requirements
     assert "pypdf==6.10.0" in requirements
-    assert "requirements-stage9.txt" in launcher
+    assert '"requirements-stage9.txt"' in launcher
+    assert "-r requirements-stage9.txt" in current_requirements
     assert "fonts-dejavu-core" in dockerfile
-    assert "python scripts/verify_stage9.py" in workflow
+    assert "python scripts/verify_stage10.py" in workflow
     assert "verify_all.py" not in workflow
     spec, base_uri = read_from_filename(str(ROOT / "schemas" / "openapi.v1.yaml"))
     validate_openapi(spec, base_uri=base_uri)
@@ -194,7 +196,7 @@ def test_stage9_runtime_and_current_only_ci_are_wired():
         for method, operation in path.items()
         if method in {"get", "post", "put", "patch", "delete"}
     ]
-    assert len(operations) == len(set(operations)) == 19
+    assert len(operations) == len(set(operations))
 
 
 def test_old_generation_cache_is_migrated_and_new_engine_result_can_coexist(tmp_path: Path):

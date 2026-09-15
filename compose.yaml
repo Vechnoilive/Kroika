@@ -7,6 +7,7 @@ services:
       dockerfile: backend/Dockerfile
     environment:
       KROIKA_DATABASE_PATH: /app/data/kroika.db
+      KROIKA_IMAGE_STORAGE_PATH: /app/data/images
       KROIKA_AI_PROVIDER: mock
       KROIKA_LOG_LEVEL: INFO
       KROIKA_DEBUG: "false"

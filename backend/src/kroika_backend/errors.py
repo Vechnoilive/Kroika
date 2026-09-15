@@ -10,7 +10,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from kroika_contracts.contract_io import ContractValidationError
-from kroika_contracts.ports import AIProviderError
+from kroika_contracts.ports import AIProviderError, ProviderErrorCode
 from kroika_contracts.semantic import SemanticContractError
 
 
@@ -100,7 +100,13 @@ def install_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(AIProviderError)
     async def handle_provider_error(request: Request, exc: AIProviderError) -> JSONResponse:
-        return _response(request, 503, exc.code.value.upper(), exc.message_ru)
+        status = {
+            ProviderErrorCode.INVALID_IMAGE: 422,
+            ProviderErrorCode.INVALID_SCHEMA: 422,
+            ProviderErrorCode.RATE_LIMIT: 429,
+            ProviderErrorCode.TIMEOUT: 504,
+        }.get(exc.code, 503)
+        return _response(request, status, exc.code.value.upper(), exc.message_ru)
 
     @app.exception_handler(Exception)
     async def handle_unexpected(request: Request, exc: Exception) -> JSONResponse:
