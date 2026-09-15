@@ -1,10 +1,21 @@
 import {describe, expect, it} from 'vitest';
-import {canonicalGenerationPayload, stableJson} from './generation';
+import {canonicalGenerationPayload, sha256, stableJson} from './generation';
 
 describe('generation input hashing payload', () => {
   it('sorts nested keys deterministically', () => {
-    expect(stableJson({z: 1, a: {y: 2, b: 3}})).toBe(
-      '{"a":{"b":3,"y":2},"z":1}',
+    expect(stableJson({z: 1, aa: 2, a_b: 3, a: {y: 2, b: 3}})).toBe(
+      '{"a":{"b":3,"y":2},"a_b":3,"aa":2,"z":1}',
+    );
+  });
+
+  it('matches Python SHA-256 for UTF-8 canonical JSON', async () => {
+    const canonical = stableJson({
+      hash_contract_version: '1.0.0',
+      garment_spec: {garment_type: 'dress', parameters: {sleeve: 'sleeveless'}},
+      measurements: {waist_mm: 700, note: 'мерки'},
+    });
+    expect(await sha256(canonical)).toBe(
+      '1d672e6f444573cc07d2210d49eed286762adcd4aa69cbb3f81e1f6dc884bf64',
     );
   });
 

@@ -7,7 +7,9 @@ function normalized(value: unknown): unknown {
   if (value !== null && typeof value === 'object') {
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>)
-        .sort(([left], [right]) => left.localeCompare(right))
+        // Python's json.dumps(sort_keys=True) compares these ASCII contract
+        // keys by code point. Avoid locale-dependent browser collation here.
+        .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
         .map(([key, item]) => [key, normalized(item)]),
     );
   }
@@ -63,7 +65,7 @@ export function canonicalGenerationPayload(request: JsonObject): JsonObject {
   };
 }
 
-async function sha256(value: string): Promise<string> {
+export async function sha256(value: string): Promise<string> {
   const bytes = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(digest))
