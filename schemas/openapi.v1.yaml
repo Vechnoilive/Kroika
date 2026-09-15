@@ -3,8 +3,8 @@ info:
   title: Kroika API contracts
   version: 1.0.0
   description: >-
-    Контракт API. Этап 10 добавляет сменные Qwen/Gemini/mock адаптеры,
-    локальную загрузку изображений и явный выбор провайдера.
+    Контракт API. Этап 11 связывает полный сценарий, историю ревизий и
+    интерактивные SVG-слои. В пользовательском интерфейсе включены mock и Qwen.
 servers:
   - url: http://localhost:8000
     description: Локальный сервер
@@ -174,6 +174,46 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
           $ref: '#/components/responses/ContractError'
+  /api/v1/projects/{project_id}/history:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      operationId: getProjectHistory
+      summary: Получить сохранённые ревизии проекта без раскрытия их содержимого
+      responses:
+        '200':
+          description: Новые версии расположены первыми
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectHistoryResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/projects/{project_id}/history/{revision}/restore:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: revision
+        in: path
+        required: true
+        schema: {type: integer, minimum: 1}
+      - name: If-Match
+        in: header
+        required: true
+        schema: {type: integer, minimum: 1}
+    post:
+      operationId: restoreProjectRevision
+      summary: Восстановить входы старой версии как новый безопасный черновик
+      responses:
+        '200':
+          description: Создана новая ревизия; старые построения сохранены в истории
+          content:
+            application/json:
+              schema:
+                $ref: ./v1/pattern-project.schema.json
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /api/v1/measurements/catalog:
     get:
       operationId: getMeasurementCatalog
@@ -345,6 +385,13 @@ paths:
       summary: Получить диагностический SVG из канонической геометрии
       parameters:
         - $ref: '#/components/parameters/GenerationId'
+        - name: layers
+          in: query
+          required: false
+          description: Нужные слои через запятую; без параметра возвращаются все
+          schema:
+            type: string
+            example: cutting,seam,grain,labels,dimensions
       responses:
         '200':
           description: SVG-предпросмотр
@@ -360,6 +407,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/ContractError'
   /api/v1/patterns/{generation_id}/export/print.svg:
     get:
       operationId: exportPatternPrintSvg
@@ -482,13 +531,14 @@ components:
     AIProviderStatus:
       type: object
       additionalProperties: false
-      required: [provider_id, name, model, configured, is_default, sends_images_external, message_ru]
+      required: [provider_id, name, model, configured, is_default, enabled_for_users, sends_images_external, message_ru]
       properties:
         provider_id: {type: string, enum: [mock, qwen, gemini]}
         name: {type: string, minLength: 1}
         model: {type: string, minLength: 1}
         configured: {type: boolean}
         is_default: {type: boolean}
+        enabled_for_users: {type: boolean}
         sends_images_external: {type: boolean}
         message_ru: {type: string, minLength: 1}
     AIProviderList:
@@ -549,6 +599,25 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ProjectSummary'
+    ProjectHistoryEntry:
+      type: object
+      additionalProperties: false
+      required: [revision, status, updated_at, change_summary, is_current]
+      properties:
+        revision: {type: integer, minimum: 1}
+        status: {type: string, minLength: 1}
+        updated_at: {type: string, format: date-time}
+        change_summary: {type: string, minLength: 1}
+        is_current: {type: boolean}
+    ProjectHistoryResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectHistoryEntry'
     MeasurementDefinition:
       type: object
       additionalProperties: false

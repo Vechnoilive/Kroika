@@ -33,6 +33,18 @@
       "items": {"type": "string", "pattern": "^img_[a-zA-Z0-9_-]{8,80}$"}
     },
     "style_analysis_id": {"anyOf": [{"$ref": "common.schema.json#/$defs/uuid"}, {"type": "null"}]},
+    "style_analysis_provider": {
+      "anyOf": [
+        {"type": "string", "enum": ["mock", "qwen", "gemini"]},
+        {"type": "null"}
+      ]
+    },
+    "style_analysis": {
+      "anyOf": [
+        {"$ref": "ai-style-analysis.schema.json"},
+        {"type": "null"}
+      ]
+    },
     "pattern_method": {"$ref": "common.schema.json#/$defs/pattern_method"},
     "body_measurements": {"$ref": "body-measurements.schema.json"},
     "garment_spec": {"$ref": "garment-spec.schema.json"},

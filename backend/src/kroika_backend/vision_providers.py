@@ -262,6 +262,7 @@ class GeminiProvider(ExternalVisionProvider):
 class ProviderRegistry:
     default_provider: str
     providers: Mapping[str, AIProvider]
+    enabled_for_users: tuple[str, ...] = ("mock", "qwen")
 
     def get(self, provider_id: str | None = None) -> AIProvider:
         selected = provider_id or self.default_provider
@@ -287,6 +288,7 @@ class ProviderRegistry:
                 "model": getattr(provider, "model", "offline fixture"),
                 "configured": configured,
                 "is_default": provider_id == self.default_provider,
+                "enabled_for_users": provider_id in self.enabled_for_users,
                 "sends_images_external": external,
                 "message_ru": (
                     "Работает без интернета и не отправляет фото."
@@ -315,4 +317,4 @@ def build_provider_registry(settings: Settings, image_store: LocalImageStore) ->
             **common, api_key=settings.gemini_api_key, base_url=settings.gemini_base_url,
             model=settings.gemini_model,
         ),
-    })
+    }, settings.enabled_ai_providers)

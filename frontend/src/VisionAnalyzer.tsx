@@ -6,7 +6,7 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const FALLBACK_MOCK: VisionProviderStatus = {
   provider_id: 'mock', name: 'Демо-режим', model: 'offline fixture',
-  configured: true, is_default: true, sends_images_external: false,
+  configured: true, is_default: true, enabled_for_users: true, sends_images_external: false,
   message_ru: 'Работает без интернета и не отправляет фото.',
 };
 
@@ -15,11 +15,14 @@ export function VisionAnalyzer({
   onComplete,
 }: {
   projectId: string;
-  onComplete: (analysis: StyleAnalysis, providerName: string) => void;
+  onComplete: (
+    analysis: StyleAnalysis,
+    details: {providerId: VisionProviderId; providerName: string; imageRefs: string[]},
+  ) => Promise<void>;
 }) {
   const [providers, setProviders] = useState<VisionProviderStatus[]>([FALLBACK_MOCK]);
   const [providerId, setProviderId] = useState<VisionProviderId>('mock');
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,8 +31,9 @@ export function VisionAnalyzer({
     let active = true;
     api.visionProviders().then((result) => {
       if (!active) return;
-      setProviders(result.items);
-      const preferred = result.items.find(
+      const visible = result.items.filter((item) => item.enabled_for_users);
+      setProviders(visible.length ? visible : [FALLBACK_MOCK]);
+      const preferred = visible.find(
         (item) => item.provider_id === result.default_provider && item.configured,
       );
       setProviderId(preferred?.provider_id ?? 'mock');
@@ -45,29 +49,35 @@ export function VisionAnalyzer({
   );
   const isExternal = selected?.sends_images_external ?? false;
 
-  function chooseFile(chosen: File | undefined) {
+  function chooseFiles(chosen: FileList | null) {
     setError(null);
-    if (!chosen) {
-      setFile(null);
+    if (!chosen || chosen.length === 0) {
+      setFiles([]);
       return;
     }
-    if (!ALLOWED_TYPES.includes(chosen.type)) {
-      setFile(null);
+    const selectedFiles = Array.from(chosen);
+    if (selectedFiles.length > 4) {
+      setFiles([]);
+      setError('Можно добавить от одного до четырёх изображений.');
+      return;
+    }
+    if (selectedFiles.some((item) => !ALLOWED_TYPES.includes(item.type))) {
+      setFiles([]);
       setError('Выберите изображение JPEG, PNG или WebP.');
       return;
     }
-    if (chosen.size > MAX_IMAGE_BYTES) {
-      setFile(null);
-      setError('Файл слишком большой. Максимальный размер — 10 МБ.');
+    if (selectedFiles.some((item) => item.size > MAX_IMAGE_BYTES)) {
+      setFiles([]);
+      setError('Один из файлов слишком большой. Максимум — 10 МБ на изображение.');
       return;
     }
-    setFile(chosen);
+    setFiles(selectedFiles);
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError(null);
-    if (isExternal && !file) {
+    if (isExternal && files.length === 0) {
       setError('Сначала выберите фотографию или эскиз изделия.');
       return;
     }
@@ -77,11 +87,18 @@ export function VisionAnalyzer({
     }
     setBusy(true);
     try {
-      const imageRefs = isExternal && file
-        ? [(await api.uploadImage(file)).image_ref]
+      const storedImageRefs = isExternal
+        ? await Promise.all(files.map(async (item) => (await api.uploadImage(item)).image_ref))
+        : [];
+      const analysisImageRefs = storedImageRefs.length
+        ? storedImageRefs
         : ['img_demo_front_12345678'];
-      const result = await api.analyzeImages(projectId, imageRefs, providerId);
-      onComplete(result, selected?.name ?? 'Демо-режим');
+      const result = await api.analyzeImages(projectId, analysisImageRefs, providerId);
+      await onComplete(result, {
+        providerId,
+        providerName: selected?.name ?? 'Демо-режим',
+        imageRefs: storedImageRefs,
+      });
     } catch (caught) {
       setError(caught instanceof ApiError
         ? caught.message
@@ -127,17 +144,23 @@ export function VisionAnalyzer({
         {isExternal && (
           <div className="image-fields">
             <label className="file-picker" htmlFor="garment-image">
-              <strong>{file ? file.name : 'Выбрать изображение'}</strong>
-              <small>JPEG, PNG или WebP · до 10 МБ</small>
+              <strong>{files.length ? `Выбрано изображений: ${files.length}` : 'Выбрать изображения'}</strong>
+              <small>1–4 файла · JPEG, PNG или WebP · до 10 МБ каждый</small>
             </label>
             <input
               id="garment-image"
               className="visually-hidden"
               type="file"
+              multiple
               accept="image/jpeg,image/png,image/webp"
               disabled={busy}
-              onChange={(event) => chooseFile(event.target.files?.[0])}
+              onChange={(event) => chooseFiles(event.target.files)}
             />
+            {files.length > 0 && (
+              <ul className="selected-files" aria-label="Выбранные изображения">
+                {files.map((item) => <li key={`${item.name}-${item.size}`}>{item.name}</li>)}
+              </ul>
+            )}
             <label className="consent-row">
               <input
                 type="checkbox"

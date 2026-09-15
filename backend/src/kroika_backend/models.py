@@ -45,6 +45,7 @@ class AIProviderStatus(BaseModel):
     model: str
     configured: bool
     is_default: bool
+    enabled_for_users: bool
     sends_images_external: bool
     message_ru: str
 
@@ -70,6 +71,22 @@ class ProjectListResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     items: list[ProjectSummary]
+
+
+class ProjectHistoryEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    revision: int = Field(ge=1)
+    status: str
+    updated_at: str
+    change_summary: str
+    is_current: bool
+
+
+class ProjectHistoryResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[ProjectHistoryEntry]
 
 
 class MeasurementProfileSummary(BaseModel):

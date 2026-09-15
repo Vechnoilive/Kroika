@@ -18,18 +18,70 @@ export interface ProjectDocument extends ProjectSummary {
   locale: 'ru-RU';
   body_measurements: BodyMeasurements;
   pattern_method: Record<string, unknown>;
-  fit_settings: Record<string, unknown>;
-  fabric_properties: Record<string, unknown>;
-  latest_generation: PatternEngineResult | null;
-  garment_spec: {
-    garment_type: 'dress' | 'sundress';
-    parameters: {
-      sleeve: {type: 'sleeveless' | 'short' | 'long'; length_mm?: number | null};
-      [key: string]: unknown;
-    };
-    [key: string]: unknown;
+  privacy: {
+    storage: 'local';
+    image_retention_days: number;
+    allow_external_ai: boolean;
+    consent_recorded_at: string | null;
   };
+  image_refs: string[];
+  style_analysis_id: string | null;
+  style_analysis_provider?: VisionProviderId | null;
+  style_analysis?: StyleAnalysis | null;
+  fit_settings: FitSettings;
+  fabric_properties: FabricProperties;
+  latest_generation: PatternEngineResult | null;
+  generation_history: Array<{generation_id: string; created_at: string; status: string}>;
+  garment_spec: GarmentSpec;
   [key: string]: unknown;
+}
+
+export interface GarmentSpec {
+  schema_version: '1.0.0';
+  garment_id: string;
+  selection_status: 'proposed' | 'confirmed';
+  garment_type: 'dress' | 'sundress';
+  parameters: {
+    symmetry: 'symmetric';
+    bodice_fit: 'fitted' | 'semi_fitted';
+    shaping: 'darts';
+    neckline: {type: 'round' | 'v' | 'square'; front_depth_mm: number; back_depth_mm: number};
+    sleeve: {type: 'sleeveless' | 'short' | 'long'; length_mm: number | null};
+    skirt: {type: 'straight' | 'a_line'; length_from_waist_mm: number; hem_expansion_each_side_mm: number};
+    closure: {type: 'zipper'; location: 'center_back'; length_mm: number};
+    finishing: {neckline_facing: boolean; armhole_facing: boolean};
+  };
+  unsupported_features: string[];
+  confirmed_at: string | null;
+}
+
+export interface FitSettings {
+  schema_version: '1.0.0';
+  settings_id: string;
+  status: 'draft' | 'confirmed';
+  preset: {id: string; version: string};
+  wearing_ease_mm: Record<'bust' | 'waist' | 'hips' | 'upper_arm', number>;
+  design_ease_mm: Record<'bust' | 'waist' | 'hips' | 'upper_arm', number>;
+  distribution: {front_share: number; back_share: number};
+  seam_allowance_mode: 'none' | 'by_edge';
+  seam_allowances_mm: Record<'normal' | 'neckline' | 'armhole' | 'zipper' | 'hem' | 'sleeve_hem' | 'fold', number>;
+  confirmed_at: string | null;
+}
+
+export interface FabricProperties {
+  schema_version: '1.0.0';
+  fabric_id: string;
+  status: 'draft' | 'confirmed';
+  name: string;
+  intended_use: 'toile' | 'final';
+  structure: 'woven' | 'knit' | 'unknown';
+  stretch_percent: {warp: number; weft: number};
+  weight: 'light' | 'medium' | 'heavy' | 'unknown';
+  drape: 'crisp' | 'medium' | 'fluid' | 'unknown';
+  stability: 'stable' | 'moderate' | 'unstable' | 'unknown';
+  directional_nap: boolean;
+  prewashed: boolean;
+  confirmed_at: string | null;
 }
 
 export type MeasurementSource = 'user' | 'preset' | 'derived';
@@ -122,6 +174,7 @@ export interface Readiness {
 }
 
 export interface StyleAnalysis {
+  schema_version?: '1.0.0';
   status: 'ok' | 'needs_confirmation' | 'insufficient_input';
   garment_category: string;
   silhouette: {fit: string; confidence: number};
@@ -130,6 +183,8 @@ export interface StyleAnalysis {
   lower_part: {type: string; length_category: string; confidence: number};
   uncertainties: string[];
   targeted_questions: string[];
+  unsupported_features?: string[];
+  [key: string]: unknown;
 }
 
 export type VisionProviderId = 'mock' | 'qwen' | 'gemini';
@@ -140,6 +195,7 @@ export interface VisionProviderStatus {
   model: string;
   configured: boolean;
   is_default: boolean;
+  enabled_for_users: boolean;
   sends_images_external: boolean;
   message_ru: string;
 }
@@ -154,6 +210,18 @@ export interface ImageUploadResult {
   media_type: 'image/jpeg' | 'image/png' | 'image/webp';
   size_bytes: number;
 }
+
+export interface ProjectHistoryEntry {
+  revision: number;
+  status: ProjectStatus;
+  updated_at: string;
+  change_summary: string;
+  is_current: boolean;
+}
+
+export type PatternLayer =
+  | 'cutting' | 'seam' | 'internal' | 'fold'
+  | 'grain' | 'notches' | 'labels' | 'dimensions';
 
 export interface ApiErrorBody {
   code?: string;

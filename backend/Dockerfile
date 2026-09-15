@@ -10,13 +10,13 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements-stage3.txt requirements-stage4.txt requirements-stage5.txt requirements-stage6.txt requirements-stage7.txt requirements-stage8.txt requirements-stage9.txt requirements-stage10.txt pyproject.toml ./
+COPY requirements-stage3.txt requirements-stage4.txt requirements-stage5.txt requirements-stage6.txt requirements-stage7.txt requirements-stage8.txt requirements-stage9.txt requirements-stage10.txt requirements-stage11.txt pyproject.toml ./
 COPY schemas ./schemas
 COPY src ./src
 COPY pattern-engine ./pattern-engine
 COPY backend ./backend
 
-RUN python -m pip install --no-cache-dir -r requirements-stage10.txt \
+RUN python -m pip install --no-cache-dir -r requirements-stage11.txt \
     && python -m pip install --no-cache-dir --no-deps -e . -e ./pattern-engine -e ./backend
 
 RUN useradd --create-home --uid 10001 kroika \

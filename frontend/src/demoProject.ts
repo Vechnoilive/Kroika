@@ -20,6 +20,8 @@ export function makeDemoProject(rawName: string): ProjectDocument {
     },
     image_refs: [],
     style_analysis_id: null,
+    style_analysis_provider: null,
+    style_analysis: null,
     pattern_method: {
       id: 'kroika-gc-woven',
       version: '0.1.0',

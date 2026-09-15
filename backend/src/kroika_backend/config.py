@@ -46,6 +46,7 @@ class Settings:
     image_storage_path: Path = Path("data/images")
     log_level: str = "INFO"
     ai_provider: str = "mock"
+    enabled_ai_providers: tuple[str, ...] = ("mock", "qwen")
     qwen_api_key: str | None = None
     qwen_base_url: str | None = None
     qwen_model: str = "qwen3-vl-plus"
@@ -66,11 +67,17 @@ class Settings:
                 "http://localhost:5173,http://127.0.0.1:5173",
             ).split(",") if item.strip()
         )
+        enabled_ai_providers = tuple(
+            item.strip().lower() for item in os.getenv(
+                "KROIKA_ENABLED_AI_PROVIDERS", "mock,qwen"
+            ).split(",") if item.strip()
+        )
         return cls(
             database_path=Path(os.getenv("KROIKA_DATABASE_PATH", "data/kroika.db")),
             image_storage_path=Path(os.getenv("KROIKA_IMAGE_STORAGE_PATH", "data/images")),
             log_level=os.getenv("KROIKA_LOG_LEVEL", "INFO").upper(),
             ai_provider=os.getenv("KROIKA_AI_PROVIDER", "mock").lower(),
+            enabled_ai_providers=enabled_ai_providers,
             qwen_api_key=os.getenv("QWEN_API_KEY") or None,
             qwen_base_url=os.getenv("QWEN_BASE_URL") or None,
             qwen_model=os.getenv("QWEN_MODEL", "qwen3-vl-plus"),
@@ -89,6 +96,20 @@ class Settings:
     def validate(self) -> None:
         if self.ai_provider not in {"mock", "qwen", "gemini"}:
             raise ValueError("KROIKA_AI_PROVIDER должен быть mock, qwen или gemini")
+        if not self.enabled_ai_providers:
+            raise ValueError("KROIKA_ENABLED_AI_PROVIDERS не должен быть пустым")
+        if len(set(self.enabled_ai_providers)) != len(self.enabled_ai_providers):
+            raise ValueError("KROIKA_ENABLED_AI_PROVIDERS содержит повторяющиеся значения")
+        if any(item not in {"mock", "qwen", "gemini"} for item in self.enabled_ai_providers):
+            raise ValueError(
+                "KROIKA_ENABLED_AI_PROVIDERS может содержать только mock, qwen и gemini"
+            )
+        if "mock" not in self.enabled_ai_providers:
+            raise ValueError("Демо-режим mock должен оставаться доступным как безопасный fallback")
+        if self.ai_provider not in self.enabled_ai_providers:
+            raise ValueError(
+                "KROIKA_AI_PROVIDER должен входить в KROIKA_ENABLED_AI_PROVIDERS"
+            )
         if self.log_level not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
             raise ValueError("KROIKA_LOG_LEVEL содержит неподдерживаемое значение")
         if not 1 <= self.ai_max_attempts <= 3:
