@@ -250,7 +250,7 @@ def test_stage7_is_latest_bootstrap_and_documented_layer():
     verifier = (ROOT / "scripts" / "verify_all.py").read_text(encoding="utf-8")
     documentation = (ROOT / "docs" / "BASE_BLOCKS.md").read_text(encoding="utf-8")
     assert '"requirements-stage7.txt"' in launcher
-    assert "-r requirements-stage7.txt" in dockerfile
+    assert "-r requirements-stage8.txt" in dockerfile
     assert "-r requirements-stage6.txt" in requirements
     assert "verify_stage7.py" in verifier
     for term in ("F01–F41", "вытач", "пройм", "GARMENT_ASSEMBLY_STAGE_NOT_READY"):
