@@ -25,6 +25,7 @@ from kroika_contracts.semantic import (  # noqa: E402
 )
 from kroika_pattern_engine import GeometryPatternEngine, render_pattern_svg  # noqa: E402
 from kroika_pattern_engine.geometry import (  # noqa: E402
+    Point,
     contour_from_data,
     curve_from_data,
     validate_simple_contour,
@@ -69,6 +70,13 @@ def test_supported_variant_matrix_builds_valid_complete_geometry(
     assert result["validation_report"]["status"] == "warnings"
     assert result["validation_report"]["diagnostic_export_allowed"] is True
     assert result["validation_report"]["production_export_allowed"] is False
+    ease_check = next(
+        check
+        for check in result["validation_report"]["checks"]
+        if check["id"] == "engine.garment_assembly.ease"
+    )
+    assert ease_check["status"] == "passed"
+    assert ease_check["measured_value"] <= ease_check["limit_value"] == 5.0
 
     pattern = result["pattern"]
     assert pattern is not None
@@ -106,8 +114,38 @@ def test_supported_variant_matrix_builds_valid_complete_geometry(
             curve_from_data(second_segments[segment_id]).length_mm
             for segment_id in pair["second_segment_ids"]
         )
+        first -= pair["first_length_reduction_mm"]
+        second -= pair["second_length_reduction_mm"]
         residual = abs(abs(first - second) - pair["allowed_ease_mm"])
         assert residual <= pair["tolerance_mm"]
+        assert pair["allowed_ease_mm"] <= 5.0
+
+    front_bodice = pieces["front_bodice"]
+    front_side = curve_from_data(next(
+        segment
+        for segment in front_bodice["seam_contour"]["segments"]
+        if segment["id"] == "front_side"
+    ))
+    side_dart = next(
+        path for path in front_bodice["internal_paths"] if path["id"] == "front_side_dart"
+    )
+    dart_legs = [curve_from_data(segment) for segment in side_dart["segments"]]
+    assert abs(dart_legs[0].length_mm - dart_legs[1].length_mm) <= 1e-6
+    assert front_side.point_at(0.0).y_mm < side_dart["segments"][0]["start"][1]
+    for dart_point in (
+        side_dart["segments"][0]["start"],
+        side_dart["segments"][-1]["end"],
+    ):
+        lower_t, upper_t = 0.0, 1.0
+        for _ in range(64):
+            middle_t = (lower_t + upper_t) / 2.0
+            if front_side.point_at(middle_t).y_mm < dart_point[1]:
+                lower_t = middle_t
+            else:
+                upper_t = middle_t
+        assert front_side.point_at((lower_t + upper_t) / 2.0).distance_to(
+            Point(*dart_point)
+        ) <= 1e-6
 
     svg = render_pattern_svg(pattern)
     root = ElementTree.fromstring(svg)

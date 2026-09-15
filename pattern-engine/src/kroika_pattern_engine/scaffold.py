@@ -120,9 +120,22 @@ class GeometryPatternEngine:
                 {
                     "id": "engine.garment_assembly.interfaces",
                     "status": "passed",
-                    "message_ru": "Разница каждого интерфейса учтена явно, скрытого остатка нет.",
+                    "message_ru": (
+                        "Растворы вытачек исключены отдельно; скрытого остатка в парах швов нет."
+                    ),
                     "measured_value": assembly.controls["maximum_interface_residual_mm"],
                     "limit_value": 0.001,
+                    "unit": "mm",
+                },
+                {
+                    "id": "engine.garment_assembly.ease",
+                    "status": "passed",
+                    "message_ru": (
+                        "Максимальная разница собираемых длин после закрытия вытачек "
+                        "не превышает ограничение экспериментальной методики."
+                    ),
+                    "measured_value": assembly.controls["maximum_declared_ease_mm"],
+                    "limit_value": 5.0,
                     "unit": "mm",
                 },
             ])

@@ -9,6 +9,9 @@ from .blocks import BaseBlockSet, BlockConstructionError, DraftPiece
 from .geometry import Contour, CubicBezier, LineSegment, Point, validate_simple_contour
 
 
+MAX_UNVERIFIED_EASE_MM = 5.0
+
+
 @dataclass(frozen=True, slots=True)
 class GarmentAssembly:
     pattern: dict[str, Any]
@@ -226,27 +229,44 @@ def assemble_garment(request: Mapping[str, Any], blocks: BaseBlockSet) -> Garmen
         first_segment_ids: tuple[str, ...],
         second_piece_id: str,
         second_segment_ids: tuple[str, ...],
+        first_length_reduction_mm: float = 0.0,
+        second_length_reduction_mm: float = 0.0,
     ) -> None:
         first_length = _length(by_id[first_piece_id], first_segment_ids)
         second_length = _length(by_id[second_piece_id], second_segment_ids)
+        first_effective = first_length - first_length_reduction_mm
+        second_effective = second_length - second_length_reduction_mm
+        if min(first_effective, second_effective) <= 0.0:
+            raise BlockConstructionError(
+                "GARMENT_INTERFACE_REDUCTION_INVALID",
+                "Раствор вытачки превышает длину соответствующего участка шва.",
+                "/pattern/seam_pairs",
+            )
         pairs.append({
             "id": pair_id,
             "first_piece_id": first_piece_id,
             "first_segment_ids": list(first_segment_ids),
             "second_piece_id": second_piece_id,
             "second_segment_ids": list(second_segment_ids),
-            "allowed_ease_mm": round(abs(first_length - second_length), 6),
+            "first_length_reduction_mm": round(first_length_reduction_mm, 6),
+            "second_length_reduction_mm": round(second_length_reduction_mm, 6),
+            "allowed_ease_mm": round(abs(first_effective - second_effective), 6),
             "tolerance_mm": 1.0,
         })
 
     add_pair("front_waist_join", "front_bodice", ("front_waist",),
-             "front_skirt", ("front_skirt_waist",))
+             "front_skirt", ("front_skirt_waist",),
+             blocks.formula_values["front_waist_dart"],
+             blocks.formula_values["skirt_front_dart"])
     add_pair("back_waist_join", "back_bodice", ("back_waist",),
-             "back_skirt", ("back_skirt_waist",))
+             "back_skirt", ("back_skirt_waist",),
+             2.0 * blocks.formula_values["back_each_dart"],
+             blocks.formula_values["skirt_back_dart_total"])
     add_pair("bodice_shoulder_join", "front_bodice", ("front_shoulder",),
              "back_bodice", ("back_shoulder",))
     add_pair("bodice_side_join", "front_bodice", ("front_side",),
-             "back_bodice", ("back_side",))
+             "back_bodice", ("back_side",),
+             blocks.controls["front_side_dart_seam_reduction_mm"])
     add_pair("skirt_side_join", "front_skirt",
              ("front_skirt_side_lower", "front_skirt_side_upper"),
              "back_skirt", ("back_skirt_side_lower", "back_skirt_side_upper"))
@@ -263,9 +283,25 @@ def assemble_garment(request: Mapping[str, Any], blocks: BaseBlockSet) -> Garmen
 
     pair_residuals = []
     for pair in pairs:
-        first = _length(by_id[pair["first_piece_id"]], tuple(pair["first_segment_ids"]))
-        second = _length(by_id[pair["second_piece_id"]], tuple(pair["second_segment_ids"]))
+        first = (
+            _length(by_id[pair["first_piece_id"]], tuple(pair["first_segment_ids"]))
+            - pair["first_length_reduction_mm"]
+        )
+        second = (
+            _length(by_id[pair["second_piece_id"]], tuple(pair["second_segment_ids"]))
+            - pair["second_length_reduction_mm"]
+        )
         pair_residuals.append(abs(abs(first - second) - pair["allowed_ease_mm"]))
+
+    maximum_declared_ease = max(
+        (pair["allowed_ease_mm"] for pair in pairs), default=0.0
+    )
+    if maximum_declared_ease > MAX_UNVERIFIED_EASE_MM:
+        raise BlockConstructionError(
+            "GARMENT_SEAM_TRUEING_OUTSIDE_DOMAIN",
+            "После закрытия вытачек разница парных швов превышает безопасный предел 5 мм.",
+            "/pattern/seam_pairs",
+        )
 
     return GarmentAssembly(
         {
@@ -278,9 +314,7 @@ def assemble_garment(request: Mapping[str, Any], blocks: BaseBlockSet) -> Garmen
             "piece_count": float(len(pieces)),
             "seam_pair_count": float(len(pairs)),
             "maximum_interface_residual_mm": max(pair_residuals, default=0.0),
-            "maximum_declared_ease_mm": max(
-                (pair["allowed_ease_mm"] for pair in pairs), default=0.0
-            ),
+            "maximum_declared_ease_mm": maximum_declared_ease,
             "waist_control_residual_mm": max(
                 abs(blocks.controls[name])
                 for name in (
