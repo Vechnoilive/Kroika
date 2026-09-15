@@ -106,7 +106,7 @@ class JsonSchemaContracts(unittest.TestCase):
                 if method in {'get', 'post', 'put', 'patch', 'delete'}:
                     operation_ids.append(operation['operationId'])
         self.assertEqual(len(operation_ids), len(set(operation_ids)))
-        self.assertEqual(len(operation_ids), 18)
+        self.assertEqual(len(operation_ids), 19)
 
 
 class SemanticContracts(unittest.TestCase):

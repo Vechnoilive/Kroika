@@ -55,7 +55,7 @@ with TemporaryDirectory(prefix="kroika-stage7-") as directory:
         checks = {item["id"]: item for item in result["validation_report"]["checks"]}
         assert checks["engine.pattern_blocks.geometry"]["status"] == "passed"
         assert client.get("/health/ready").json()["pattern_engine"] == (
-            "kroika-geometry:0.4.0"
+            "kroika-geometry:0.5.0"
         )
 
 print("Smoke-test этапа 7 пройден: базовые блоки валидны и используются сборкой этапа 8.")

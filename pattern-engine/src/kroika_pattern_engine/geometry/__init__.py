@@ -21,7 +21,14 @@ from .intersections import (
     line_arc_intersections,
     line_line_intersections,
 )
-from .offset import OffsetResult, offset_arc, offset_contour, offset_line
+from .offset import (
+    OffsetResult,
+    SegmentOffsetResult,
+    offset_arc,
+    offset_contour,
+    offset_contour_by_segment,
+    offset_line,
+)
 from .primitives import (
     AffineTransform,
     ArcSegment,
@@ -67,6 +74,7 @@ __all__ = [
     "MAX_ABS_COORDINATE_MM",
     "OffsetCollapseError",
     "OffsetResult",
+    "SegmentOffsetResult",
     "OpenContourError",
     "OverlappingGeometryError",
     "Point",
@@ -87,6 +95,7 @@ __all__ = [
     "line_line_intersections",
     "offset_arc",
     "offset_contour",
+    "offset_contour_by_segment",
     "offset_line",
     "run_core_diagnostics",
     "validate_simple_contour",

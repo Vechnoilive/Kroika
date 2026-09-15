@@ -51,14 +51,15 @@ with TemporaryDirectory(prefix="kroika-stage8-") as directory:
         assert preview.headers["content-type"].startswith("image/svg+xml")
         assert preview.headers["x-content-type-options"] == "nosniff"
         ElementTree.fromstring(preview.text)
-        blocked = client.post(
+        diagnostic_pdf = client.post(
             f"/api/v1/patterns/{result['generation_id']}/export/a4-pdf"
         )
-        assert blocked.status_code == 409
+        assert diagnostic_pdf.status_code == 200
+        assert diagnostic_pdf.headers["x-kroika-production-ready"] == "false"
         saved = client.get(f"/api/v1/projects/{project['project_id']}").json()
         assert saved["status"] == "generated"
         assert client.get("/health/ready").json()["pattern_engine"] == (
-            "kroika-geometry:0.4.0"
+            "kroika-geometry:0.5.0"
         )
 
-print("Smoke-test этапа 8 пройден: изделие, швы, SVG и блокировка PDF работают.")
+print("Smoke-test этапа 8 пройден: изделие, швы, SVG и диагностический PDF работают.")

@@ -1,4 +1,4 @@
-"""Stage-8 deterministic garment generator boundary."""
+"""Stage-9 deterministic garment generator boundary."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
 from .assembly import assemble_garment
+from .allowances import apply_seam_allowances
 from .blocks import BlockConstructionError, build_base_blocks
 from .geometry import run_core_diagnostics
 
@@ -20,7 +21,7 @@ class GeometryPatternEngine:
     """Build a bounded experimental garment and return an auditable report."""
 
     engine_id = "kroika-geometry"
-    engine_version = "0.4.0"
+    engine_version = "0.5.0"
 
     def __init__(self, clock: Callable[[], datetime] = _utc_now):
         self._clock = clock
@@ -29,8 +30,12 @@ class GeometryPatternEngine:
         diagnostic = run_core_diagnostics()
         input_hash = str(request["input_hash"])
         project_id = str(request["project_id"])
-        generation_id = str(uuid5(NAMESPACE_URL, f"kroika:{project_id}:{input_hash}"))
-        report_id = str(uuid5(NAMESPACE_URL, f"kroika:report:{project_id}:{input_hash}"))
+        generation_id = str(
+            uuid5(NAMESPACE_URL, f"kroika:{self.engine_version}:{project_id}:{input_hash}")
+        )
+        report_id = str(
+            uuid5(NAMESPACE_URL, f"kroika:report:{self.engine_version}:{project_id}:{input_hash}")
+        )
         created_at = self._clock().astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
         checks: list[dict[str, Any]] = [{
             "id": "engine.geometry.core",
@@ -48,6 +53,7 @@ class GeometryPatternEngine:
         try:
             blocks = build_base_blocks(request)
             assembly = assemble_garment(request, blocks)
+            printable_pattern = apply_seam_allowances(assembly.pattern, request)
         except BlockConstructionError as error:
             checks.append({
                 "id": "engine.garment_assembly",
@@ -138,6 +144,24 @@ class GeometryPatternEngine:
                     "limit_value": 5.0,
                     "unit": "mm",
                 },
+                {
+                    "id": "engine.printing.cutting_contours",
+                    "status": "passed",
+                    "message_ru": (
+                        "Все шесть линий среза построены из припусков по типам участков."
+                    ),
+                    "measured_value": 6,
+                    "limit_value": 6,
+                    "unit": "1",
+                },
+                {
+                    "id": "engine.printing.scale",
+                    "status": "passed",
+                    "message_ru": "Макет размечен для диагностической печати A4 в масштабе 1:1.",
+                    "measured_value": 1,
+                    "limit_value": 1,
+                    "unit": "1",
+                },
             ])
             issues.extend([
                 {
@@ -159,16 +183,16 @@ class GeometryPatternEngine:
                     "json_pointer": "/pattern/seam_pairs",
                 },
                 {
-                    "code": "CUTTING_CONTOUR_NOT_AVAILABLE",
+                    "code": "PHYSICAL_PRINT_TEST_REQUIRED",
                     "severity": "warning",
                     "message_ru": (
-                        "Предпросмотр показывает линии шва без припусков. Линии среза "
-                        "и печать 1:1 относятся к этапу 9."
+                        "Перед раскроем ткани проверьте квадрат 50×50 мм и совмещение "
+                        "листов минимум на двух принтерах, затем изготовьте макет."
                     ),
-                    "json_pointer": "/pattern/pieces",
+                    "json_pointer": "/pattern/print_layout",
                 },
             ])
-            pattern = assembly.pattern
+            pattern = printable_pattern
             result_status = "succeeded"
             report_status = "warnings"
 

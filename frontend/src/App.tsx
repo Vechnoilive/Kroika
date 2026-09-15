@@ -48,42 +48,107 @@ function FriendlyError({error}: {error: ApiError}) {
   );
 }
 
-function PatternResultCard({result}: {result: PatternEngineResult}) {
+export function PatternResultCard({
+  result,
+  onRebuild,
+  busy = false,
+}: {
+  result: PatternEngineResult;
+  onRebuild?: () => void;
+  busy?: boolean;
+}) {
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const pattern = result.pattern;
   if (!pattern) return null;
+  if (!pattern.print_layout) {
+    return (
+      <section className="pattern-result" aria-labelledby="pattern-result-title">
+        <div className="pattern-result__heading">
+          <div className="success-mark" aria-hidden="true">↻</div>
+          <div>
+            <p className="eyebrow">Сохранённый результат</p>
+            <h2 id="pattern-result-title">Выкройку нужно обновить для печати</h2>
+            <p>Это результат предыдущей версии. Мерки сохранены — приложение только заново построит линии среза.</p>
+          </div>
+        </div>
+        <div className="notice notice--warning">
+          <strong>Старый файл не отправляется на печать</strong>
+          <span>Перестройте выкройку, чтобы получить проверяемый SVG и PDF A4 1:1.</span>
+        </div>
+        {onRebuild && (
+          <button className="primary-button" onClick={onRebuild} disabled={busy}>
+            {busy ? 'Обновляем…' : 'Перестроить для печати'} <span aria-hidden="true">→</span>
+          </button>
+        )}
+      </section>
+    );
+  }
+
+  async function downloadPdf() {
+    setDownloading(true);
+    setDownloadError(null);
+    try {
+      const file = await api.downloadA4Pdf(result.generation_id);
+      const url = URL.createObjectURL(file.blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = file.filename;
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (caught) {
+      setDownloadError(
+        caught instanceof ApiError ? caught.message : 'Не удалось скачать PDF. Попробуйте ещё раз.',
+      );
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   return (
     <section className="pattern-result" aria-labelledby="pattern-result-title">
       <div className="pattern-result__heading">
         <div className="success-mark" aria-hidden="true">✓</div>
         <div>
-          <p className="eyebrow">Шаг 5 · диагностический результат</p>
-          <h2 id="pattern-result-title">Учебная выкройка построена</h2>
-          <p>Все детали собраны в одном понятном предпросмотре. Линии показаны без припусков.</p>
+          <p className="eyebrow">Шаг 5 · пробная печать</p>
+          <h2 id="pattern-result-title">Выкройка готова к проверке на бумаге</h2>
+          <p>Чёрная линия показывает срез, красный пунктир — шов. Припуски уже отличаются для низа, молнии, горловины, проймы и обычных швов.</p>
         </div>
       </div>
       <div className="preview-frame">
         <img
           src={api.patternPreviewUrl(result.generation_id)}
-          alt="Предпросмотр деталей выкройки с долевыми, вытачками и контрольными метками"
+          alt="Предпросмотр деталей с линиями шва и среза, долевыми и контрольными метками"
         />
       </div>
       <dl className="result-facts">
         <div><dt>Детали</dt><dd>{pattern.pieces.length}</dd></div>
         <div><dt>Пары швов</dt><dd>{pattern.seam_pairs.length}</dd></div>
-        <div><dt>Статус</dt><dd>Нужен макет</dd></div>
+        <div><dt>Печать</dt><dd>A4 · 1:1</dd></div>
       </dl>
       <div className="notice notice--warning">
-        <strong>Пока не печатайте и не кроите</strong>
-        <span>Это точный SVG линий шва, но ещё без припусков и физической проверки посадки. Печать 1:1 появится на этапе 9.</span>
+        <strong>Печатать можно для проверки — кроить ткань пока нельзя</strong>
+        <span>Сначала измерьте контрольный квадрат, соберите бумажные листы и изготовьте макет. Методика и посадка всё ещё имеют статус experimental.</span>
       </div>
-      <a
-        className="secondary-link"
-        href={api.patternPreviewUrl(result.generation_id)}
-        target="_blank"
-        rel="noreferrer"
-      >
-        Открыть схему крупно
-      </a>
+      <section className="print-guide" aria-labelledby="print-guide-title">
+        <h3 id="print-guide-title">Как распечатать без ошибки</h3>
+        <ol>
+          <li><span>1</span><p><strong>Выберите 100%</strong>В окне печати включите «Actual size / Реальный размер» и отключите подгонку.</p></li>
+          <li><span>2</span><p><strong>Проверьте 50 × 50 мм</strong>Сначала измерьте квадрат на странице с картой. Ошибка даже в 1 мм означает неверный масштаб.</p></li>
+          <li><span>3</span><p><strong>Соберите по меткам</strong>Совместите A1, B1 и следующие листы по крестам и области нахлёста {pattern.print_layout.overlap_mm} мм.</p></li>
+        </ol>
+      </section>
+      {downloadError && <div className="inline-error" role="alert">{downloadError}</div>}
+      <div className="export-actions">
+        <a className="secondary-link" href={api.printSvgUrl(result.generation_id)} download>
+          Скачать единый SVG
+        </a>
+        <button className="primary-button" onClick={() => void downloadPdf()} disabled={downloading}>
+          {downloading ? 'Готовим листы…' : 'Скачать PDF A4 для проверки'} <span aria-hidden="true">↓</span>
+        </button>
+      </div>
     </section>
   );
 }
@@ -269,7 +334,7 @@ export default function App() {
         </aside>
 
         <section className="content">
-          <div className="stage-badge">Генератор изделия · этап 8 из 15</div>
+          <div className="stage-badge">Припуски и печать · этап 9 из 15</div>
           {!project ? (
             <>
               <div className="intro">
@@ -334,7 +399,11 @@ export default function App() {
               {error && <FriendlyError error={error} />}
 
               {project.latest_generation?.status === 'succeeded' && project.latest_generation.pattern ? (
-                <PatternResultCard result={project.latest_generation} />
+                <PatternResultCard
+                  result={project.latest_generation}
+                  onRebuild={() => void generatePattern()}
+                  busy={busy}
+                />
               ) : !analysis ? (
                 <div className="action-card action-card--sketch">
                   <div className="action-card__icon" aria-hidden="true">02</div>
@@ -382,17 +451,17 @@ export default function App() {
                       <div className="action-card__icon" aria-hidden="true">04</div>
                       <div>
                         <p className="eyebrow">Последняя проверка</p>
-                        <h2 id="generation-title">Построить учебную выкройку?</h2>
-                        <p>Будут созданы лиф, юбка, две обтачки, контрольные метки и пары швов. Исходные мерки останутся без изменений.</p>
+                        <h2 id="generation-title">Построить выкройку для пробной печати?</h2>
+                        <p>Будут созданы лиф, юбка, две обтачки, разные припуски, линии среза, контрольные метки и пары швов. Исходные мерки останутся без изменений.</p>
                         <ul>
                           <li>{project.garment_spec.garment_type === 'sundress' ? 'Сарафан' : 'Платье'} без рукавов</li>
                           <li>Круглая горловина и А-силуэт</li>
                           <li>Молния по центру спинки</li>
                         </ul>
                         <button className="primary-button" onClick={() => void generatePattern()} disabled={busy}>
-                          {busy ? 'Строим и проверяем…' : 'Построить предпросмотр'} <span aria-hidden="true">→</span>
+                          {busy ? 'Строим и проверяем…' : 'Построить линии шва и среза'} <span aria-hidden="true">→</span>
                         </button>
-                        <p className="demo-warning"><strong>Учебный режим:</strong> печать для раскроя останется заблокирована.</p>
+                        <p className="demo-warning"><strong>Пробный режим:</strong> PDF можно печатать на бумаге; раскрой ткани останется заблокирован.</p>
                       </div>
                     </section>
                   )}
