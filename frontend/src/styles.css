@@ -214,3 +214,36 @@ footer { min-height: 56px; display: flex; align-items: center; justify-content: 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
 }
+
+
+.generation-card, .pattern-result {
+  max-width: 900px;
+  margin-top: 24px;
+  padding: clamp(24px, 4vw, 38px);
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+.generation-card { display: grid; grid-template-columns: 75px 1fr; gap: 24px; }
+.generation-card h2, .pattern-result h2 { margin: 2px 0 9px; font: 28px/1.3 'Prata', Georgia, serif; font-weight: 400; }
+.generation-card p, .pattern-result__heading p { color: var(--muted); font-size: 13px; line-height: 1.65; }
+.generation-card ul { margin: 16px 0; padding-left: 20px; color: var(--muted); font-size: 13px; line-height: 1.8; }
+.generation-card .demo-warning { margin: 12px 0 0; color: #8b644f; font-size: 11px; }
+.pattern-result__heading { display: grid; grid-template-columns: 54px 1fr; gap: 18px; }
+.pattern-result__heading p { margin: 0; }
+.preview-frame { margin: 24px 0 18px; overflow: auto; border: 1px solid var(--line); border-radius: 18px; background: #fff9f4; }
+.preview-frame img { display: block; width: 100%; min-width: 520px; height: auto; }
+.result-facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 0 0 18px; }
+.result-facts div { padding: 14px; border-radius: 13px; background: #faf5f1; }
+.result-facts dt { color: var(--muted); font-size: 10px; text-transform: uppercase; }
+.result-facts dd { margin: 5px 0 0; font-weight: 700; }
+.notice--warning { border: 1px solid #e5cfa6; background: #fff8e8; color: #70552c; }
+.secondary-link { min-height: 45px; display: inline-flex; align-items: center; justify-content: center; padding: 0 16px; border: 1px solid #d7cbc5; border-radius: 11px; color: var(--ink); font-size: 12px; font-weight: 700; text-decoration: none; }
+
+@media (max-width: 560px) {
+  .generation-card { grid-template-columns: 1fr; padding: 22px 18px; }
+  .result-facts { grid-template-columns: 1fr; }
+  .pattern-result { padding: 20px 15px; }
+  .preview-frame img { min-width: 430px; }
+}

@@ -49,9 +49,9 @@ def test_health_checks_dependencies_and_request_id(client: TestClient):
     ready = client.get("/health/ready")
     assert live.status_code == ready.status_code == 200
     assert ready.json() == {
-        "status": "ok", "service": "kroika-backend", "version": "0.7.0",
+        "status": "ok", "service": "kroika-backend", "version": "0.8.0",
         "database": "ok", "ai_provider": "mock",
-        "pattern_engine": "kroika-geometry:0.3.0",
+        "pattern_engine": "kroika-geometry:0.4.0",
     }
     assert len(ready.headers["X-Request-ID"]) == 36
 
@@ -104,7 +104,7 @@ def test_invalid_project_returns_field_error_not_internal_trace(client: TestClie
     assert "jsonschema" not in response.text
 
 
-def test_generation_is_idempotent_per_project_and_fails_closed(client: TestClient):
+def test_generation_is_idempotent_per_project_and_succeeds(client: TestClient):
     project = create_example_project(client)
     request = example("example-engine-request.json")
     first = client.post("/api/v1/patterns/generate", json=request)
@@ -114,13 +114,14 @@ def test_generation_is_idempotent_per_project_and_fails_closed(client: TestClien
     result = first.json()
     validate_document("pattern-engine-result", result)
     validate_validation_report(result["validation_report"])
-    assert result["status"] == "rejected"
-    assert result["pattern"] is None
+    assert result["status"] == "succeeded"
+    assert result["pattern"] is not None
+    assert len(result["pattern"]["pieces"]) == 6
     assert result["validation_report"]["production_export_allowed"] is False
     saved = client.get(f"/api/v1/projects/{project['project_id']}").json()
     assert saved["revision"] == 2
     assert len(saved["generation_history"]) == 1
-    assert saved["status"] == "validation_failed"
+    assert saved["status"] == "generated"
 
     other_project = example("example-dress-project.json")
     other_project["project_id"] = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
@@ -133,14 +134,17 @@ def test_generation_is_idempotent_per_project_and_fails_closed(client: TestClien
     assert other_result.json()["generation_id"] != result["generation_id"]
 
 
-def test_exports_are_blocked_until_geometry_and_toile_are_verified(client: TestClient):
+def test_svg_preview_works_but_production_export_stays_blocked(client: TestClient):
     create_example_project(client)
     result = client.post(
         "/api/v1/patterns/generate", json=example("example-engine-request.json")
     ).json()
     generation_id = result["generation_id"]
     assert client.get(f"/api/v1/patterns/{generation_id}/validation").status_code == 200
-    assert client.get(f"/api/v1/patterns/{generation_id}/preview.svg").status_code == 409
+    preview = client.get(f"/api/v1/patterns/{generation_id}/preview.svg")
+    assert preview.status_code == 200
+    assert preview.headers["content-type"].startswith("image/svg+xml")
+    assert "<svg" in preview.text
     blocked = client.post(f"/api/v1/patterns/{generation_id}/export/a4-pdf")
     assert blocked.status_code == 409
     assert blocked.json()["code"] == "PRODUCTION_EXPORT_BLOCKED"

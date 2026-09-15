@@ -1,4 +1,4 @@
-"""FastAPI composition root for the stage-7 modular monolith."""
+"""FastAPI composition root for the stage-8 modular monolith."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from kroika_contracts.semantic import (
     validate_engine_request,
     validate_validation_report,
 )
-from kroika_pattern_engine import GeometryPatternEngine
+from kroika_pattern_engine import GeometryPatternEngine, render_pattern_svg
 
 from .config import Settings
 from .errors import AppError, install_exception_handlers
@@ -35,7 +35,7 @@ from .models import (
 )
 from .repository import SQLiteRepository
 
-APP_VERSION = "0.7.0"
+APP_VERSION = "0.8.0"
 
 
 def _project_or_404(repository: SQLiteRepository, project_id: str) -> dict[str, Any]:
@@ -69,7 +69,7 @@ def create_app(
     app = FastAPI(
         title="Kroika API",
         version=APP_VERSION,
-        description="Локальный API Kroika с профилями мерок и экспериментальными базовыми блоками.",
+        description="Локальный API Kroika с профилями мерок и диагностическим SVG изделий.",
         debug=settings.debug,
     )
     app.state.settings = settings
@@ -262,9 +262,20 @@ def create_app(
         if result["pattern"] is None:
             raise AppError(
                 409, "PATTERN_NOT_AVAILABLE",
-                "Предпросмотр появится после сборки деталей изделия на этапе 8.",
+                "Для отклонённого построения предпросмотр недоступен.",
             )
-        raise AppError(501, "SVG_RENDERER_NOT_READY", "SVG-экспорт появится на этапе 8.")
+        svg = render_pattern_svg(result["pattern"])
+        return Response(
+            content=svg,
+            media_type="image/svg+xml",
+            headers={
+                "Cache-Control": "no-store",
+                "Content-Disposition": (
+                    f'inline; filename="kroika-{generation_id}-preview.svg"'
+                ),
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
 
     @app.post("/api/v1/patterns/{generation_id}/export/a4-pdf", tags=["patterns"])
     def export_pdf(generation_id: UUID) -> Response:

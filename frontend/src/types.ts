@@ -17,6 +17,10 @@ export interface ProjectDocument extends ProjectSummary {
   schema_version: '1.0.0';
   locale: 'ru-RU';
   body_measurements: BodyMeasurements;
+  pattern_method: Record<string, unknown>;
+  fit_settings: Record<string, unknown>;
+  fabric_properties: Record<string, unknown>;
+  latest_generation: PatternEngineResult | null;
   garment_spec: {
     garment_type: 'dress' | 'sundress';
     parameters: {
@@ -133,4 +137,33 @@ export interface ApiErrorBody {
   message_ru?: string;
   request_id?: string;
   issues?: MeasurementIssue[];
+}
+
+
+export interface PatternPieceSummary {
+  id: string;
+  name_ru: string;
+  cut_quantity: number;
+  cut_on_fold: boolean;
+}
+
+export interface PatternData {
+  unit: 'mm';
+  pieces: PatternPieceSummary[];
+  seam_pairs: Array<{id: string}>;
+}
+
+export interface ValidationReport {
+  status: 'passed' | 'warnings' | 'failed';
+  issues: MeasurementIssue[];
+  diagnostic_export_allowed: boolean;
+  production_export_allowed: boolean;
+}
+
+export interface PatternEngineResult {
+  generation_id: string;
+  engine_version: string;
+  status: 'succeeded' | 'rejected';
+  pattern: PatternData | null;
+  validation_report: ValidationReport;
 }

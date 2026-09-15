@@ -318,12 +318,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '501':
-          description: SVG-рендерер появится на этапе 8
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/patterns/{generation_id}/export/a4-pdf:
     post:
       operationId: exportPatternA4Pdf

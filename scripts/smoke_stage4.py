@@ -46,13 +46,13 @@ def main() -> int:
             second = client.post("/api/v1/patterns/generate", json=deepcopy(engine_request))
             assert first.status_code == 200, first.text
             assert first.json() == second.json()
-            assert first.json()["status"] == "rejected"
+            assert first.json()["status"] == "succeeded"
             generation_id = first.json()["generation_id"]
             assert client.get(f"/api/v1/patterns/{generation_id}/validation").status_code == 200
-            assert client.get(f"/api/v1/patterns/{generation_id}/preview.svg").status_code == 409
+            assert client.get(f"/api/v1/patterns/{generation_id}/preview.svg").status_code == 200
             assert client.post(f"/api/v1/patterns/{generation_id}/export/a4-pdf").status_code == 409
 
-    print("Smoke-test этапа 4 пройден: health, SQLite, mock, проекты и fail-closed движок работают.")
+    print("Smoke-test этапа 4 пройден: health, SQLite, mock, проекты и движок работают.")
     return 0
 
 

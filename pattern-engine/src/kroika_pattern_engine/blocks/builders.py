@@ -171,6 +171,44 @@ def _shoulder_points(
     return tip, neck
 
 
+def _cubic_parameter_for_y(curve: CubicBezier, y_mm: float) -> float:
+    """Find a point on a y-monotonic cubic without flattening its geometry."""
+
+    lower_y = min(curve.start.y_mm, curve.end.y_mm)
+    upper_y = max(curve.start.y_mm, curve.end.y_mm)
+    if not lower_y <= y_mm <= upper_y:
+        raise BlockConstructionError(
+            "BLOCK_DART_POINT_OUTSIDE_SEAM",
+            "Конец вытачки не попадает на допустимый участок бокового шва.",
+            "/body_measurements",
+        )
+    increasing = curve.end.y_mm >= curve.start.y_mm
+    lower_t = 0.0
+    upper_t = 1.0
+    for _ in range(64):
+        middle_t = (lower_t + upper_t) / 2.0
+        middle_y = curve.point_at(middle_t).y_mm
+        if (middle_y < y_mm) == increasing:
+            lower_t = middle_t
+        else:
+            upper_t = middle_t
+    return (lower_t + upper_t) / 2.0
+
+
+def _cubic_span_length(curve: CubicBezier, start_t: float, end_t: float) -> float:
+    """Return the exact represented arc length between two cubic parameters."""
+
+    if not 0.0 <= start_t < end_t <= 1.0:
+        raise BlockConstructionError(
+            "BLOCK_DART_POINT_ORDER_INVALID",
+            "Концы вытачки расположены на боковом шве в неверном порядке.",
+            "/body_measurements",
+        )
+    left, _ = curve.split(end_t)
+    _, span = left.split(start_t / end_t)
+    return span.length_mm
+
+
 def _front_bodice(
     inputs: Mapping[str, float],
     values: Mapping[str, float],
@@ -207,16 +245,31 @@ def _front_bodice(
 
     vertical = shoulder_tip.y_mm - underarm.y_mm
     horizontal = underarm.x_mm - shoulder_tip.x_mm
+    side_curve = CubicBezier(
+        waist_side,
+        Point(waist_side.x_mm, underarm.y_mm * 0.38),
+        Point(underarm.x_mm, underarm.y_mm * 0.72),
+        underarm,
+        "front_side",
+    )
+    side_dart_start_t = _cubic_parameter_for_y(side_curve, side_dart_start_y)
+    side_dart_end_t = _cubic_parameter_for_y(side_curve, side_dart_end_y)
+    side_dart_start = side_curve.point_at(side_dart_start_t)
+    side_dart_end = side_curve.point_at(side_dart_end_t)
+    dart_chord = side_dart_end - side_dart_start
+    dart_chord_length = dart_chord.length_mm
+    inward_normal_x = -dart_chord.dy_mm / dart_chord_length
+    inward_normal_y = dart_chord.dx_mm / dart_chord_length
+    side_dart_middle = Point(
+        (side_dart_start.x_mm + side_dart_end.x_mm) / 2.0
+        + inward_normal_x * values["side_dart_depth"],
+        (side_dart_start.y_mm + side_dart_end.y_mm) / 2.0
+        + inward_normal_y * values["side_dart_depth"],
+    )
     contour = Contour(
         (
             LineSegment(Point(0.0, 0.0), waist_side, "front_waist"),
-            CubicBezier(
-                waist_side,
-                Point(waist_side.x_mm, underarm.y_mm * 0.38),
-                Point(underarm.x_mm, underarm.y_mm * 0.72),
-                underarm,
-                "front_side",
-            ),
+            side_curve,
             CubicBezier(
                 underarm,
                 Point(underarm.x_mm, underarm.y_mm + vertical * 0.45),
@@ -256,9 +309,9 @@ def _front_bodice(
     side_dart = _line_path(
         "front_side_dart",
         (
-            Point(underarm.x_mm, side_dart_start_y),
-            Point(underarm.x_mm - values["side_dart_depth"], (side_dart_start_y + side_dart_end_y) / 2.0),
-            Point(underarm.x_mm, side_dart_end_y),
+            side_dart_start,
+            side_dart_middle,
+            side_dart_end,
         ),
     )
     bust_line = _line_path(
@@ -554,6 +607,16 @@ def build_base_blocks(request: Mapping[str, Any]) -> BaseBlockSet:
         "back_skirt_waist_residual_mm": back_skirt_effective - values["back_waist"],
         "front_side_projection_residual_mm": (
             values["front_max_length"] - values["side_dart_width"] - values["front_side_target"]
+        ),
+        "front_side_dart_seam_reduction_mm": _cubic_span_length(
+            _segment(front_bodice, "front_side"),
+            _cubic_parameter_for_y(
+                _segment(front_bodice, "front_side"), values["bust_from_waist"]
+            ),
+            _cubic_parameter_for_y(
+                _segment(front_bodice, "front_side"),
+                values["bust_from_waist"] + values["side_dart_width"],
+            ),
         ),
         "front_armhole_length_mm": _segment(front_bodice, "front_armhole").length_mm,
         "back_armhole_length_mm": _segment(back_bodice, "back_armhole").length_mm,
