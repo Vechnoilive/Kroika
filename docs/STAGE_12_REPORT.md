@@ -29,7 +29,13 @@
 python scripts/verify_stage12.py
 ```
 
-Она намеренно не запускает тесты предыдущих этапов. Точный результат фиксируется в PR/CI после выполнения команды.
+Она намеренно не запускает тесты предыдущих этапов. GitHub Actions run
+[`35068213667`](https://github.com/Vechnoilive/Kroika/actions/runs/35068213667) прошёл полностью:
+
+- backend/API/reference: **4 passed** за 28,75 с; одно предупреждение о deprecated alias в зависимости Starlette;
+- frontend unit: **2 passed**;
+- TypeScript + Vite production build: **passed**;
+- Chromium Playwright E2E независимой юбки: **1 passed** за 6,9 с.
 
 ## 5. Экспертная проверка
 
