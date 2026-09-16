@@ -63,6 +63,9 @@ describe('stage 12 garment catalogue UI', () => {
     const project = makeDemoProject('Юбка');
     project.garment_spec = configureGarment(project.garment_spec, 'skirt');
     project.fit_settings.wearing_ease_mm = easeForGarment('skirt');
+    expect(project.garment_spec.parameters.finishing).toMatchObject({
+      waistband: true, neckline_facing: false, armhole_facing: false,
+    });
     const onSave = vi.fn(async (candidate: ProjectDocument) => candidate);
     render(<ConstructionEditor project={project} onSave={onSave} />);
 

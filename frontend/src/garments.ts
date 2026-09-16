@@ -66,8 +66,8 @@ export function configureGarment(spec: GarmentSpec, type: GarmentType): GarmentS
         ? {type: 'buttons', location: 'center_front', length_mm: 550}
         : {type: 'zipper', location: 'center_back', length_mm: 550},
       finishing: {
-        neckline_facing: type === 'blouse' || !sleeved,
-        armhole_facing: !sleeved,
+        neckline_facing: !separateSkirt && (type === 'blouse' || !sleeved),
+        armhole_facing: !separateSkirt && !sleeved,
         waistband: separateSkirt,
         front_placket: frontOpening,
         collar: type === 'shirt',
