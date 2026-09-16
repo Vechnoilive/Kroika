@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0.0",
+  "scope": "stage12_bounded_woven_variants",
+  "unit": "mm",
+  "source_note": "Автоматические контрольные эталоны для канонического профиля examples/v1; не заменяют бумажную, экспертную или макетную проверку.",
+  "garments": {
+    "skirt": {
+      "formula_count": 14,
+      "piece_ids": ["front_skirt", "back_skirt", "front_waistband", "back_waistband"],
+      "seam_pair_count": 4,
+      "required_measurements": ["waist", "hips", "back_waist_arc", "back_hip_arc", "hip_depth", "hip_inclination"]
+    },
+    "top": {
+      "formula_count": 41,
+      "piece_ids": ["front_bodice", "back_bodice", "front_facing", "back_facing"],
+      "seam_pair_count": 8
+    },
+    "blouse": {
+      "formula_count": 41,
+      "piece_ids": ["front_bodice", "back_bodice", "base_sleeve", "front_neck_facing", "back_neck_facing"],
+      "seam_pair_count": 8
+    },
+    "shirt": {
+      "formula_count": 41,
+      "piece_ids": ["front_bodice", "back_bodice", "base_sleeve", "collar_band", "shirt_collar"],
+      "seam_pair_count": 8
+    },
+    "vest": {
+      "formula_count": 41,
+      "piece_ids": ["front_bodice", "back_bodice", "front_facing", "back_facing"],
+      "seam_pair_count": 8
+    }
+  }
+}

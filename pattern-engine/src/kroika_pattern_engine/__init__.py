@@ -2,6 +2,7 @@
 
 from . import blocks, geometry
 from .assembly import GarmentAssembly, assemble_garment
+from .garment_catalogue import garment_acceptance, garment_catalogue
 from .pdf import PDFRenderError, PDFRenderResult, render_pattern_pdf
 from .scaffold import GeometryPatternEngine, ScaffoldPatternEngine
 from .svg import SVG_PREVIEW_LAYERS, SVGRenderError, render_pattern_svg
@@ -17,6 +18,8 @@ __all__ = [
     "assemble_garment",
     "blocks",
     "geometry",
+    "garment_acceptance",
+    "garment_catalogue",
     "render_pattern_svg",
     "render_pattern_pdf",
 ]

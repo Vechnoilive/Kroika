@@ -57,6 +57,27 @@ class AIProviderListResponse(BaseModel):
     items: list[AIProviderStatus]
 
 
+class GarmentAcceptanceStatus(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    garment_type: Literal["dress", "sundress", "skirt", "top", "blouse", "shirt", "vest"]
+    name_ru: str
+    scope_ru: str
+    formula_status: Literal["implemented"]
+    reference_status: Literal["automated_passed"]
+    invariant_status: Literal["automated_passed"]
+    paper_status: Literal["pending", "passed"]
+    expert_status: Literal["pending", "passed"]
+    toile_status: Literal["pending", "passed"]
+    production_allowed: bool
+
+
+class GarmentCatalogueResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[GarmentAcceptanceStatus]
+
+
 class ProjectSummary(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

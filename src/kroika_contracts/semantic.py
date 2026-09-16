@@ -122,26 +122,90 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
              'Растяжимость выше 5% не входит в область текущей методики.')
 
     parameters = spec['parameters']
+    garment_type = spec['garment_type']
     expected_preset = {
-        'fitted': 'woven_fitted_trial',
-        'semi_fitted': 'woven_semi_fitted_trial',
-    }.get(parameters['bodice_fit'])
-    supported_variant = (
-        spec['garment_type'] in {'dress', 'sundress'}
-        and expected_preset is not None
+        'dress': {
+            'fitted': 'woven_fitted_trial',
+            'semi_fitted': 'woven_semi_fitted_trial',
+        }.get(parameters['bodice_fit']),
+        'sundress': {
+            'fitted': 'woven_fitted_trial',
+            'semi_fitted': 'woven_semi_fitted_trial',
+        }.get(parameters['bodice_fit']),
+        'skirt': 'woven_skirt_trial',
+        'top': 'woven_top_trial',
+        'blouse': 'woven_blouse_trial',
+        'shirt': 'woven_shirt_trial',
+        'vest': 'woven_vest_trial',
+    }.get(garment_type)
+    finishing = parameters['finishing']
+    common = (
+        expected_preset is not None
         and request['fit_settings']['preset']['id'] == expected_preset
         and parameters['neckline']['type'] == 'round'
-        and parameters['sleeve']['type'] == 'sleeveless'
         and parameters['skirt']['type'] == 'a_line'
+    )
+    supported_variant = common and any((
+        garment_type in {'dress', 'sundress'}
+        and parameters['sleeve']['type'] == 'sleeveless'
         and parameters['closure']['type'] == 'zipper'
         and parameters['closure']['location'] == 'center_back'
-        and parameters['finishing'] == {'neckline_facing': True, 'armhole_facing': True}
-    )
+        and finishing['neckline_facing'] is True
+        and finishing['armhole_facing'] is True
+        and not finishing.get('waistband', False)
+        and not finishing.get('front_placket', False)
+        and not finishing.get('collar', False),
+        garment_type == 'skirt'
+        and parameters['sleeve']['type'] == 'sleeveless'
+        and parameters['closure']['type'] == 'zipper'
+        and parameters['closure']['location'] == 'center_back'
+        and finishing.get('waistband') is True
+        and finishing['neckline_facing'] is False
+        and finishing['armhole_facing'] is False
+        and not finishing.get('front_placket', False)
+        and not finishing.get('collar', False),
+        garment_type == 'top'
+        and parameters['sleeve']['type'] == 'sleeveless'
+        and parameters['closure']['type'] == 'zipper'
+        and parameters['closure']['location'] == 'center_back'
+        and finishing['neckline_facing'] is True
+        and finishing['armhole_facing'] is True
+        and not finishing.get('waistband', False)
+        and not finishing.get('front_placket', False)
+        and not finishing.get('collar', False),
+        garment_type == 'blouse'
+        and parameters['sleeve']['type'] == 'long'
+        and parameters['closure']['type'] == 'zipper'
+        and parameters['closure']['location'] == 'center_back'
+        and finishing['neckline_facing'] is True
+        and finishing['armhole_facing'] is False
+        and not finishing.get('waistband', False)
+        and not finishing.get('front_placket', False)
+        and not finishing.get('collar', False),
+        garment_type == 'shirt'
+        and parameters['sleeve']['type'] == 'long'
+        and parameters['closure']['type'] == 'buttons'
+        and parameters['closure']['location'] == 'center_front'
+        and finishing['neckline_facing'] is False
+        and finishing['armhole_facing'] is False
+        and not finishing.get('waistband', False)
+        and finishing.get('front_placket') is True
+        and finishing.get('collar') is True,
+        garment_type == 'vest'
+        and parameters['sleeve']['type'] == 'sleeveless'
+        and parameters['closure']['type'] == 'buttons'
+        and parameters['closure']['location'] == 'center_front'
+        and finishing.get('front_placket') is True
+        and finishing['neckline_facing'] is True
+        and finishing['armhole_facing'] is True
+        and not finishing.get('waistband', False)
+        and not finishing.get('collar', False),
+    ))
     if not supported_variant:
         _add(
             issues, 'GARMENT_VARIANT_NOT_IMPLEMENTED', '/garment_spec/parameters',
-            'Сейчас поддерживаются платье и сарафан без рукавов: круглая горловина, '
-            'отрезная А-юбка, вытачки, обтачки и молния по центру спинки.',
+            'Выбранная комбинация деталей не входит в ограниченный каталог этапа 12. '
+            'Выберите один из явно показанных вариантов без произвольной подмены компонентов.',
         )
 
     if issues:

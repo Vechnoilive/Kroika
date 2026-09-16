@@ -75,12 +75,13 @@
     {
       "if": {"properties": {"status": {"const": "ready"}}, "required": ["status"]},
       "then": {
+        "description": "Конкретный набор обязательных мерок зависит от изделия и проверяется семантическим валидатором.",
         "required": ["angles_deg"],
         "properties": {
           "values": {
-            "required": ["bust", "waist", "hips", "back_bust_arc", "back_waist_arc", "back_hip_arc", "shoulder_span", "back_neck_to_waist", "front_neck_to_waist_over_bust", "bust_path_height", "bust_vertical_height", "bust_span", "hip_depth", "armscye_depth"]
+            "required": ["waist", "hips", "back_waist_arc", "back_hip_arc", "hip_depth"]
           },
-          "angles_deg": {"required": ["shoulder_slope", "hip_inclination"]}
+          "angles_deg": {"required": ["hip_inclination"]}
         }
       }
     }

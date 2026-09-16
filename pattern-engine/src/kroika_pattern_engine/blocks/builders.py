@@ -22,7 +22,14 @@ from ..geometry import (
     validate_simple_contour,
 )
 from .errors import BlockConstructionError
-from .formulas import FORMULA_IDS, calculate_request_values, constructive_formula_inputs
+from .formulas import (
+    FORMULA_IDS,
+    SKIRT_FORMULA_IDS,
+    calculate_request_values,
+    calculate_skirt_values,
+    constructive_formula_inputs,
+    constructive_skirt_formula_inputs,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,6 +98,19 @@ class BaseBlockSet:
             # Assembly and seam-pair policy intentionally belong to stage 8.
             "seam_pairs": [],
         }
+
+
+@dataclass(frozen=True, slots=True)
+class SkirtBlockSet:
+    front_skirt: DraftPiece
+    back_skirt: DraftPiece
+    formula_inputs: dict[str, float]
+    formula_values: dict[str, float]
+    controls: dict[str, float]
+
+    @property
+    def pieces(self) -> tuple[DraftPiece, ...]:
+        return (self.front_skirt, self.back_skirt)
 
 
 @dataclass(frozen=True, slots=True)
@@ -642,6 +662,95 @@ def build_base_blocks(request: Mapping[str, Any]) -> BaseBlockSet:
         values,
         controls,
     )
+
+
+def build_skirt_blocks(request: Mapping[str, Any]) -> SkirtBlockSet:
+    """Build the skirt component without requiring any upper-body measurements."""
+
+    inputs = constructive_skirt_formula_inputs(request)
+    values = calculate_skirt_values(inputs)
+    try:
+        skirt = request["garment_spec"]["parameters"]["skirt"]
+    except (KeyError, TypeError) as error:
+        raise BlockConstructionError(
+            "BLOCK_STYLE_PARAMETER_REQUIRED",
+            "Не хватает параметров юбки.",
+            "/garment_spec/parameters/skirt",
+        ) from error
+    if skirt.get("type") != "a_line":
+        raise BlockConstructionError(
+            "BLOCK_VARIANT_NOT_IMPLEMENTED",
+            "На этапе 12 проверяется отдельная юбка А-силуэта.",
+            "/garment_spec/parameters/skirt/type",
+        )
+    length = _style_number(
+        skirt, "length_from_waist_mm", "/garment_spec/parameters/skirt/length_from_waist_mm"
+    )
+    expansion = _style_number(
+        skirt,
+        "hem_expansion_each_side_mm",
+        "/garment_spec/parameters/skirt/hem_expansion_each_side_mm",
+    )
+    if expansion < 0.0:
+        raise BlockConstructionError(
+            "BLOCK_STYLE_PARAMETER_INVALID",
+            "Расширение низа юбки не может быть отрицательным.",
+            "/garment_spec/parameters/skirt/hem_expansion_each_side_mm",
+        )
+
+    front_skirt = _skirt_piece(
+        piece_id="front_skirt",
+        name_ru="Базовая юбка — перед",
+        hip_width=values["skirt_front_hip"],
+        waist_width=values["skirt_front_hip"] - values["skirt_front_side_take"],
+        dart_widths=(values["skirt_front_dart"],),
+        dart_depths=(values["skirt_front_dart_depth"],),
+        hip_depth=inputs["hip_depth"],
+        length=length,
+        expansion=expansion,
+        cut_on_fold=True,
+    )
+    back_skirt = _skirt_piece(
+        piece_id="back_skirt",
+        name_ru="Базовая юбка — спинка",
+        hip_width=values["skirt_back_hip"],
+        waist_width=values["skirt_back_hip"] - values["skirt_back_side_take"],
+        dart_widths=(values["skirt_back_each_dart"], values["skirt_back_each_dart"]),
+        dart_depths=(values["skirt_back_dart_depth"], values["skirt_back_dart_depth"] * 0.9),
+        hip_depth=values["skirt_back_depth"],
+        length=length,
+        expansion=expansion,
+        cut_on_fold=False,
+    )
+    for piece in (front_skirt, back_skirt):
+        try:
+            validate_simple_contour(piece.seam_contour)
+        except GeometryError as error:
+            raise BlockConstructionError(
+                "BLOCK_GEOMETRY_INVALID",
+                f"Контур «{piece.name_ru}» не прошёл геометрическую проверку.",
+                f"/pattern/pieces/{piece.id}",
+            ) from error
+
+    front_effective = (
+        _segment(front_skirt, "front_skirt_waist").length_mm - values["skirt_front_dart"]
+    )
+    back_effective = (
+        _segment(back_skirt, "back_skirt_waist").length_mm
+        - values["skirt_back_dart_total"]
+    )
+    controls = {
+        "formula_count": float(len(SKIRT_FORMULA_IDS)),
+        "front_skirt_waist_residual_mm": front_effective - values["front_waist"],
+        "back_skirt_waist_residual_mm": back_effective - values["back_waist"],
+        "skirt_side_length_residual_mm": (
+            _segment(back_skirt, "back_skirt_side_lower").length_mm
+            + _segment(back_skirt, "back_skirt_side_upper").length_mm
+            - _segment(front_skirt, "front_skirt_side_lower").length_mm
+            - _segment(front_skirt, "front_skirt_side_upper").length_mm
+        ),
+    }
+    return SkirtBlockSet(front_skirt, back_skirt, inputs, values, controls)
 
 
 def build_one_piece_sleeve(

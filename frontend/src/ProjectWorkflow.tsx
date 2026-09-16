@@ -1,9 +1,12 @@
 import {FormEvent, useEffect, useState} from 'react';
 import {api, ApiError} from './api';
+import {configureGarment, easeForGarment, GARMENT_OPTIONS, presetForGarment} from './garments';
 import type {
   FabricProperties,
   FitSettings,
+  GarmentAcceptanceStatus,
   GarmentSpec,
+  GarmentType,
   ProjectDocument,
   ProjectHistoryEntry,
   StyleAnalysis,
@@ -57,11 +60,13 @@ export function StyleEditor({
   project,
   analysis,
   providerName,
+  acceptance,
   onSave,
 }: {
   project: ProjectDocument;
   analysis: StyleAnalysis;
   providerName: string;
+  acceptance?: GarmentAcceptanceStatus;
   onSave: SaveProject;
 }) {
   const [spec, setSpec] = useState<GarmentSpec>(() => structuredClone(project.garment_spec));
@@ -83,12 +88,19 @@ export function StyleEditor({
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const {neckline, skirt, closure} = spec.parameters;
-    if (!bounded(neckline.front_depth_mm, 50, 250)
-        || !bounded(neckline.back_depth_mm, 10, 120)
-        || !bounded(skirt.length_from_waist_mm, 350, 1200)
-        || !bounded(skirt.hem_expansion_each_side_mm, 0, 250)
-        || !bounded(closure.length_mm, 300, 900)) {
+    const {neckline, skirt, upper, sleeve, closure} = spec.parameters;
+    const skirtBased = ['dress', 'sundress', 'skirt'].includes(spec.garment_type);
+    const upperOnly = ['top', 'blouse', 'shirt', 'vest'].includes(spec.garment_type);
+    const sleeved = ['blouse', 'shirt'].includes(spec.garment_type);
+    const invalid = (spec.garment_type !== 'skirt'
+        && (!bounded(neckline.front_depth_mm, 50, 250) || !bounded(neckline.back_depth_mm, 10, 120)))
+      || (skirtBased
+        && (!bounded(skirt.length_from_waist_mm, 350, 1200)
+          || !bounded(skirt.hem_expansion_each_side_mm, 0, 250)))
+      || (upperOnly && !bounded(upper?.length_below_waist_mm ?? NaN, 40, 300))
+      || (sleeved && !bounded(sleeve.length_mm ?? NaN, 250, 900))
+      || (closure.type !== 'none' && !bounded(closure.length_mm ?? NaN, 300, 900));
+    if (invalid) {
       setError('Проверьте числовые значения: одно из них вне указанного диапазона.');
       return;
     }
@@ -101,9 +113,7 @@ export function StyleEditor({
       unsupported_features: [],
       confirmed_at: now,
     };
-    const presetId = confirmed.parameters.bodice_fit === 'fitted'
-      ? 'woven_fitted_trial'
-      : 'woven_semi_fitted_trial';
+    const presetId = presetForGarment(confirmed.garment_type, confirmed.parameters.bodice_fit);
     try {
       await onSave({
         ...project,
@@ -113,6 +123,8 @@ export function StyleEditor({
           ...project.fit_settings,
           status: 'draft',
           preset: {id: presetId, version: '0.1.0'},
+          wearing_ease_mm: easeForGarment(confirmed.garment_type),
+          design_ease_mm: {bust: 0, waist: 0, hips: 0, upper_arm: 0},
           confirmed_at: null,
         },
       });
@@ -124,6 +136,19 @@ export function StyleEditor({
   }
 
   const {parameters} = spec;
+  const features: Record<GarmentType, Array<[string, string]>> = {
+    dress: [['Круглая горловина', 'обтачка'], ['Без рукавов', 'обтачка проймы'], ['А-юбка', 'отрезная по талии'], ['Молния сзади', 'центр спинки']],
+    sundress: [['Круглая горловина', 'обтачка'], ['Без рукавов', 'обтачка проймы'], ['А-юбка', 'отрезная по талии'], ['Молния сзади', 'центр спинки']],
+    skirt: [['А-силуэт', 'две основные детали'], ['Прямой пояс', 'перед и спинка'], ['Молния сзади', 'центр спинки'], ['Без лифа', 'только нижние мерки']],
+    top: [['Круглая горловина', 'обтачка'], ['Без рукавов', 'обтачка проймы'], ['Ниже талии', 'длина регулируется'], ['Молния сзади', 'центр спинки']],
+    blouse: [['Круглая горловина', 'без воротника'], ['Длинный рукав', 'одношовный'], ['Полуприлегающая', 'вытачки основы'], ['Молния сзади', 'центр спинки']],
+    shirt: [['Воротник', 'стойка и отлёт'], ['Длинный рукав', 'одношовный'], ['Планка спереди', 'цельнокроеная'], ['Пуговицы', 'центр переда']],
+    vest: [['Круглая горловина', 'обтачка'], ['Без рукавов', 'обтачка проймы'], ['Планка спереди', 'цельнокроеная'], ['Пуговицы', 'центр переда']],
+  };
+  const skirtBased = ['dress', 'sundress', 'skirt'].includes(spec.garment_type);
+  const upperOnly = ['top', 'blouse', 'shirt', 'vest'].includes(spec.garment_type);
+  const sleeved = ['blouse', 'shirt'].includes(spec.garment_type);
+  const selectedAcceptance = acceptance?.garment_type === spec.garment_type ? acceptance : undefined;
   return (
     <form className="workflow-card" onSubmit={(event) => void submit(event)}>
       <header className="workflow-card__header">
@@ -137,36 +162,44 @@ export function StyleEditor({
 
       {suggestedUnsupported.length > 0 && (
         <div className="notice notice--warning">
-          <strong>На изображении замечены пока неподдержанные элементы</strong>
-          <span>{suggestedUnsupported.join(', ')}. На этапе 11 доступны круглая горловина, изделие без рукавов и А-юбка; замена показана явно.</span>
+          <strong>Анализ изображения нужно сверить</strong>
+          <span>{suggestedUnsupported.join(', ')}. Ниже доступны только ограниченные варианты этапа 12; выбранные замены показаны явно.</span>
         </div>
       )}
 
       <fieldset className="plain-choice">
         <legend>Что строим?</legend>
-        <label><input type="radio" checked={spec.garment_type === 'dress'} onChange={() => setSpec({...spec, garment_type: 'dress'})} /> Платье</label>
-        <label><input type="radio" checked={spec.garment_type === 'sundress'} onChange={() => setSpec({...spec, garment_type: 'sundress'})} /> Сарафан</label>
+        {GARMENT_OPTIONS.map((item) => (
+          <label key={item.id}>
+            <input type="radio" checked={spec.garment_type === item.id} onChange={() => setSpec(configureGarment(spec, item.id))} />
+            <span><strong>{item.name}</strong><small>{item.short}</small></span>
+          </label>
+        ))}
       </fieldset>
 
-      <fieldset className="plain-choice">
+      {spec.garment_type !== 'skirt' && <fieldset className="plain-choice">
         <legend>Посадка лифа</legend>
         <label><input type="radio" checked={parameters.bodice_fit === 'semi_fitted'} onChange={() => updateParameters({bodice_fit: 'semi_fitted'})} /> Полуприлегающая</label>
-        <label><input type="radio" checked={parameters.bodice_fit === 'fitted'} onChange={() => updateParameters({bodice_fit: 'fitted'})} /> Прилегающая</label>
-      </fieldset>
+        {!['blouse', 'shirt'].includes(spec.garment_type) && <label><input type="radio" checked={parameters.bodice_fit === 'fitted'} onChange={() => updateParameters({bodice_fit: 'fitted'})} /> Прилегающая</label>}
+      </fieldset>}
 
       <div className="locked-features" aria-label="Зафиксированные поддержанные элементы">
-        <div><strong>Круглая горловина</strong><span>форма пока фиксирована</span></div>
-        <div><strong>Без рукавов</strong><span>с обтачкой проймы</span></div>
-        <div><strong>А-силуэт</strong><span>отрезная юбка</span></div>
-        <div><strong>Молния сзади</strong><span>по центру спинки</span></div>
+        {features[spec.garment_type].map(([title, detail]) => <div key={title}><strong>{title}</strong><span>{detail}</span></div>)}
+      </div>
+
+      <div className="notice notice--warning">
+        <strong>{selectedAcceptance?.name_ru ?? GARMENT_OPTIONS.find((item) => item.id === spec.garment_type)?.name}: пробный статус</strong>
+        <span>{selectedAcceptance?.scope_ru ?? 'Автоматические формулы и инварианты реализованы.'} Экспертная проверка, бумажная сборка и макет ещё не пройдены.</span>
       </div>
 
       <div className="number-grid">
-        <NumberField id="front-neck-depth" label="Глубина горловины спереди" value={parameters.neckline.front_depth_mm / 10} min={5} max={25} onChange={(value) => updateParameters({neckline: {...parameters.neckline, type: 'round', front_depth_mm: value * 10}})} />
-        <NumberField id="back-neck-depth" label="Глубина горловины сзади" value={parameters.neckline.back_depth_mm / 10} min={1} max={12} onChange={(value) => updateParameters({neckline: {...parameters.neckline, type: 'round', back_depth_mm: value * 10}})} />
-        <NumberField id="skirt-length" label="Длина юбки от талии" value={parameters.skirt.length_from_waist_mm / 10} min={35} max={120} onChange={(value) => updateParameters({skirt: {...parameters.skirt, type: 'a_line', length_from_waist_mm: value * 10}})} />
-        <NumberField id="hem-expansion" label="Расширение низа с каждой стороны" value={parameters.skirt.hem_expansion_each_side_mm / 10} min={0} max={25} onChange={(value) => updateParameters({skirt: {...parameters.skirt, type: 'a_line', hem_expansion_each_side_mm: value * 10}})} />
-        <NumberField id="zipper-length" label="Рабочая длина молнии" value={parameters.closure.length_mm / 10} min={30} max={90} onChange={(value) => updateParameters({closure: {...parameters.closure, length_mm: value * 10}})} />
+        {spec.garment_type !== 'skirt' && <NumberField id="front-neck-depth" label="Глубина горловины спереди" value={parameters.neckline.front_depth_mm / 10} min={5} max={25} onChange={(value) => updateParameters({neckline: {...parameters.neckline, type: 'round', front_depth_mm: value * 10}})} />}
+        {spec.garment_type !== 'skirt' && <NumberField id="back-neck-depth" label="Глубина горловины сзади" value={parameters.neckline.back_depth_mm / 10} min={1} max={12} onChange={(value) => updateParameters({neckline: {...parameters.neckline, type: 'round', back_depth_mm: value * 10}})} />}
+        {skirtBased && <NumberField id="skirt-length" label="Длина юбки от талии" value={parameters.skirt.length_from_waist_mm / 10} min={35} max={120} onChange={(value) => updateParameters({skirt: {...parameters.skirt, type: 'a_line', length_from_waist_mm: value * 10}})} />}
+        {skirtBased && <NumberField id="hem-expansion" label="Расширение низа с каждой стороны" value={parameters.skirt.hem_expansion_each_side_mm / 10} min={0} max={25} onChange={(value) => updateParameters({skirt: {...parameters.skirt, type: 'a_line', hem_expansion_each_side_mm: value * 10}})} />}
+        {upperOnly && <NumberField id="upper-length" label="Длина ниже талии" value={(parameters.upper?.length_below_waist_mm ?? 100) / 10} min={4} max={30} onChange={(value) => updateParameters({upper: {length_below_waist_mm: value * 10}})} />}
+        {sleeved && <NumberField id="sleeve-length" label="Длина рукава" value={(parameters.sleeve.length_mm ?? 580) / 10} min={25} max={90} onChange={(value) => updateParameters({sleeve: {...parameters.sleeve, type: 'long', length_mm: value * 10}})} />}
+        {parameters.closure.type !== 'none' && <NumberField id="closure-length" label={parameters.closure.type === 'buttons' ? 'Длина застёжки' : 'Рабочая длина молнии'} value={(parameters.closure.length_mm ?? 550) / 10} min={30} max={90} onChange={(value) => updateParameters({closure: {...parameters.closure, length_mm: value * 10}})} />}
       </div>
 
       {analysis.targeted_questions.length > 0 && (
@@ -184,9 +217,10 @@ export function StyleEditor({
 }
 
 const EASE_FIELDS: Array<{key: keyof FitSettings['wearing_ease_mm']; label: string; min: number; max: number}> = [
-  {key: 'bust', label: 'По груди', min: 2, max: 12},
-  {key: 'waist', label: 'По талии', min: 1, max: 10},
-  {key: 'hips', label: 'По бёдрам', min: 2, max: 12},
+  {key: 'bust', label: 'По груди', min: 0, max: 16},
+  {key: 'waist', label: 'По талии', min: 0, max: 16},
+  {key: 'hips', label: 'По бёдрам', min: 0, max: 16},
+  {key: 'upper_arm', label: 'По плечу', min: 0, max: 12},
 ];
 
 const ALLOWANCE_FIELDS: Array<{key: keyof FitSettings['seam_allowances_mm']; label: string; min: number; max: number}> = [
@@ -202,6 +236,11 @@ export function ConstructionEditor({project, onSave}: {project: ProjectDocument;
   const [fabric, setFabric] = useState<FabricProperties>(() => structuredClone(project.fabric_properties));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const easeFields = EASE_FIELDS.filter(({key}) => {
+    if (project.garment_spec.garment_type === 'skirt') return key === 'waist' || key === 'hips';
+    if (['blouse', 'shirt'].includes(project.garment_spec.garment_type)) return true;
+    return key !== 'upper_arm';
+  });
 
   function setEase(key: keyof FitSettings['wearing_ease_mm'], valueCm: number) {
     setFit({...fit, status: 'draft', confirmed_at: null, wearing_ease_mm: {
@@ -217,7 +256,7 @@ export function ConstructionEditor({project, onSave}: {project: ProjectDocument;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const invalidEase = EASE_FIELDS.some(({key, min, max}) => !bounded(fit.wearing_ease_mm[key] / 10, min, max));
+    const invalidEase = easeFields.some(({key, min, max}) => !bounded(fit.wearing_ease_mm[key] / 10, min, max));
     const invalidAllowance = ALLOWANCE_FIELDS.some(({key, min, max}) => !bounded(fit.seam_allowances_mm[key] / 10, min, max));
     if (invalidEase || invalidAllowance || !fabric.name.trim() || fabric.stretch_percent.weft > 5) {
       setError('Проверьте диапазоны, название ткани и растяжимость не выше 5%.');
@@ -273,7 +312,7 @@ export function ConstructionEditor({project, onSave}: {project: ProjectDocument;
       <section className="editor-section" aria-labelledby="ease-title">
         <h3 id="ease-title">2. Прибавка на свободу облегания</h3>
         <div className="number-grid">
-          {EASE_FIELDS.map(({key, label, min, max}) => <NumberField key={key} id={`ease-${key}`} label={label} value={fit.wearing_ease_mm[key] / 10} min={min} max={max} onChange={(value) => setEase(key, value)} />)}
+          {easeFields.map(({key, label, min, max}) => <NumberField key={key} id={`ease-${key}`} label={label} value={fit.wearing_ease_mm[key] / 10} min={min} max={max} onChange={(value) => setEase(key, value)} />)}
         </div>
         <p className="scope-note">Прибавка распределяется поровну между передом и спинкой. Конструктивная прибавка модели сейчас равна 0.</p>
       </section>

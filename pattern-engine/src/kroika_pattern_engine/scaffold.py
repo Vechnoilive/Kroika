@@ -1,4 +1,4 @@
-"""Stage-9 deterministic garment generator boundary."""
+"""Stage-12 deterministic multi-garment generator boundary."""
 
 from __future__ import annotations
 
@@ -9,7 +9,8 @@ from uuid import NAMESPACE_URL, uuid5
 
 from .assembly import assemble_garment
 from .allowances import apply_seam_allowances
-from .blocks import BlockConstructionError, build_base_blocks
+from .blocks import BlockConstructionError, build_base_blocks, build_skirt_blocks
+from .garment_catalogue import garment_acceptance
 from .geometry import run_core_diagnostics
 
 
@@ -21,7 +22,7 @@ class GeometryPatternEngine:
     """Build a bounded experimental garment and return an auditable report."""
 
     engine_id = "kroika-geometry"
-    engine_version = "0.5.0"
+    engine_version = "0.6.0"
 
     def __init__(self, clock: Callable[[], datetime] = _utc_now):
         self._clock = clock
@@ -49,9 +50,15 @@ class GeometryPatternEngine:
         pattern: dict[str, Any] | None = None
         result_status = "rejected"
         report_status = "failed"
+        garment_type = str(request["garment_spec"]["garment_type"])
+        acceptance = garment_acceptance(garment_type)
 
         try:
-            blocks = build_base_blocks(request)
+            blocks = (
+                build_skirt_blocks(request)
+                if garment_type == "skirt"
+                else build_base_blocks(request)
+            )
             assembly = assemble_garment(request, blocks)
             printable_pattern = apply_seam_allowances(assembly.pattern, request)
         except BlockConstructionError as error:
@@ -68,59 +75,79 @@ class GeometryPatternEngine:
             })
         else:
             residual_names = (
-                "front_bodice_waist_residual_mm",
-                "back_bodice_waist_residual_mm",
-                "front_skirt_waist_residual_mm",
-                "back_skirt_waist_residual_mm",
-                "front_side_projection_residual_mm",
-                "shoulder_length_residual_front_mm",
-                "shoulder_length_residual_back_mm",
+                (
+                    "front_skirt_waist_residual_mm",
+                    "back_skirt_waist_residual_mm",
+                )
+                if garment_type == "skirt"
+                else (
+                    "front_bodice_waist_residual_mm",
+                    "back_bodice_waist_residual_mm",
+                    "front_skirt_waist_residual_mm",
+                    "back_skirt_waist_residual_mm",
+                    "front_side_projection_residual_mm",
+                    "shoulder_length_residual_front_mm",
+                    "shoulder_length_residual_back_mm",
+                )
             )
             maximum_residual = max(abs(blocks.controls[name]) for name in residual_names)
+            expected_formula_count = 14 if garment_type == "skirt" else 41
+            base_piece_count = 2 if garment_type == "skirt" else 4
+            sleeved = garment_type in {"blouse", "shirt"}
             checks.extend([
                 {
                     "id": "engine.pattern_blocks.formulas",
                     "status": "passed",
-                    "message_ru": "Выполнены F01–F41 зафиксированной версии методики.",
+                    "message_ru": (
+                        "Выполнены S01–S14 независимой основы юбки."
+                        if garment_type == "skirt"
+                        else "Выполнены F01–F41 зафиксированной основы лифа и юбки."
+                    ),
                     "measured_value": blocks.controls["formula_count"],
-                    "limit_value": 41,
+                    "limit_value": expected_formula_count,
                     "unit": "1",
                 },
                 {
                     "id": "engine.pattern_blocks.geometry",
                     "status": "passed",
-                    "message_ru": "Четыре базовых контура связны, замкнуты и не пересекают сами себя.",
-                    "measured_value": 4,
-                    "limit_value": 4,
+                    "message_ru": (
+                        f"{base_piece_count} базовых контура связны, замкнуты и не пересекают сами себя."
+                    ),
+                    "measured_value": base_piece_count,
+                    "limit_value": base_piece_count,
                     "unit": "1",
                 },
                 {
                     "id": "engine.pattern_blocks.controls",
                     "status": "passed",
-                    "message_ru": "Талия, плечо и проекционный баланс совпали с расчётными целями.",
+                    "message_ru": "Расчётные проекции и контрольные длины совпали с целями.",
                     "measured_value": maximum_residual,
                     "limit_value": 0.001,
                     "unit": "mm",
                 },
                 {
                     "id": "engine.pattern_blocks.sleeve",
-                    "status": "not_run",
-                    "message_ru": "Выбран вариант без рукавов; модуль рукава не меняет результат.",
+                    "status": "passed" if sleeved else "not_run",
+                    "message_ru": (
+                        "Окат одношовного рукава решён по суммарной длине проймы."
+                        if sleeved
+                        else "Выбран вариант без рукавов; модуль рукава не меняет результат."
+                    ),
                 },
                 {
                     "id": "engine.garment_assembly",
                     "status": "passed",
-                    "message_ru": "Собраны основные детали и обтачки выбранного изделия.",
+                    "message_ru": "Собраны только компоненты ограниченного варианта выбранного изделия.",
                     "measured_value": assembly.controls["piece_count"],
-                    "limit_value": 6,
+                    "limit_value": assembly.controls["piece_count"],
                     "unit": "1",
                 },
                 {
                     "id": "engine.garment_assembly.seam_pairs",
                     "status": "passed",
-                    "message_ru": "Все десять соединений имеют явные пары участков и допуск.",
+                    "message_ru": "Все реализованные соединения имеют явные пары участков и допуск.",
                     "measured_value": assembly.controls["seam_pair_count"],
-                    "limit_value": 10,
+                    "limit_value": assembly.controls["seam_pair_count"],
                     "unit": "1",
                 },
                 {
@@ -148,11 +175,19 @@ class GeometryPatternEngine:
                     "id": "engine.printing.cutting_contours",
                     "status": "passed",
                     "message_ru": (
-                        "Все шесть линий среза построены из припусков по типам участков."
+                        "Для каждой детали построена линия среза из припусков по типам участков."
                     ),
-                    "measured_value": 6,
-                    "limit_value": 6,
+                    "measured_value": assembly.controls["piece_count"],
+                    "limit_value": assembly.controls["piece_count"],
                     "unit": "1",
+                },
+                {
+                    "id": "engine.garment_acceptance",
+                    "status": "not_run",
+                    "message_ru": (
+                        f"{acceptance['name_ru']}: бумажная, экспертная и макетная "
+                        "приёмка пока не выполнены."
+                    ),
                 },
                 {
                     "id": "engine.printing.scale",
@@ -164,6 +199,15 @@ class GeometryPatternEngine:
                 },
             ])
             issues.extend([
+                {
+                    "code": "GARMENT_ACCEPTANCE_PENDING",
+                    "severity": "warning",
+                    "message_ru": (
+                        f"{acceptance['name_ru']}: автоматические эталоны и инварианты пройдены, "
+                        "но expert/toile status остаётся pending."
+                    ),
+                    "json_pointer": f"/garments/{garment_type}/toile_status",
+                },
                 {
                     "code": "EXPERT_BLOCK_REVIEW_REQUIRED",
                     "severity": "warning",

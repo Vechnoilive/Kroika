@@ -1,6 +1,7 @@
 import type {
   ApiErrorBody,
   BodyMeasurements,
+  GarmentCatalogue,
   MeasurementCatalog,
   MeasurementProfileRecord,
   MeasurementProfileSummary,
@@ -179,6 +180,7 @@ export const api = {
       method: 'POST',
     }),
   visionProviders: () => request<VisionProviderList>('/api/v1/ai/providers'),
+  garmentCatalogue: () => request<GarmentCatalogue>('/api/v1/garments/catalog'),
   uploadImage: async (file: File) => request<ImageUploadResult>('/api/v1/images', {
     method: 'POST',
     body: JSON.stringify({
@@ -200,7 +202,9 @@ export const api = {
         project_id: projectId,
         locale: 'ru-RU',
         image_refs: imageRefs,
-        supported_garment_categories: ['dress', 'sundress'],
+        supported_garment_categories: [
+          'dress', 'sundress', 'skirt', 'top', 'blouse', 'shirt', 'vest',
+        ],
         supported_features: {
           neckline: ['round', 'v', 'square'],
           sleeve: ['sleeveless', 'short', 'long'],

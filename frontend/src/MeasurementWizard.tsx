@@ -1,5 +1,6 @@
 import {useEffect, useMemo, useState} from 'react';
 import {api, ApiError} from './api';
+import {GARMENT_NAMES} from './garments';
 import {MeasurementGuide} from './MeasurementGuide';
 import type {
   BodyMeasurements,
@@ -273,7 +274,7 @@ export function MeasurementWizard({project, onSaveProject}: Props) {
     <section className="measurement-wizard" aria-labelledby="measurements-title">
       <header className="measurement-wizard__header">
         <div>
-          <p className="eyebrow">Шаг 3 · мерки для {garmentType === 'sundress' ? 'сарафана' : 'платья'}</p>
+          <p className="eyebrow">Шаг 4 · мерки · {GARMENT_NAMES[garmentType]}</p>
           <h2 id="measurements-title">Снимаем мерки спокойно, по одной</h2>
           <p>Вводите размер тела без прибавок. Приложение ничего не угадывает и хранит расчёты в миллиметрах.</p>
         </div>

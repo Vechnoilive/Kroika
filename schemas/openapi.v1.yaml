@@ -3,8 +3,9 @@ info:
   title: Kroika API contracts
   version: 1.0.0
   description: >-
-    Контракт API. Этап 11 связывает полный сценарий, историю ревизий и
-    интерактивные SVG-слои. В пользовательском интерфейсе включены mock и Qwen.
+    Контракт API. Этап 12 добавляет ограниченные варианты юбки, топа, блузки,
+    рубашки и жилета с отдельными статусами expert/toile. В интерфейсе включены
+    mock и Qwen; производственный экспорт до физической приёмки запрещён.
 servers:
   - url: http://localhost:8000
     description: Локальный сервер
@@ -68,6 +69,17 @@ paths:
           $ref: '#/components/responses/ProviderUnavailable'
         '504':
           $ref: '#/components/responses/ProviderUnavailable'
+  /api/v1/garments/catalog:
+    get:
+      operationId: listGarmentCatalogue
+      summary: Показать ограниченные варианты изделий и честный статус их приёмки
+      responses:
+        '200':
+          description: Автоматические и физические статусы указаны отдельно
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GarmentCatalogue'
   /api/v1/ai/providers:
     get:
       operationId: listAIProviders
@@ -248,7 +260,7 @@ paths:
           schema:
             type: string
             default: dress
-            enum: [dress, sundress]
+            enum: [dress, sundress, skirt, top, blouse, shirt, vest]
         - name: sleeve_type
           in: query
           schema:
@@ -553,6 +565,32 @@ components:
           maxItems: 3
           items:
             $ref: '#/components/schemas/AIProviderStatus'
+    GarmentAcceptanceStatus:
+      type: object
+      additionalProperties: false
+      required: [garment_type, name_ru, scope_ru, formula_status, reference_status, invariant_status, paper_status, expert_status, toile_status, production_allowed]
+      properties:
+        garment_type: {type: string, enum: [dress, sundress, skirt, top, blouse, shirt, vest]}
+        name_ru: {type: string, minLength: 1}
+        scope_ru: {type: string, minLength: 1}
+        formula_status: {type: string, const: implemented}
+        reference_status: {type: string, const: automated_passed}
+        invariant_status: {type: string, const: automated_passed}
+        paper_status: {type: string, enum: [pending, passed]}
+        expert_status: {type: string, enum: [pending, passed]}
+        toile_status: {type: string, enum: [pending, passed]}
+        production_allowed: {type: boolean, const: false}
+    GarmentCatalogue:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 7
+          maxItems: 7
+          items:
+            $ref: '#/components/schemas/GarmentAcceptanceStatus'
     ImageUploadRequest:
       type: object
       additionalProperties: false

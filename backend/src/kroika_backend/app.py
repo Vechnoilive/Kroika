@@ -1,4 +1,4 @@
-"""FastAPI composition root for the stage-11 versioned workflow."""
+"""FastAPI composition root for the stage-12 multi-garment workflow."""
 
 from __future__ import annotations
 
@@ -24,6 +24,7 @@ from kroika_pattern_engine import (
     render_pattern_pdf,
     render_pattern_svg,
     SVG_PREVIEW_LAYERS,
+    garment_catalogue,
 )
 
 from .config import Settings
@@ -32,6 +33,7 @@ from .logging_config import configure_logging
 from .image_store import LocalImageStore
 from .models import (
     AIProviderListResponse,
+    GarmentCatalogueResponse,
     HealthResponse,
     ImageUploadRequest,
     ImageUploadResponse,
@@ -46,7 +48,7 @@ from .models import (
 from .repository import SQLiteRepository
 from .vision_providers import ProviderRegistry, build_provider_registry
 
-APP_VERSION = "0.11.0"
+APP_VERSION = "0.12.0"
 
 
 def _project_or_404(repository: SQLiteRepository, project_id: str) -> dict[str, Any]:
@@ -204,7 +206,9 @@ def create_app(
     @app.post("/api/v1/measurements/validate", tags=["measurements"])
     def validate_measurements(
         profile: dict[str, Any] = Body(...),
-        garment_type: Literal["dress", "sundress"] = "dress",
+        garment_type: Literal[
+            "dress", "sundress", "skirt", "top", "blouse", "shirt", "vest"
+        ] = "dress",
         sleeve_type: Literal["sleeveless", "short", "long"] = "sleeveless",
     ) -> dict[str, Any]:
         validate_document("body-measurements", profile)
@@ -277,6 +281,14 @@ def create_app(
             "default_provider": provider_registry.default_provider,
             "items": provider_registry.statuses(),
         }
+
+    @app.get(
+        "/api/v1/garments/catalog",
+        response_model=GarmentCatalogueResponse,
+        tags=["garments"],
+    )
+    def list_garment_catalogue() -> dict[str, Any]:
+        return {"items": garment_catalogue()}
 
     @app.post(
         "/api/v1/images", status_code=201,
