@@ -47,7 +47,7 @@ def test_stage9_builds_audited_allowances_cutting_contours_and_matching_notches(
     validate_document("pattern-engine-result", result)
     validate_validation_report(result["validation_report"])
     assert result["status"] == "succeeded"
-    assert result["engine_version"] == "0.5.0"
+    assert result["engine_version"] == GeometryPatternEngine.engine_version
     assert result["validation_report"]["diagnostic_export_allowed"] is True
     assert result["validation_report"]["production_export_allowed"] is False
     assert "PHYSICAL_PRINT_TEST_REQUIRED" in {
@@ -181,12 +181,16 @@ def test_stage9_runtime_contract_remains_wired():
     launcher = (ROOT / "scripts" / "start_local.py").read_text(encoding="utf-8")
     dockerfile = (ROOT / "backend" / "Dockerfile").read_text(encoding="utf-8")
     workflow = (ROOT / ".github" / "workflows" / "verify.yml").read_text(encoding="utf-8")
+    current_stage = max(
+        int(path.stem.removeprefix("verify_stage"))
+        for path in (ROOT / "scripts").glob("verify_stage*.py")
+    )
     assert "reportlab==4.4.9" in requirements
     assert "pypdf==6.10.0" in requirements
     assert '"requirements-stage9.txt"' in launcher
     assert "-r requirements-stage9.txt" in current_requirements
     assert "fonts-dejavu-core" in dockerfile
-    assert "python scripts/verify_stage10.py" in workflow
+    assert f"python scripts/verify_stage{current_stage}.py" in workflow
     assert "verify_all.py" not in workflow
     spec, base_uri = read_from_filename(str(ROOT / "schemas" / "openapi.v1.yaml"))
     validate_openapi(spec, base_uri=base_uri)
@@ -244,10 +248,10 @@ def test_old_generation_cache_is_migrated_and_new_engine_result_can_coexist(tmp_
         legacy["project_id"], legacy["input_hash"], legacy["engine_version"]
     ) == legacy
     assert repository.get_generation_by_hash(
-        legacy["project_id"], legacy["input_hash"], "0.5.0"
+        legacy["project_id"], legacy["input_hash"], GeometryPatternEngine.engine_version
     ) is None
     current = _result()
     repository.record_generation(current)
     assert repository.get_generation_by_hash(
-        current["project_id"], current["input_hash"], "0.5.0"
+        current["project_id"], current["input_hash"], GeometryPatternEngine.engine_version
     )["generation_id"] == current["generation_id"]

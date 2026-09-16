@@ -22,7 +22,7 @@ describe('accessible stage flow', () => {
     const action = await screen.findByRole('button', {name: /создать проект/i});
     await waitFor(() => expect(action).toBeEnabled());
     expect(screen.getByLabelText(/название проекта/i)).toBeVisible();
-    expect(screen.getByText(/будет пустым/i)).toBeVisible();
+    expect(screen.getByText(/все размеры вводит человек/i)).toBeVisible();
   });
 
   it('explains a backend outage in plain language', async () => {

@@ -65,7 +65,7 @@ def test_supported_variant_matrix_builds_valid_complete_geometry(
 
     validate_document("pattern-engine-result", result)
     validate_validation_report(result["validation_report"])
-    assert result["engine_version"] == "0.5.0"
+    assert result["engine_version"] == GeometryPatternEngine.engine_version
     assert result["status"] == "succeeded"
     assert result["validation_report"]["status"] == "warnings"
     assert result["validation_report"]["diagnostic_export_allowed"] is True
@@ -196,8 +196,12 @@ def test_stage8_bootstrap_and_documentation_are_wired():
     requirements = (ROOT / "requirements-stage8.txt").read_text(encoding="utf-8")
     verifier = (ROOT / "scripts" / "verify_all.py").read_text(encoding="utf-8")
     documentation = (ROOT / "docs" / "GARMENT_GENERATOR.md").read_text(encoding="utf-8")
+    latest_requirements = max(
+        ROOT.glob("requirements-stage*.txt"),
+        key=lambda path: int(path.stem.removeprefix("requirements-stage")),
+    ).name
     assert '"requirements-stage8.txt"' in launcher
-    assert "-r requirements-stage8.txt" in dockerfile
+    assert f"-r {latest_requirements}" in dockerfile
     assert "-r requirements-stage7.txt" in requirements
     assert "verify_stage8.py" in verifier
     for term in ("10", "SVG", "сарафан", "production_export_allowed=false"):

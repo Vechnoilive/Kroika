@@ -28,15 +28,15 @@ afterEach(() => vi.restoreAllMocks());
 describe('stage-9 printing result', () => {
   it('explains scale verification before offering clear export actions', () => {
     render(<PatternResultCard result={result} />);
-    expect(screen.getByRole('heading', {name: /готова к проверке на бумаге/i})).toBeVisible();
-    expect(screen.getByText(/actual size \/ реальный размер/i)).toBeVisible();
+    expect(screen.getByRole('heading', {name: /выкройка готова к проверке/i})).toBeVisible();
+    expect(screen.getByText(/выберите 100%/i)).toBeVisible();
     expect(screen.getByText(/50 × 50 мм/i)).toBeVisible();
     expect(screen.getByText(/кроить ткань пока нельзя/i)).toBeVisible();
-    expect(screen.getByRole('link', {name: /скачать единый svg/i})).toHaveAttribute(
+    expect(screen.getByRole('link', {name: /единый svg/i})).toHaveAttribute(
       'href',
       `/api/v1/patterns/${result.generation_id}/export/print.svg`,
     );
-    expect(screen.getByRole('button', {name: /скачать pdf a4/i})).toBeEnabled();
+    expect(screen.getByRole('button', {name: /pdf a4 для проверки/i})).toBeEnabled();
   });
 
   it('shows a plain-language PDF error without hiding the result', async () => {
@@ -44,7 +44,7 @@ describe('stage-9 printing result', () => {
       new ApiError('Не удалось подготовить печатные листы.', 409, 'PDF_EXPORT_INVALID'),
     );
     render(<PatternResultCard result={result} />);
-    await userEvent.click(screen.getByRole('button', {name: /скачать pdf a4/i}));
+    await userEvent.click(screen.getByRole('button', {name: /pdf a4 для проверки/i}));
     expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось подготовить печатные листы.');
     expect(screen.getByRole('img')).toBeVisible();
   });
