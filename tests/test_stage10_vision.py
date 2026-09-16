@@ -201,9 +201,13 @@ def test_stage10_runtime_contract_and_current_only_ci_are_wired(tmp_path: Path):
     launcher = (ROOT / "scripts/start_local.py").read_text(encoding="utf-8")
     dockerfile = (ROOT / "backend/Dockerfile").read_text(encoding="utf-8")
     workflow = (ROOT / ".github/workflows/verify.yml").read_text(encoding="utf-8")
+    current_stage = max(
+        int(path.stem.removeprefix("verify_stage"))
+        for path in (ROOT / "scripts").glob("verify_stage*.py")
+    )
     assert '"requirements-stage10.txt"' in launcher
     assert "requirements-stage10.txt" in dockerfile
-    assert "python scripts/verify_stage10.py" in workflow
+    assert f"python scripts/verify_stage{current_stage}.py" in workflow
     assert "verify_all.py" not in workflow
 
     spec, base_uri = read_from_filename(str(ROOT / "schemas/openapi.v1.yaml"))

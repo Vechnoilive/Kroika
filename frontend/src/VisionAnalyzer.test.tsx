@@ -6,9 +6,9 @@ import {VisionAnalyzer} from './VisionAnalyzer';
 const providers = {
   default_provider: 'mock',
   items: [
-    {provider_id: 'mock', name: 'Демо-режим', model: 'fixture', configured: true, is_default: true, sends_images_external: false, message_ru: 'Не отправляет фото.'},
-    {provider_id: 'qwen', name: 'Qwen', model: 'qwen-test', configured: true, is_default: false, sends_images_external: true, message_ru: 'Отправляет после согласия.'},
-    {provider_id: 'gemini', name: 'Gemini', model: 'gemini-test', configured: false, is_default: false, sends_images_external: true, message_ru: 'Нужен ключ.'},
+    {provider_id: 'mock', name: 'Демо-режим', model: 'fixture', configured: true, is_default: true, enabled_for_users: true, sends_images_external: false, message_ru: 'Не отправляет фото.'},
+    {provider_id: 'qwen', name: 'Qwen', model: 'qwen-test', configured: true, is_default: false, enabled_for_users: true, sends_images_external: true, message_ru: 'Отправляет после согласия.'},
+    {provider_id: 'gemini', name: 'Gemini', model: 'gemini-test', configured: false, is_default: false, enabled_for_users: false, sends_images_external: true, message_ru: 'Нужен ключ.'},
   ],
 };
 
@@ -35,7 +35,9 @@ describe('stage 10 vision choice', () => {
     render(<VisionAnalyzer projectId="11111111-1111-4111-8111-111111111111" onComplete={completed} />);
     const button = await screen.findByRole('button', {name: /продолжить в демо/i});
     await userEvent.click(button);
-    await waitFor(() => expect(completed).toHaveBeenCalledWith(analysis, 'Демо-режим'));
+    await waitFor(() => expect(completed).toHaveBeenCalledWith(analysis, {
+      providerId: 'mock', providerName: 'Демо-режим', imageRefs: [],
+    }));
     expect(fetch).not.toHaveBeenCalledWith('/api/v1/images', expect.anything());
   });
 
@@ -51,17 +53,17 @@ describe('stage 10 vision choice', () => {
     await userEvent.click(screen.getByRole('button', {name: /проанализировать/i}));
     expect(await screen.findByRole('alert')).toHaveTextContent('Сначала выберите фотографию');
     const file = new File([new Uint8Array([137, 80, 78, 71])], 'dress.png', {type: 'image/png'});
-    await userEvent.upload(screen.getByLabelText(/выбрать изображение/i), file);
+    await userEvent.upload(screen.getByLabelText(/выбрать изображения/i), file);
     await userEvent.click(screen.getByRole('button', {name: /проанализировать/i}));
     expect(await screen.findByText(/подтвердите отправку/i)).toBeVisible();
     expect(screen.getByRole('checkbox')).toBeVisible();
   });
 
-  it('disables an unconfigured provider without hiding the reason', async () => {
+  it('keeps disabled providers out of the user-facing choice', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(providers), {status: 200})));
     render(<VisionAnalyzer projectId="11111111-1111-4111-8111-111111111111" onComplete={vi.fn()} />);
-    const gemini = await screen.findByRole('radio', {name: /Gemini/i});
-    expect(gemini).toBeDisabled();
-    expect(screen.getByText('Нужен ключ.')).toBeVisible();
+    expect(await screen.findByRole('radio', {name: /Qwen/i})).toBeEnabled();
+    expect(screen.queryByRole('radio', {name: /Gemini/i})).not.toBeInTheDocument();
+    expect(screen.queryByText('Нужен ключ.')).not.toBeInTheDocument();
   });
 });

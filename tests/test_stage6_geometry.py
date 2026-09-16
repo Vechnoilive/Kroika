@@ -456,11 +456,15 @@ def test_stage6_runtime_bootstrap_is_the_latest_layer():
     launcher = (ROOT / "scripts" / "start_local.py").read_text(encoding="utf-8")
     dockerfile = (ROOT / "backend" / "Dockerfile").read_text(encoding="utf-8")
     requirements = (ROOT / "requirements-stage6.txt").read_text(encoding="utf-8")
+    latest_requirements = max(
+        ROOT.glob("requirements-stage*.txt"),
+        key=lambda path: int(path.stem.removeprefix("requirements-stage")),
+    ).name
     assert 'ROOT / "requirements-stage5.txt"' in launcher
     assert '"requirements-stage6.txt"' in launcher
-    assert '"-r", str(ROOT / "requirements-stage8.txt")' in launcher
+    assert f'"-r", str(ROOT / "{latest_requirements}")' in launcher
     assert "requirements-stage6.txt" in dockerfile
-    assert "-r requirements-stage8.txt" in dockerfile
+    assert f"-r {latest_requirements}" in dockerfile
     assert "-r requirements-stage5.txt" in requirements
     assert "hypothesis==6.168.0" in requirements
 

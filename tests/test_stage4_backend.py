@@ -5,6 +5,7 @@ import json
 import logging
 from pathlib import Path
 import sys
+import tomllib
 
 from fastapi.testclient import TestClient
 import pytest
@@ -48,10 +49,14 @@ def test_health_checks_dependencies_and_request_id(client: TestClient):
     live = client.get("/health/live")
     ready = client.get("/health/ready")
     assert live.status_code == ready.status_code == 200
+    engine = client.app.state.pattern_engine
+    backend_version = tomllib.loads(
+        (ROOT / "backend" / "pyproject.toml").read_text(encoding="utf-8")
+    )["project"]["version"]
     assert ready.json() == {
-        "status": "ok", "service": "kroika-backend", "version": "0.10.0",
+        "status": "ok", "service": "kroika-backend", "version": backend_version,
         "database": "ok", "ai_provider": "mock",
-        "pattern_engine": "kroika-geometry:0.5.0",
+        "pattern_engine": f"{engine.engine_id}:{engine.engine_version}",
     }
     assert len(ready.headers["X-Request-ID"]) == 36
 

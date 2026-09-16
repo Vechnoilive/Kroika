@@ -29,7 +29,7 @@ describe('stage 11 project editors', () => {
     const onSave = vi.fn(async (candidate: ProjectDocument) => saved(candidate));
     render(<StyleEditor project={project} analysis={analysis} providerName="Qwen" onSave={onSave} />);
 
-    expect(screen.getByText(/пока неподдержанные элементы/i)).toBeVisible();
+    expect(screen.getByText(/анализ изображения нужно сверить/i)).toBeVisible();
     expect(screen.getByText(/горловина «v»/i)).toBeVisible();
     await userEvent.clear(screen.getByLabelText(/длина юбки от талии/i));
     await userEvent.type(screen.getByLabelText(/длина юбки от талии/i), '60');

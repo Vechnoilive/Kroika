@@ -60,6 +60,9 @@ with TemporaryDirectory(prefix="kroika-stage9-") as directory:
 
         saved = client.get(f"/api/v1/projects/{project['project_id']}").json()
         assert saved["status"] == "generated"
-        assert client.get("/health/ready").json()["pattern_engine"] == "kroika-geometry:0.5.0"
+        engine = app.state.pattern_engine
+        assert client.get("/health/ready").json()["pattern_engine"] == (
+            f"{engine.engine_id}:{engine.engine_version}"
+        )
 
 print("Smoke-test этапа 9 пройден: линии среза, SVG и диагностический PDF A4 1:1 работают.")

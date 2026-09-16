@@ -58,8 +58,9 @@ with TemporaryDirectory(prefix="kroika-stage8-") as directory:
         assert diagnostic_pdf.headers["x-kroika-production-ready"] == "false"
         saved = client.get(f"/api/v1/projects/{project['project_id']}").json()
         assert saved["status"] == "generated"
+        engine = app.state.pattern_engine
         assert client.get("/health/ready").json()["pattern_engine"] == (
-            "kroika-geometry:0.5.0"
+            f"{engine.engine_id}:{engine.engine_version}"
         )
 
 print("Smoke-test этапа 8 пройден: изделие, швы, SVG и диагностический PDF работают.")

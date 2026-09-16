@@ -10,6 +10,11 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 environment = os.environ.copy()
+venv_bin = ROOT / ".venv" / ("Scripts" if os.name == "nt" else "bin")
+if venv_bin.exists():
+    environment["PATH"] = os.pathsep.join([
+        str(venv_bin), environment.get("PATH", ""),
+    ])
 environment["PYTHONPATH"] = os.pathsep.join([
     str(ROOT / "src"),
     str(ROOT / "pattern-engine" / "src"),
