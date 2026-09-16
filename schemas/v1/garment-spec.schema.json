@@ -10,7 +10,7 @@
     "schema_version": {"$ref": "common.schema.json#/$defs/schema_version"},
     "garment_id": {"$ref": "common.schema.json#/$defs/uuid"},
     "selection_status": {"type": "string", "enum": ["proposed", "confirmed"]},
-    "garment_type": {"type": "string", "enum": ["dress", "sundress"]},
+    "garment_type": {"type": "string", "enum": ["dress", "sundress", "skirt", "top", "blouse", "shirt", "vest"]},
     "parameters": {
       "type": "object",
       "additionalProperties": false,
@@ -50,21 +50,41 @@
             "hem_expansion_each_side_mm": {"$ref": "common.schema.json#/$defs/millimetres"}
           }
         },
+        "upper": {
+          "type": "object", "additionalProperties": false,
+          "required": ["length_below_waist_mm"],
+          "properties": {
+            "length_below_waist_mm": {"type": "number", "minimum": 40, "maximum": 300}
+          }
+        },
         "closure": {
           "type": "object", "additionalProperties": false,
           "required": ["type", "location", "length_mm"],
           "properties": {
-            "type": {"type": "string", "const": "zipper"},
-            "location": {"type": "string", "const": "center_back"},
-            "length_mm": {"$ref": "common.schema.json#/$defs/positive_millimetres"}
-          }
+            "type": {"type": "string", "enum": ["zipper", "buttons", "none"]},
+            "location": {"type": "string", "enum": ["center_back", "center_front", "side", "none"]},
+            "length_mm": {
+              "anyOf": [
+                {"$ref": "common.schema.json#/$defs/positive_millimetres"},
+                {"type": "null"}
+              ]
+            }
+          },
+          "allOf": [{
+            "if": {"properties": {"type": {"const": "none"}}, "required": ["type"]},
+            "then": {"properties": {"location": {"const": "none"}, "length_mm": {"type": "null"}}},
+            "else": {"properties": {"length_mm": {"$ref": "common.schema.json#/$defs/positive_millimetres"}}}
+          }]
         },
         "finishing": {
           "type": "object", "additionalProperties": false,
           "required": ["neckline_facing", "armhole_facing"],
           "properties": {
             "neckline_facing": {"type": "boolean"},
-            "armhole_facing": {"type": "boolean"}
+            "armhole_facing": {"type": "boolean"},
+            "waistband": {"type": "boolean"},
+            "front_placket": {"type": "boolean"},
+            "collar": {"type": "boolean"}
           }
         }
       }

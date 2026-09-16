@@ -304,6 +304,8 @@ footer { min-height: 56px; display: flex; align-items: center; justify-content: 
 .plain-choice label { min-height: 45px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border: 1px solid var(--line); border-radius: 11px; background: white; font-size: 12px; cursor: pointer; }
 .plain-choice label:has(input:checked) { border-color: var(--violet); background: #f6f2f8; }
 .plain-choice input { accent-color: var(--violet); }
+.plain-choice label > span { display: grid; gap: 2px; }
+.plain-choice label > span small { color: var(--muted); font-size: 9px; font-weight: 400; }
 .locked-features { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
 .locked-features div { display: grid; gap: 4px; padding: 14px; border-radius: 13px; background: #f3f0ed; }
 .locked-features strong { font-size: 12px; }

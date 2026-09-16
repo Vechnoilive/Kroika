@@ -40,7 +40,7 @@ export interface GarmentSpec {
   schema_version: '1.0.0';
   garment_id: string;
   selection_status: 'proposed' | 'confirmed';
-  garment_type: 'dress' | 'sundress';
+  garment_type: GarmentType;
   parameters: {
     symmetry: 'symmetric';
     bodice_fit: 'fitted' | 'semi_fitted';
@@ -48,11 +48,42 @@ export interface GarmentSpec {
     neckline: {type: 'round' | 'v' | 'square'; front_depth_mm: number; back_depth_mm: number};
     sleeve: {type: 'sleeveless' | 'short' | 'long'; length_mm: number | null};
     skirt: {type: 'straight' | 'a_line'; length_from_waist_mm: number; hem_expansion_each_side_mm: number};
-    closure: {type: 'zipper'; location: 'center_back'; length_mm: number};
-    finishing: {neckline_facing: boolean; armhole_facing: boolean};
+    upper?: {length_below_waist_mm: number};
+    closure: {
+      type: 'zipper' | 'buttons' | 'none';
+      location: 'center_back' | 'center_front' | 'side' | 'none';
+      length_mm: number | null;
+    };
+    finishing: {
+      neckline_facing: boolean;
+      armhole_facing: boolean;
+      waistband?: boolean;
+      front_placket?: boolean;
+      collar?: boolean;
+    };
   };
   unsupported_features: string[];
   confirmed_at: string | null;
+}
+
+export type GarmentType =
+  | 'dress' | 'sundress' | 'skirt' | 'top' | 'blouse' | 'shirt' | 'vest';
+
+export interface GarmentAcceptanceStatus {
+  garment_type: GarmentType;
+  name_ru: string;
+  scope_ru: string;
+  formula_status: 'implemented';
+  reference_status: 'automated_passed';
+  invariant_status: 'automated_passed';
+  paper_status: 'pending' | 'passed';
+  expert_status: 'pending' | 'passed';
+  toile_status: 'pending' | 'passed';
+  production_allowed: boolean;
+}
+
+export interface GarmentCatalogue {
+  items: GarmentAcceptanceStatus[];
 }
 
 export interface FitSettings {

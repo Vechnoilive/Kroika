@@ -4,8 +4,11 @@ import {makeDemoProject} from './demoProject';
 import {MeasurementWizard} from './MeasurementWizard';
 import {ConstructionEditor, ProjectHistory, StyleEditor} from './ProjectWorkflow';
 import {VisionAnalyzer} from './VisionAnalyzer';
+import {configureGarment, GARMENT_NAMES} from './garments';
 import type {
   BodyMeasurements,
+  GarmentAcceptanceStatus,
+  GarmentType,
   PatternEngineResult,
   PatternLayer,
   ProjectDocument,
@@ -74,11 +77,13 @@ export function PatternResultCard({
   onRebuild,
   onNewVersion,
   busy = false,
+  acceptance,
 }: {
   result: PatternEngineResult;
   onRebuild?: () => void;
   onNewVersion?: () => void;
   busy?: boolean;
+  acceptance?: GarmentAcceptanceStatus;
 }) {
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
@@ -170,7 +175,7 @@ export function PatternResultCard({
       </dl>
       <div className="notice notice--warning">
         <strong>Печатать можно для проверки — кроить ткань пока нельзя</strong>
-        <span>Методика experimental: проверьте квадрат, соберите бумагу и изготовьте макет.</span>
+        <span>{acceptance?.name_ru ?? 'Изделие'}: expert status — {acceptance?.expert_status ?? 'pending'}, toile status — {acceptance?.toile_status ?? 'pending'}. Проверьте квадрат, бумажную сборку и макет.</span>
       </div>
       <section className="print-guide" aria-labelledby="print-guide-title">
         <h3 id="print-guide-title">Как распечатать без ошибки</h3>
@@ -197,22 +202,19 @@ export function PatternResultCard({
 
 function proposalFromAnalysis(project: ProjectDocument, analysis: StyleAnalysis): ProjectDocument['garment_spec'] {
   const current = project.garment_spec;
-  const garmentType = analysis.garment_category === 'sundress' ? 'sundress' : 'dress';
+  const supported: GarmentType[] = ['dress', 'sundress', 'skirt', 'top', 'blouse', 'shirt', 'vest'];
+  const garmentType = supported.includes(analysis.garment_category as GarmentType)
+    ? analysis.garment_category as GarmentType
+    : 'dress';
   const bodiceFit = analysis.silhouette.fit === 'fitted' ? 'fitted' : 'semi_fitted';
-  return {
+  return configureGarment({
     ...current,
-    selection_status: 'proposed',
-    garment_type: garmentType,
     parameters: {
       ...current.parameters,
       bodice_fit: bodiceFit,
-      neckline: {...current.parameters.neckline, type: 'round'},
-      sleeve: {type: 'sleeveless', length_mm: null},
-      skirt: {...current.parameters.skirt, type: 'a_line'},
     },
     unsupported_features: [],
-    confirmed_at: null,
-  };
+  }, garmentType);
 }
 
 export default function App() {
@@ -222,6 +224,7 @@ export default function App() {
   const [projectName, setProjectName] = useState('Моё первое платье');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
+  const [garmentCatalogue, setGarmentCatalogue] = useState<GarmentAcceptanceStatus[]>([]);
 
   function remember(updated: ProjectDocument) {
     setProject(updated);
@@ -243,10 +246,11 @@ export default function App() {
     async function load() {
       try {
         await api.readiness();
-        const list = await api.listProjects();
+        const [list, catalogue] = await Promise.all([api.listProjects(), api.garmentCatalogue()]);
         if (!active) return;
         setConnection('ready');
         setProjects(list.items);
+        setGarmentCatalogue(catalogue.items);
         const remembered = localStorage.getItem(LAST_PROJECT_KEY);
         if (remembered) {
           try {
@@ -376,6 +380,9 @@ export default function App() {
   const analysisProvider = project?.style_analysis_provider
     ? PROVIDER_NAMES[project.style_analysis_provider]
     : 'Анализ фасона';
+  const currentAcceptance = project
+    ? garmentCatalogue.find((item) => item.garment_type === project.garment_spec.garment_type)
+    : undefined;
   const activeStep = !project ? 1
     : !analysis ? 2
     : project.garment_spec.selection_status !== 'confirmed' ? 3
@@ -405,7 +412,7 @@ export default function App() {
         </aside>
 
         <section className="content">
-          <div className="stage-badge">Qwen · полный сценарий · этап 11 из 15</div>
+          <div className="stage-badge">Qwen · 7 типов изделий · этап 12 из 15</div>
           {!project ? (
             <>
               <div className="intro"><p className="eyebrow">Начнём спокойно</p><h1>Создадим выкройку<br /><em>последовательно</em></h1><p>Каждый шаг сохраняется. Никакие мерки не угадываются, а результат AI всегда подтверждает человек.</p></div>
@@ -423,13 +430,13 @@ export default function App() {
               {error && <FriendlyError error={error} />}
 
               {activeStep === 2 && <VisionAnalyzer projectId={project.project_id} onComplete={saveAnalysis} />}
-              {activeStep === 3 && analysis && <StyleEditor project={project} analysis={analysis as StyleAnalysis} providerName={analysisProvider} onSave={saveProject} />}
+              {activeStep === 3 && analysis && <StyleEditor project={project} analysis={analysis as StyleAnalysis} providerName={analysisProvider} acceptance={currentAcceptance} onSave={saveProject} />}
               {activeStep === 4 && <MeasurementWizard key={`${project.project_id}-${project.garment_spec.confirmed_at}`} project={project} onSaveProject={saveMeasurements} />}
               {activeStep === 5 && <ConstructionEditor project={project} onSave={saveProject} />}
               {activeStep === 6 && (
-                <section className="generation-card" aria-labelledby="generation-title"><div className="action-card__icon" aria-hidden="true">06</div><div><p className="eyebrow">Все входы подтверждены</p><h2 id="generation-title">Построить выкройку?</h2><p>Формульный движок создаст детали из сохранённых мерок, фасона, ткани и прибавок, затем проверит геометрию.</p><ul><li>{project.garment_spec.garment_type === 'sundress' ? 'Сарафан' : 'Платье'} · {project.garment_spec.parameters.bodice_fit === 'fitted' ? 'прилегающий лиф' : 'полуприлегающий лиф'}</li><li>Длина юбки {project.garment_spec.parameters.skirt.length_from_waist_mm / 10} см</li><li>Стабильная тканая ткань · пробный статус</li></ul><button className="primary-button" onClick={() => void generatePattern()} disabled={busy}>{busy ? 'Строим и проверяем…' : 'Построить выкройку'} <span aria-hidden="true">→</span></button></div></section>
+                <section className="generation-card" aria-labelledby="generation-title"><div className="action-card__icon" aria-hidden="true">06</div><div><p className="eyebrow">Все входы подтверждены</p><h2 id="generation-title">Построить выкройку?</h2><p>Формульный движок создаст детали из сохранённых мерок, фасона, ткани и прибавок, затем проверит геометрию.</p><ul><li>{GARMENT_NAMES[project.garment_spec.garment_type]} · {project.garment_spec.garment_type === 'skirt' ? 'А-силуэт с поясом' : project.garment_spec.parameters.bodice_fit === 'fitted' ? 'прилегающая основа' : 'полуприлегающая основа'}</li><li>{['dress', 'sundress', 'skirt'].includes(project.garment_spec.garment_type) ? `Длина юбки ${project.garment_spec.parameters.skirt.length_from_waist_mm / 10} см` : `Длина ниже талии ${(project.garment_spec.parameters.upper?.length_below_waist_mm ?? 100) / 10} см`}</li><li>Стабильная тканая ткань · пробный статус</li><li>Экспертная проверка и макет: ещё не пройдены</li></ul><button className="primary-button" onClick={() => void generatePattern()} disabled={busy}>{busy ? 'Строим и проверяем…' : 'Построить выкройку'} <span aria-hidden="true">→</span></button></div></section>
               )}
-              {activeStep === 7 && project.latest_generation && <PatternResultCard result={project.latest_generation} onRebuild={() => void generatePattern()} onNewVersion={() => void startNewVersion()} busy={busy} />}
+              {activeStep === 7 && project.latest_generation && <PatternResultCard result={project.latest_generation} acceptance={currentAcceptance} onRebuild={() => void generatePattern()} onNewVersion={() => void startNewVersion()} busy={busy} />}
               <ProjectHistory project={project} onRestored={remember} />
             </>
           )}

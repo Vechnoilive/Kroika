@@ -43,6 +43,7 @@ CONSTANTS: dict[str, float] = {
 }
 
 FORMULA_IDS = tuple(f"F{index:02d}" for index in range(1, 42))
+SKIRT_FORMULA_IDS = tuple(f"S{index:02d}" for index in range(1, 15))
 
 
 def _number(value: Any, field: str) -> float:
@@ -283,3 +284,137 @@ def constructive_formula_inputs(request: Mapping[str, Any]) -> dict[str, float]:
 
 def calculate_request_values(request: Mapping[str, Any]) -> dict[str, float]:
     return calculate_block_values(constructive_formula_inputs(request))
+
+
+def constructive_skirt_formula_inputs(request: Mapping[str, Any]) -> dict[str, float]:
+    """Read only the measurements needed by the independent skirt component."""
+
+    try:
+        values = request["body_measurements"]["values"]
+        angles = request["body_measurements"]["angles_deg"]
+        fit = request["fit_settings"]
+        wearing = fit["wearing_ease_mm"]
+        design = fit["design_ease_mm"]
+        distribution = fit["distribution"]
+    except (KeyError, TypeError) as error:
+        raise BlockConstructionError(
+            "BLOCK_REQUEST_STRUCTURE",
+            "Запрос не содержит полного набора мерок юбки и настроек посадки.",
+            "/",
+        ) from error
+
+    raw: dict[str, float] = {}
+    for key in ("waist", "hips", "back_waist_arc", "back_hip_arc", "hip_depth"):
+        try:
+            raw[key] = _number(values[key]["value"], f"/body_measurements/values/{key}/value")
+        except (KeyError, TypeError) as error:
+            raise BlockConstructionError(
+                "BLOCK_MEASUREMENT_REQUIRED",
+                f"Для основы юбки нужна мерка «{key}».",
+                f"/body_measurements/values/{key}",
+            ) from error
+    try:
+        raw["hip_inclination_deg"] = _number(
+            angles["hip_inclination"], "/body_measurements/angles_deg/hip_inclination"
+        )
+    except (KeyError, TypeError) as error:
+        raise BlockConstructionError(
+            "BLOCK_MEASUREMENT_REQUIRED",
+            "Для основы юбки нужен угол наклона линии бёдер.",
+            "/body_measurements/angles_deg/hip_inclination",
+        ) from error
+
+    front_share = _number(distribution.get("front_share"), "/fit_settings/distribution/front_share")
+    back_share = _number(distribution.get("back_share"), "/fit_settings/distribution/back_share")
+    if front_share < 0.0 or back_share < 0.0 or abs(front_share + back_share - 1.0) > 1e-12:
+        raise BlockConstructionError(
+            "BLOCK_EASE_DISTRIBUTION",
+            "Доли прибавки переда и спинки должны быть неотрицательны и давать в сумме 1.",
+            "/fit_settings/distribution",
+        )
+    for circumference, back_arc in (("waist", "back_waist_arc"), ("hips", "back_hip_arc")):
+        ease = _number(wearing[circumference], f"/fit_settings/wearing_ease_mm/{circumference}")
+        ease += _number(design[circumference], f"/fit_settings/design_ease_mm/{circumference}")
+        if ease < 0.0:
+            raise BlockConstructionError(
+                "BLOCK_NEGATIVE_EASE",
+                "Отрицательная прибавка не поддерживается для текущей тканой основы.",
+                f"/fit_settings/wearing_ease_mm/{circumference}",
+            )
+        raw[circumference] += ease
+        raw[back_arc] += ease * back_share
+    return raw
+
+
+def calculate_skirt_values(inputs: Mapping[str, Any]) -> dict[str, float]:
+    """Evaluate the bounded S01-S14 skirt registry without upper-body inputs."""
+
+    v = {key: _number(value, f"/body_measurements/{key}") for key, value in inputs.items()}
+    for key in ("waist", "hips", "back_waist_arc", "back_hip_arc", "hip_depth"):
+        if v.get(key, 0.0) <= 0.0:
+            raise BlockConstructionError(
+                "BLOCK_LENGTH_NOT_POSITIVE",
+                "Все линейные мерки юбки должны быть больше нуля.",
+                f"/body_measurements/{key}",
+            )
+    if not 0.0 <= v["hip_inclination_deg"] <= 40.0:
+        raise BlockConstructionError(
+            "BLOCK_ANGLE_OUTSIDE_DOMAIN",
+            "Угол должен находиться в исследованной вычислительной области 0–40°.",
+            "/body_measurements/hip_inclination_deg",
+        )
+    for arc, circumference in (("back_waist_arc", "waist"), ("back_hip_arc", "hips")):
+        if v[arc] >= v[circumference]:
+            raise BlockConstructionError(
+                "BLOCK_ARC_NOT_SMALLER",
+                "Задняя дуга должна быть меньше соответствующего полного обхвата.",
+                f"/body_measurements/{arc}",
+            )
+
+    c = CONSTANTS
+    result: dict[str, float] = {}
+    result["hip_tan"] = _positive(
+        math.tan(math.radians(v["hip_inclination_deg"] / 2.0)),
+        "hip_tan",
+        zero_allowed=True,
+    )
+    result["front_waist"] = _positive((v["waist"] - v["back_waist_arc"]) / 2.0, "front_waist")
+    result["back_waist"] = _positive(v["back_waist_arc"] / 2.0, "back_waist")
+    result["skirt_front_hip"] = _positive((v["hips"] - v["back_hip_arc"]) / 2.0, "skirt_front_hip")
+    result["skirt_back_hip"] = _positive(v["back_hip_arc"] / 2.0, "skirt_back_hip")
+    result["skirt_back_depth"] = _positive(v["hip_depth"] * c["back_hip_factor"], "skirt_back_depth")
+    result["skirt_front_side_take"] = _positive(
+        min(result["hip_tan"] * v["hip_depth"], result["skirt_front_hip"] - result["front_waist"]),
+        "skirt_front_side_take",
+        zero_allowed=True,
+    )
+    result["skirt_back_side_take"] = _positive(
+        min(result["hip_tan"] * result["skirt_back_depth"], result["skirt_back_hip"] - result["back_waist"]),
+        "skirt_back_side_take",
+        zero_allowed=True,
+    )
+    result["skirt_front_dart"] = _positive(
+        result["skirt_front_hip"] - result["front_waist"] - result["skirt_front_side_take"],
+        "skirt_front_dart",
+        zero_allowed=True,
+    )
+    result["skirt_back_dart_total"] = _positive(
+        result["skirt_back_hip"] - result["back_waist"] - result["skirt_back_side_take"],
+        "skirt_back_dart_total",
+        zero_allowed=True,
+    )
+    result["skirt_back_each_dart"] = _positive(
+        result["skirt_back_dart_total"] / 2.0, "skirt_back_each_dart", zero_allowed=True
+    )
+    result["skirt_front_dart_depth"] = _positive(v["hip_depth"] * 0.8, "skirt_front_dart_depth")
+    result["skirt_back_dart_depth"] = _positive(
+        v["hip_depth"] * 0.85 - (v["hip_depth"] - result["skirt_back_depth"]),
+        "skirt_back_dart_depth",
+    )
+    result["waist_projection"] = _positive(
+        2.0 * (result["front_waist"] + result["back_waist"]), "waist_projection"
+    )
+    result["hip_projection"] = _positive(
+        2.0 * (result["skirt_front_hip"] + result["skirt_back_hip"]), "hip_projection"
+    )
+    return result
