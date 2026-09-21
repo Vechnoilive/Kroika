@@ -202,7 +202,7 @@ export function PatternResultCard({
 
 function proposalFromAnalysis(project: ProjectDocument, analysis: StyleAnalysis): ProjectDocument['garment_spec'] {
   const current = project.garment_spec;
-  const supported: GarmentType[] = ['dress', 'sundress', 'skirt', 'top', 'blouse', 'shirt', 'vest'];
+  const supported: GarmentType[] = ['dress', 'sundress', 'skirt', 'top', 'blouse', 'shirt', 'vest', 'jacket'];
   const garmentType = supported.includes(analysis.garment_category as GarmentType)
     ? analysis.garment_category as GarmentType
     : 'dress';

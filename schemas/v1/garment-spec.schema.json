@@ -10,7 +10,7 @@
     "schema_version": {"$ref": "common.schema.json#/$defs/schema_version"},
     "garment_id": {"$ref": "common.schema.json#/$defs/uuid"},
     "selection_status": {"type": "string", "enum": ["proposed", "confirmed"]},
-    "garment_type": {"type": "string", "enum": ["dress", "sundress", "skirt", "top", "blouse", "shirt", "vest"]},
+    "garment_type": {"type": "string", "enum": ["dress", "sundress", "skirt", "top", "blouse", "shirt", "vest", "jacket"]},
     "parameters": {
       "type": "object",
       "additionalProperties": false,
@@ -18,7 +18,7 @@
       "properties": {
         "symmetry": {"type": "string", "const": "symmetric"},
         "bodice_fit": {"type": "string", "enum": ["fitted", "semi_fitted"]},
-        "shaping": {"type": "string", "const": "darts"},
+        "shaping": {"type": "string", "enum": ["darts", "princess_seams"]},
         "neckline": {
           "type": "object", "additionalProperties": false,
           "required": ["type", "front_depth_mm", "back_depth_mm"],
@@ -57,6 +57,26 @@
             "length_below_waist_mm": {"type": "number", "minimum": 40, "maximum": 300}
           }
         },
+        "jacket": {
+          "type": "object", "additionalProperties": false,
+          "required": ["variant", "front_extension_mm", "lapel_width_mm", "roll_line_from_waist_mm", "collar_stand_mm", "collar_fall_mm", "underlayer_allowance_mm", "vent_length_mm", "pocket_width_mm", "pocket_depth_mm", "button_count", "pocket_type", "sleeve_construction", "lining"],
+          "properties": {
+            "variant": {"type": "string", "const": "light_single_breasted"},
+            "front_extension_mm": {"type": "number", "minimum": 30, "maximum": 60},
+            "lapel_width_mm": {"type": "number", "minimum": 45, "maximum": 100},
+            "roll_line_from_waist_mm": {"type": "number", "minimum": 100, "maximum": 320},
+            "collar_stand_mm": {"type": "number", "minimum": 15, "maximum": 40},
+            "collar_fall_mm": {"type": "number", "minimum": 35, "maximum": 90},
+            "underlayer_allowance_mm": {"type": "number", "minimum": 0, "maximum": 30},
+            "vent_length_mm": {"type": "number", "minimum": 100, "maximum": 300},
+            "pocket_width_mm": {"type": "number", "minimum": 110, "maximum": 240},
+            "pocket_depth_mm": {"type": "number", "minimum": 120, "maximum": 260},
+            "button_count": {"type": "integer", "const": 2},
+            "pocket_type": {"type": "string", "const": "patch"},
+            "sleeve_construction": {"type": "string", "const": "one_piece"},
+            "lining": {"type": "string", "const": "full"}
+          }
+        },
         "closure": {
           "type": "object", "additionalProperties": false,
           "required": ["type", "location", "length_mm"],
@@ -84,7 +104,11 @@
             "armhole_facing": {"type": "boolean"},
             "waistband": {"type": "boolean"},
             "front_placket": {"type": "boolean"},
-            "collar": {"type": "boolean"}
+            "collar": {"type": "boolean"},
+            "front_facing": {"type": "boolean"},
+            "lining": {"type": "boolean"},
+            "pockets": {"type": "boolean"},
+            "vent": {"type": "boolean"}
           }
         }
       }
@@ -109,6 +133,25 @@
     {
       "if": {"properties": {"garment_type": {"const": "sundress"}}, "required": ["garment_type"]},
       "then": {"properties": {"parameters": {"properties": {"sleeve": {"properties": {"type": {"const": "sleeveless"}, "length_mm": {"type": "null"}}}}}}}
+    },
+    {
+      "if": {"properties": {"garment_type": {"const": "jacket"}}, "required": ["garment_type"]},
+      "then": {
+        "properties": {
+          "parameters": {
+            "required": ["jacket"],
+            "properties": {"shaping": {"const": "princess_seams"}}
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "parameters": {
+            "not": {"required": ["jacket"]},
+            "properties": {"shaping": {"const": "darts"}}
+          }
+        }
+      }
     }
   ]
 }

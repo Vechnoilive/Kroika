@@ -20,7 +20,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: requirements-stage12.txt
+          cache-dependency-path: requirements-stage13.txt
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
@@ -29,13 +29,13 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements-stage12.txt
+          python -m pip install -r requirements-stage13.txt
           python -m pip install --no-deps -e . -e pattern-engine -e backend
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
-      - name: Install Chromium for stage 12 E2E
+      - name: Install Chromium for stage 13 E2E
         working-directory: frontend
         run: npx playwright install --with-deps chromium
-      - name: Run stage 12 only
-        run: python scripts/verify_stage12.py
+      - name: Run stage 13 only
+        run: python scripts/verify_stage13.py

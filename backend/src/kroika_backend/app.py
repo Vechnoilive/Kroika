@@ -48,7 +48,7 @@ from .models import (
 from .repository import SQLiteRepository
 from .vision_providers import ProviderRegistry, build_provider_registry
 
-APP_VERSION = "0.12.0"
+APP_VERSION = "0.13.0"
 
 
 def _project_or_404(repository: SQLiteRepository, project_id: str) -> dict[str, Any]:
@@ -207,7 +207,7 @@ def create_app(
     def validate_measurements(
         profile: dict[str, Any] = Body(...),
         garment_type: Literal[
-            "dress", "sundress", "skirt", "top", "blouse", "shirt", "vest"
+            "dress", "sundress", "skirt", "top", "blouse", "shirt", "vest", "jacket"
         ] = "dress",
         sleeve_type: Literal["sleeveless", "short", "long"] = "sleeveless",
     ) -> dict[str, Any]:

@@ -44,11 +44,27 @@ export interface GarmentSpec {
   parameters: {
     symmetry: 'symmetric';
     bodice_fit: 'fitted' | 'semi_fitted';
-    shaping: 'darts';
+    shaping: 'darts' | 'princess_seams';
     neckline: {type: 'round' | 'v' | 'square'; front_depth_mm: number; back_depth_mm: number};
     sleeve: {type: 'sleeveless' | 'short' | 'long'; length_mm: number | null};
     skirt: {type: 'straight' | 'a_line'; length_from_waist_mm: number; hem_expansion_each_side_mm: number};
     upper?: {length_below_waist_mm: number};
+    jacket?: {
+      variant: 'light_single_breasted';
+      front_extension_mm: number;
+      lapel_width_mm: number;
+      roll_line_from_waist_mm: number;
+      collar_stand_mm: number;
+      collar_fall_mm: number;
+      underlayer_allowance_mm: number;
+      vent_length_mm: number;
+      pocket_width_mm: number;
+      pocket_depth_mm: number;
+      button_count: 2;
+      pocket_type: 'patch';
+      sleeve_construction: 'one_piece';
+      lining: 'full';
+    };
     closure: {
       type: 'zipper' | 'buttons' | 'none';
       location: 'center_back' | 'center_front' | 'side' | 'none';
@@ -60,6 +76,10 @@ export interface GarmentSpec {
       waistband?: boolean;
       front_placket?: boolean;
       collar?: boolean;
+      front_facing?: boolean;
+      lining?: boolean;
+      pockets?: boolean;
+      vent?: boolean;
     };
   };
   unsupported_features: string[];
@@ -67,7 +87,7 @@ export interface GarmentSpec {
 }
 
 export type GarmentType =
-  | 'dress' | 'sundress' | 'skirt' | 'top' | 'blouse' | 'shirt' | 'vest';
+  | 'dress' | 'sundress' | 'skirt' | 'top' | 'blouse' | 'shirt' | 'vest' | 'jacket';
 
 export interface GarmentAcceptanceStatus {
   garment_type: GarmentType;
