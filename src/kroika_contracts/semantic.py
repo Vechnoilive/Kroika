@@ -112,6 +112,8 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
     expected_method = (
         ('kroika-light-jacket', '0.1.0')
         if spec['garment_type'] == 'jacket'
+        else ('kroika-woven-trousers', '0.1.0')
+        if spec['garment_type'] in {'trousers', 'shorts'}
         else ('kroika-gc-woven', '0.1.0')
     )
     if (method['id'], method['version']) != expected_method:
@@ -144,13 +146,20 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
         'shirt': 'woven_shirt_trial',
         'vest': 'woven_vest_trial',
         'jacket': 'woven_light_jacket_trial',
+        'trousers': 'woven_straight_trousers_trial',
+        'shorts': 'woven_tailored_shorts_trial',
     }.get(garment_type)
     finishing = parameters['finishing']
     common = (
         expected_preset is not None
         and request['fit_settings']['preset']['id'] == expected_preset
-        and parameters['neckline']['type'] == 'round'
-        and parameters['skirt']['type'] == 'a_line'
+        and (
+            garment_type in {'trousers', 'shorts'}
+            or (
+                parameters['neckline']['type'] == 'round'
+                and parameters['skirt']['type'] == 'a_line'
+            )
+        )
     )
     supported_variant = common and any((
         garment_type in {'dress', 'sundress'}
@@ -230,11 +239,31 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
         and finishing.get('collar') is True
         and not finishing.get('waistband', False)
         and not finishing.get('armhole_facing', False),
+        garment_type in {'trousers', 'shorts'}
+        and method['id'] == 'kroika-woven-trousers'
+        and parameters['bodice_fit'] == 'semi_fitted'
+        and parameters['shaping'] == 'darts'
+        and parameters['sleeve']['type'] == 'sleeveless'
+        and parameters['closure']['type'] == 'zipper'
+        and parameters['closure']['location'] == 'center_front'
+        and parameters.get('trousers', {}).get('variant') == (
+            'straight_trousers' if garment_type == 'trousers' else 'tailored_shorts'
+        )
+        and parameters.get('trousers', {}).get('waist_position') == 'natural'
+        and parameters.get('trousers', {}).get('leg_shape') == 'straight'
+        and parameters.get('trousers', {}).get('pocket_type') == 'slash'
+        and parameters.get('trousers', {}).get('pleat_count') == 0
+        and finishing.get('waistband') is True
+        and finishing.get('pockets') is True
+        and finishing.get('fly_front') is True
+        and finishing['neckline_facing'] is False
+        and finishing['armhole_facing'] is False
+        and not finishing.get('lining', False),
     ))
     if not supported_variant:
         _add(
             issues, 'GARMENT_VARIANT_NOT_IMPLEMENTED', '/garment_spec/parameters',
-            'Выбранная комбинация деталей не входит в ограниченный каталог этапа 13. '
+            'Выбранная комбинация деталей не входит в ограниченный каталог этапа 14. '
             'Выберите один из явно показанных вариантов без произвольной подмены компонентов.',
         )
 

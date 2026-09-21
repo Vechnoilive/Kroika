@@ -65,6 +65,18 @@ export interface GarmentSpec {
       sleeve_construction: 'one_piece';
       lining: 'full';
     };
+    trousers?: {
+      variant: 'straight_trousers' | 'tailored_shorts';
+      waist_position: 'natural';
+      length_mm: number;
+      leg_shape: 'straight';
+      rise_ease_mm: number;
+      waistband_width_mm: number;
+      fly_length_mm: number;
+      pocket_opening_mm: number;
+      pocket_type: 'slash';
+      pleat_count: 0;
+    };
     closure: {
       type: 'zipper' | 'buttons' | 'none';
       location: 'center_back' | 'center_front' | 'side' | 'none';
@@ -80,6 +92,7 @@ export interface GarmentSpec {
       lining?: boolean;
       pockets?: boolean;
       vent?: boolean;
+      fly_front?: boolean;
     };
   };
   unsupported_features: string[];
@@ -87,7 +100,8 @@ export interface GarmentSpec {
 }
 
 export type GarmentType =
-  | 'dress' | 'sundress' | 'skirt' | 'top' | 'blouse' | 'shirt' | 'vest' | 'jacket';
+  | 'dress' | 'sundress' | 'skirt' | 'top' | 'blouse' | 'shirt' | 'vest' | 'jacket'
+  | 'trousers' | 'shorts';
 
 export interface GarmentAcceptanceStatus {
   garment_type: GarmentType;

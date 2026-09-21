@@ -10,6 +10,7 @@ from .blocks import (
     BlockConstructionError,
     DraftPiece,
     SkirtBlockSet,
+    TrouserBlockSet,
     build_one_piece_sleeve,
 )
 from .geometry import Contour, CubicBezier, LineSegment, Point, validate_simple_contour
@@ -257,6 +258,18 @@ def _decorate_piece(
         "base_sleeve": (
             ("sleeve_front_match", "front_sleeve_join", "sleeve_cap_front", 0.55),
             ("sleeve_back_match", "back_sleeve_join", "sleeve_cap_back", 0.55),
+        ),
+        "front_trouser": (
+            ("front_side_hip_match", "trouser_side_upper_join", "front_side_upper", 0.75),
+            ("front_side_leg_match", "trouser_side_lower_join", "front_side_lower", 0.55),
+            ("front_inseam_match", "trouser_inseam_upper_join", "front_inseam_upper", 0.5),
+            ("front_waist_match", "trouser_front_waist_join", "front_waist", 0.75),
+        ),
+        "back_trouser": (
+            ("back_side_hip_match", "trouser_side_upper_join", "back_side_upper", 0.75),
+            ("back_side_leg_match", "trouser_side_lower_join", "back_side_lower", 0.55),
+            ("back_inseam_match", "trouser_inseam_upper_join", "back_inseam_upper", 0.5),
+            ("back_waist_match", "trouser_back_waist_join", "back_waist", 0.75),
         ),
     }
     _add_notches(data, piece, notch_map.get(piece.id, ()))
@@ -728,6 +741,131 @@ def _assemble_skirt(request: Mapping[str, Any], blocks: SkirtBlockSet) -> Garmen
     )
 
 
+def _assemble_trousers(
+    request: Mapping[str, Any], blocks: TrouserBlockSet
+) -> GarmentAssembly:
+    """Assemble the bounded straight-trouser or tailored-shorts set."""
+
+    spec = request["garment_spec"]
+    parameters = spec["parameters"]
+    trousers = parameters["trousers"]
+    finishing = parameters["finishing"]
+    expected_variant = "straight_trousers" if spec["garment_type"] == "trousers" else "tailored_shorts"
+    supported = (
+        trousers["variant"] == expected_variant
+        and trousers["leg_shape"] == "straight"
+        and trousers["waist_position"] == "natural"
+        and trousers["pocket_type"] == "slash"
+        and trousers["pleat_count"] == 0
+        and parameters["shaping"] == "darts"
+        and parameters["sleeve"]["type"] == "sleeveless"
+        and parameters["closure"]["type"] == "zipper"
+        and parameters["closure"]["location"] == "center_front"
+        and finishing.get("waistband") is True
+        and finishing.get("pockets") is True
+        and finishing.get("fly_front") is True
+        and finishing.get("neckline_facing") is False
+        and finishing.get("armhole_facing") is False
+        and not finishing.get("lining", False)
+    )
+    if not supported:
+        raise BlockConstructionError(
+            "GARMENT_VARIANT_NOT_IMPLEMENTED",
+            "Поддержаны только прямые брюки или шорты на естественной талии: "
+            "вытачки, прямой пояс, боковые карманы и передняя молния.",
+            "/garment_spec/parameters",
+        )
+    garment_name = "Брюки" if spec["garment_type"] == "trousers" else "Шорты"
+    band_height = float(trousers["waistband_width_mm"])
+    fly_length = float(trousers["fly_length_mm"])
+    pocket_opening = float(trousers["pocket_opening_mm"])
+    front_band = _rectangle_piece(
+        "trouser_front_waistband", f"{garment_name} · пояс переда",
+        blocks.formula_values["front_waist"], band_height,
+        cut_quantity=2, cut_on_fold=False, mirrored_pair=True,
+    )
+    back_band = _rectangle_piece(
+        "trouser_back_waistband", f"{garment_name} · пояс спинки",
+        blocks.formula_values["back_waist"], band_height,
+        cut_quantity=2, cut_on_fold=False, mirrored_pair=True,
+    )
+    fly_facing = _rectangle_piece(
+        "trouser_fly_facing", f"{garment_name} · обтачка гульфика",
+        fly_length, 48.0, cut_quantity=1, cut_on_fold=False, mirrored_pair=False,
+    )
+    fly_shield = _rectangle_piece(
+        "trouser_fly_shield", f"{garment_name} · откосок",
+        fly_length, 70.0, cut_quantity=1, cut_on_fold=False, mirrored_pair=False,
+    )
+    pocket_bag = _rectangle_piece(
+        "trouser_pocket_bag", f"{garment_name} · мешковина кармана",
+        pocket_opening, 180.0, cut_quantity=2, cut_on_fold=False, mirrored_pair=True,
+    )
+    pocket_facing = _rectangle_piece(
+        "trouser_pocket_facing", f"{garment_name} · подзор кармана",
+        pocket_opening, 65.0, cut_quantity=2, cut_on_fold=False, mirrored_pair=True,
+    )
+    pieces = (
+        blocks.front_leg, blocks.back_leg, front_band, back_band,
+        fly_facing, fly_shield, pocket_bag, pocket_facing,
+    )
+    by_id = {piece.id: piece for piece in pieces}
+    pairs: list[dict[str, Any]] = []
+    _append_pair(pairs, by_id, "trouser_side_upper_join", "front_trouser",
+                 ("front_side_upper",), "back_trouser", ("back_side_upper",))
+    _append_pair(pairs, by_id, "trouser_side_lower_join", "front_trouser",
+                 ("front_side_lower", "front_side_below_balance"), "back_trouser",
+                 ("back_side_lower", "back_side_below_balance"))
+    _append_pair(pairs, by_id, "trouser_inseam_upper_join", "front_trouser",
+                 ("front_inseam_upper",), "back_trouser", ("back_inseam_upper",))
+    _append_pair(pairs, by_id, "trouser_inseam_lower_join", "front_trouser",
+                 ("front_inseam_lower",), "back_trouser", ("back_inseam_lower",))
+    _append_pair(pairs, by_id, "trouser_front_crotch_join", "front_trouser",
+                 ("front_center_crotch",), "front_trouser", ("front_center_crotch",))
+    _append_pair(pairs, by_id, "trouser_back_crotch_join", "back_trouser",
+                 ("back_center_crotch",), "back_trouser", ("back_center_crotch",))
+    _append_pair(
+        pairs, by_id, "trouser_front_waist_join", "front_trouser", ("front_waist",),
+        "trouser_front_waistband", ("trouser_front_waistband_lower",),
+        blocks.formula_values["front_waist_dart"],
+    )
+    _append_pair(
+        pairs, by_id, "trouser_back_waist_join", "back_trouser", ("back_waist",),
+        "trouser_back_waistband", ("trouser_back_waistband_lower",),
+        blocks.formula_values["back_waist_dart"],
+    )
+    _append_pair(pairs, by_id, "trouser_waistband_side_join", "trouser_front_waistband",
+                 ("trouser_front_waistband_side",), "trouser_back_waistband",
+                 ("trouser_back_waistband_side",))
+    _append_pair(pairs, by_id, "trouser_fly_facing_join", "trouser_fly_facing",
+                 ("trouser_fly_facing_lower",), "trouser_fly_shield",
+                 ("trouser_fly_shield_lower",))
+    _append_pair(pairs, by_id, "trouser_fly_outer_join", "trouser_fly_facing",
+                 ("trouser_fly_facing_upper",), "trouser_fly_shield",
+                 ("trouser_fly_shield_upper",))
+    _append_pair(pairs, by_id, "trouser_pocket_join", "trouser_pocket_bag",
+                 ("trouser_pocket_bag_lower",), "trouser_pocket_facing",
+                 ("trouser_pocket_facing_lower",))
+    residual, maximum_ease = _interface_controls(pairs, by_id)
+    return GarmentAssembly(
+        {
+            "schema_version": "1.0.0", "unit": "mm",
+            "pieces": [_decorate_piece(piece, garment_name) for piece in pieces],
+            "seam_pairs": pairs,
+        },
+        {
+            "piece_count": float(len(pieces)),
+            "seam_pair_count": float(len(pairs)),
+            "maximum_interface_residual_mm": residual,
+            "maximum_declared_ease_mm": maximum_ease,
+            "waist_control_residual_mm": blocks.controls["finished_waist_residual_mm"],
+            "trouser_side_residual_mm": blocks.controls["side_seam_residual_mm"],
+            "trouser_inseam_residual_mm": blocks.controls["inseam_residual_mm"],
+            "trouser_hip_residual_mm": blocks.controls["finished_hip_residual_mm"],
+        },
+    )
+
+
 def _assemble_upper(request: Mapping[str, Any], blocks: BaseBlockSet) -> GarmentAssembly:
     spec = request["garment_spec"]
     garment_type = spec["garment_type"]
@@ -1105,7 +1243,7 @@ def _assemble_jacket(request: Mapping[str, Any], blocks: BaseBlockSet) -> Garmen
 
 
 def assemble_garment(
-    request: Mapping[str, Any], blocks: BaseBlockSet | SkirtBlockSet
+    request: Mapping[str, Any], blocks: BaseBlockSet | SkirtBlockSet | TrouserBlockSet
 ) -> GarmentAssembly:
     """Create main pieces, facings, seam relationships and matching marks."""
 
@@ -1119,6 +1257,14 @@ def assemble_garment(
                 "/garment_spec/garment_type",
             )
         return _assemble_skirt(request, blocks)
+    if spec["garment_type"] in {"trousers", "shorts"}:
+        if not isinstance(blocks, TrouserBlockSet):
+            raise BlockConstructionError(
+                "GARMENT_COMPONENT_MISMATCH",
+                "Для брюк и шорт должна использоваться независимая брючная основа.",
+                "/garment_spec/garment_type",
+            )
+        return _assemble_trousers(request, blocks)
     if spec["garment_type"] in {"top", "blouse", "shirt", "vest"}:
         if not isinstance(blocks, BaseBlockSet):
             raise BlockConstructionError(

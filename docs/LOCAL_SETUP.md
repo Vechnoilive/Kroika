@@ -52,9 +52,9 @@ docker compose down
 
 ## Проверка текущего этапа
 
-После подготовки окружения выполните `.venv/bin/python scripts/verify_stage13.py` на macOS/Linux или `.venv\Scripts\python.exe scripts\verify_stage13.py` в Windows PowerShell. Эта команда не запускает тесты прошлых этапов.
+После подготовки окружения выполните `.venv/bin/python scripts/verify_stage14.py` на macOS/Linux или `.venv\Scripts\python.exe scripts\verify_stage14.py` в Windows PowerShell. Эта команда не запускает тесты прошлых этапов.
 
-Команда проверяет только этап 13: отдельную методику и комплект жакета, парные срезы, интерфейс, frontend build и Playwright E2E жакета. Общая историческая регрессия `scripts/verify_all.py` запускается отдельно, когда она действительно нужна.
+Команда проверяет только этап 14: отдельную брючную методику, брюки/шорты, парные срезы, интерфейс, frontend build и Playwright E2E брюк. Общая историческая регрессия `scripts/verify_all.py` запускается отдельно, когда она действительно нужна.
 
 ## Частые проблемы
 

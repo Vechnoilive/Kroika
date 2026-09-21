@@ -70,20 +70,5 @@
         "hip_inclination": {"$ref": "common.schema.json#/$defs/measurement_provenance"}
       }
     }
-  },
-  "allOf": [
-    {
-      "if": {"properties": {"status": {"const": "ready"}}, "required": ["status"]},
-      "then": {
-        "description": "Конкретный набор обязательных мерок зависит от изделия и проверяется семантическим валидатором.",
-        "required": ["angles_deg"],
-        "properties": {
-          "values": {
-            "required": ["waist", "hips", "back_waist_arc", "back_hip_arc", "hip_depth"]
-          },
-          "angles_deg": {"required": ["hip_inclination"]}
-        }
-      }
-    }
-  ]
+  }
 }

@@ -142,7 +142,7 @@ def test_light_jacket_builds_complete_paired_diagnostic_set(tmp_path: Path):
         assert response.status_code == 200, response.text
         result = response.json()
     assert result["status"] == "succeeded"
-    assert result["engine_version"] == "0.7.0"
+    assert tuple(map(int, result["engine_version"].split("."))) >= (0, 7, 0)
     assert [piece["id"] for piece in result["pattern"]["pieces"]] == reference["piece_ids"]
     assert len(result["pattern"]["seam_pairs"]) == reference["seam_pair_count"]
     assert all(piece["cutting_contour"] for piece in result["pattern"]["pieces"])

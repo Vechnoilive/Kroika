@@ -1,0 +1,18 @@
+{
+  "method": {"id": "kroika-woven-trousers", "version": "0.1.0"},
+  "formula_ids": [
+    "T01", "T02", "T03", "T04", "T05", "T06", "T07", "T08",
+    "T09", "T10", "T11", "T12", "T13", "T14", "T15", "T16",
+    "T17", "T18", "T19", "T20", "T21", "T22", "T23", "T24"
+  ],
+  "wearing_ease_mm": {"bust": 0, "waist": 20, "hips": 50, "upper_arm": 0},
+  "piece_ids": [
+    "front_trouser", "back_trouser", "trouser_front_waistband",
+    "trouser_back_waistband", "trouser_fly_facing", "trouser_fly_shield",
+    "trouser_pocket_bag", "trouser_pocket_facing"
+  ],
+  "seam_pair_count": 12,
+  "maximum_interface_ease_mm": 5,
+  "production_allowed": false,
+  "jumpsuit_dependency": "blocked_until_upper_and_lower_toile_verified"
+}
