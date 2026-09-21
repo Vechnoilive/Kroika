@@ -21,6 +21,7 @@ from .formulas import (
     constructive_formula_inputs,
     constructive_skirt_formula_inputs,
 )
+from .trousers import TROUSER_FORMULA_IDS, TrouserBlockSet, build_trouser_blocks
 
 __all__ = [
     "BaseBlockSet",
@@ -32,9 +33,12 @@ __all__ = [
     "SKIRT_FORMULA_IDS",
     "SkirtBlockSet",
     "SleeveBlock",
+    "TROUSER_FORMULA_IDS",
+    "TrouserBlockSet",
     "build_base_blocks",
     "build_one_piece_sleeve",
     "build_skirt_blocks",
+    "build_trouser_blocks",
     "calculate_block_values",
     "calculate_request_values",
     "calculate_skirt_values",

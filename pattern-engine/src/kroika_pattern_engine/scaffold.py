@@ -1,4 +1,4 @@
-"""Stage-13 deterministic multi-garment generator boundary."""
+"""Stage-14 deterministic multi-garment generator boundary."""
 
 from __future__ import annotations
 
@@ -9,7 +9,12 @@ from uuid import NAMESPACE_URL, uuid5
 
 from .assembly import assemble_garment
 from .allowances import apply_seam_allowances
-from .blocks import BlockConstructionError, build_base_blocks, build_skirt_blocks
+from .blocks import (
+    BlockConstructionError,
+    build_base_blocks,
+    build_skirt_blocks,
+    build_trouser_blocks,
+)
 from .garment_catalogue import garment_acceptance
 from .geometry import run_core_diagnostics
 
@@ -22,7 +27,7 @@ class GeometryPatternEngine:
     """Build a bounded experimental garment and return an auditable report."""
 
     engine_id = "kroika-geometry"
-    engine_version = "0.7.0"
+    engine_version = "0.8.0"
 
     def __init__(self, clock: Callable[[], datetime] = _utc_now):
         self._clock = clock
@@ -54,11 +59,12 @@ class GeometryPatternEngine:
         acceptance = garment_acceptance(garment_type)
 
         try:
-            blocks = (
-                build_skirt_blocks(request)
-                if garment_type == "skirt"
-                else build_base_blocks(request)
-            )
+            if garment_type == "skirt":
+                blocks = build_skirt_blocks(request)
+            elif garment_type in {"trousers", "shorts"}:
+                blocks = build_trouser_blocks(request)
+            else:
+                blocks = build_base_blocks(request)
             assembly = assemble_garment(request, blocks)
             printable_pattern = apply_seam_allowances(assembly.pattern, request)
         except BlockConstructionError as error:
@@ -81,6 +87,13 @@ class GeometryPatternEngine:
                 )
                 if garment_type == "skirt"
                 else (
+                    "finished_waist_residual_mm",
+                    "finished_hip_residual_mm",
+                    "side_seam_residual_mm",
+                    "inseam_residual_mm",
+                )
+                if garment_type in {"trousers", "shorts"}
+                else (
                     "front_bodice_waist_residual_mm",
                     "back_bodice_waist_residual_mm",
                     "front_skirt_waist_residual_mm",
@@ -91,8 +104,12 @@ class GeometryPatternEngine:
                 )
             )
             maximum_residual = max(abs(blocks.controls[name]) for name in residual_names)
-            expected_formula_count = 14 if garment_type == "skirt" else 41
-            base_piece_count = 2 if garment_type == "skirt" else 4
+            expected_formula_count = (
+                14 if garment_type == "skirt"
+                else 24 if garment_type in {"trousers", "shorts"}
+                else 41
+            )
+            base_piece_count = 2 if garment_type in {"skirt", "trousers", "shorts"} else 4
             sleeved = garment_type in {"blouse", "shirt", "jacket"}
             checks.extend([
                 {
@@ -101,6 +118,8 @@ class GeometryPatternEngine:
                     "message_ru": (
                         "Выполнены S01–S14 независимой основы юбки."
                         if garment_type == "skirt"
+                        else "Выполнены T01–T24 независимой брючной основы."
+                        if garment_type in {"trousers", "shorts"}
                         else "Выполнены F01–F41 зафиксированной основы лифа и юбки."
                     ),
                     "measured_value": blocks.controls["formula_count"],
@@ -182,6 +201,24 @@ class GeometryPatternEngine:
                     "measured_value": 0.0 if garment_type == "jacket" else None,
                     "limit_value": 1.0 if garment_type == "jacket" else None,
                     "unit": "mm" if garment_type == "jacket" else None,
+                },
+                {
+                    "id": "engine.trousers.balance",
+                    "status": "passed" if garment_type in {"trousers", "shorts"} else "not_run",
+                    "message_ru": (
+                        "Боковые, шаговые и средние швы заданы парами; линии бёдер, "
+                        "баланса ноги и долевой нанесены на обе половинки."
+                        if garment_type in {"trousers", "shorts"}
+                        else "Проверка относится только к независимой брючной основе."
+                    ),
+                    "measured_value": (
+                        max(
+                            assembly.controls["trouser_side_residual_mm"],
+                            assembly.controls["trouser_inseam_residual_mm"],
+                        ) if garment_type in {"trousers", "shorts"} else None
+                    ),
+                    "limit_value": 1.0 if garment_type in {"trousers", "shorts"} else None,
+                    "unit": "mm" if garment_type in {"trousers", "shorts"} else None,
                 },
                 {
                     "id": "engine.printing.cutting_contours",

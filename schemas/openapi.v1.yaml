@@ -260,7 +260,7 @@ paths:
           schema:
             type: string
             default: dress
-            enum: [dress, sundress, skirt, top, blouse, shirt, vest, jacket]
+            enum: [dress, sundress, skirt, top, blouse, shirt, vest, jacket, trousers, shorts]
         - name: sleeve_type
           in: query
           schema:
@@ -570,7 +570,7 @@ components:
       additionalProperties: false
       required: [garment_type, name_ru, scope_ru, formula_status, reference_status, invariant_status, paper_status, expert_status, toile_status, production_allowed]
       properties:
-        garment_type: {type: string, enum: [dress, sundress, skirt, top, blouse, shirt, vest, jacket]}
+        garment_type: {type: string, enum: [dress, sundress, skirt, top, blouse, shirt, vest, jacket, trousers, shorts]}
         name_ru: {type: string, minLength: 1}
         scope_ru: {type: string, minLength: 1}
         formula_status: {type: string, const: implemented}
@@ -587,8 +587,8 @@ components:
       properties:
         items:
           type: array
-          minItems: 8
-          maxItems: 8
+          minItems: 10
+          maxItems: 10
           items:
             $ref: '#/components/schemas/GarmentAcceptanceStatus'
     ImageUploadRequest:

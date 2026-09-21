@@ -9,6 +9,8 @@ export const GARMENT_OPTIONS: Array<{id: GarmentType; name: string; short: strin
   {id: 'shirt', name: 'Рубашка', short: 'планка + воротник'},
   {id: 'vest', name: 'Жилет', short: 'планка + обтачки'},
   {id: 'jacket', name: 'Лёгкий жакет', short: 'лацкан + подкладка'},
+  {id: 'trousers', name: 'Прямые брюки', short: 'пояс + карманы + молния'},
+  {id: 'shorts', name: 'Классические шорты', short: 'пояс + карманы + молния'},
 ];
 
 export const GARMENT_NAMES: Record<GarmentType, string> = Object.fromEntries(
@@ -24,6 +26,8 @@ const PRESETS: Record<GarmentType, string> = {
   shirt: 'woven_shirt_trial',
   vest: 'woven_vest_trial',
   jacket: 'woven_light_jacket_trial',
+  trousers: 'woven_straight_trousers_trial',
+  shorts: 'woven_tailored_shorts_trial',
 };
 
 const EASE: Record<GarmentType, FitSettings['wearing_ease_mm']> = {
@@ -35,10 +39,14 @@ const EASE: Record<GarmentType, FitSettings['wearing_ease_mm']> = {
   shirt: {bust: 100, waist: 100, hips: 100, upper_arm: 70},
   vest: {bust: 60, waist: 50, hips: 60, upper_arm: 0},
   jacket: {bust: 110, waist: 130, hips: 110, upper_arm: 90},
+  trousers: {bust: 0, waist: 20, hips: 50, upper_arm: 0},
+  shorts: {bust: 0, waist: 20, hips: 50, upper_arm: 0},
 };
 
 export function methodForGarment(type: GarmentType) {
-  return type === 'jacket' ? 'kroika-light-jacket' : 'kroika-gc-woven';
+  if (type === 'jacket') return 'kroika-light-jacket';
+  if (type === 'trousers' || type === 'shorts') return 'kroika-woven-trousers';
+  return 'kroika-gc-woven';
 }
 
 export function presetForGarment(type: GarmentType, fit: GarmentSpec['parameters']['bodice_fit']) {
@@ -66,6 +74,7 @@ export function configureGarment(spec: GarmentSpec, type: GarmentType): GarmentS
   const sleeved = type === 'blouse' || type === 'shirt' || type === 'jacket';
   const frontOpening = type === 'shirt' || type === 'vest' || type === 'jacket';
   const separateSkirt = type === 'skirt';
+  const lowerGarment = type === 'trousers' || type === 'shorts';
   const dressLike = type === 'dress' || type === 'sundress';
   return {
     ...spec,
@@ -74,7 +83,7 @@ export function configureGarment(spec: GarmentSpec, type: GarmentType): GarmentS
     confirmed_at: null,
     parameters: {
       ...spec.parameters,
-      bodice_fit: type === 'shirt' || type === 'blouse' || type === 'jacket' ? 'semi_fitted' : spec.parameters.bodice_fit,
+      bodice_fit: type === 'shirt' || type === 'blouse' || type === 'jacket' || lowerGarment ? 'semi_fitted' : spec.parameters.bodice_fit,
       shaping: type === 'jacket' ? 'princess_seams' : 'darts',
       neckline: {...spec.parameters.neckline, type: 'round'},
       sleeve: {type: sleeved ? 'long' : 'sleeveless', length_mm: sleeved ? 580 : null},
@@ -96,19 +105,34 @@ export function configureGarment(spec: GarmentSpec, type: GarmentType): GarmentS
         sleeve_construction: 'one_piece',
         lining: 'full',
       } : undefined,
-      closure: frontOpening
+      trousers: lowerGarment ? {
+        variant: type === 'trousers' ? 'straight_trousers' : 'tailored_shorts',
+        waist_position: 'natural',
+        length_mm: type === 'trousers' ? 1000 : 500,
+        leg_shape: 'straight',
+        rise_ease_mm: 20,
+        waistband_width_mm: 40,
+        fly_length_mm: type === 'trousers' ? 180 : 150,
+        pocket_opening_mm: 160,
+        pocket_type: 'slash',
+        pleat_count: 0,
+      } : undefined,
+      closure: lowerGarment
+        ? {type: 'zipper', location: 'center_front', length_mm: type === 'trousers' ? 180 : 150}
+        : frontOpening
         ? {type: 'buttons', location: 'center_front', length_mm: 550}
         : {type: 'zipper', location: 'center_back', length_mm: 550},
       finishing: {
-        neckline_facing: !separateSkirt && (type === 'blouse' || !sleeved),
-        armhole_facing: !separateSkirt && !sleeved,
-        waistband: separateSkirt,
-        front_placket: frontOpening,
+        neckline_facing: !separateSkirt && !lowerGarment && (type === 'blouse' || !sleeved),
+        armhole_facing: !separateSkirt && !lowerGarment && !sleeved,
+        waistband: separateSkirt || lowerGarment,
+        front_placket: frontOpening && !lowerGarment,
         collar: type === 'shirt' || type === 'jacket',
         front_facing: type === 'jacket',
         lining: type === 'jacket',
-        pockets: type === 'jacket',
+        pockets: type === 'jacket' || lowerGarment,
         vent: type === 'jacket',
+        fly_front: lowerGarment,
       },
     },
   };

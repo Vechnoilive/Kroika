@@ -60,7 +60,10 @@ class AIProviderListResponse(BaseModel):
 class GarmentAcceptanceStatus(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    garment_type: Literal["dress", "sundress", "skirt", "top", "blouse", "shirt", "vest", "jacket"]
+    garment_type: Literal[
+        "dress", "sundress", "skirt", "top", "blouse", "shirt", "vest", "jacket",
+        "trousers", "shorts",
+    ]
     name_ru: str
     scope_ru: str
     formula_status: Literal["implemented"]

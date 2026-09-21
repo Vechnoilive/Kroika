@@ -10,7 +10,7 @@
     "schema_version": {"$ref": "common.schema.json#/$defs/schema_version"},
     "garment_id": {"$ref": "common.schema.json#/$defs/uuid"},
     "selection_status": {"type": "string", "enum": ["proposed", "confirmed"]},
-    "garment_type": {"type": "string", "enum": ["dress", "sundress", "skirt", "top", "blouse", "shirt", "vest", "jacket"]},
+    "garment_type": {"type": "string", "enum": ["dress", "sundress", "skirt", "top", "blouse", "shirt", "vest", "jacket", "trousers", "shorts"]},
     "parameters": {
       "type": "object",
       "additionalProperties": false,
@@ -77,6 +77,22 @@
             "lining": {"type": "string", "const": "full"}
           }
         },
+        "trousers": {
+          "type": "object", "additionalProperties": false,
+          "required": ["variant", "waist_position", "length_mm", "leg_shape", "rise_ease_mm", "waistband_width_mm", "fly_length_mm", "pocket_opening_mm", "pocket_type", "pleat_count"],
+          "properties": {
+            "variant": {"type": "string", "enum": ["straight_trousers", "tailored_shorts"]},
+            "waist_position": {"type": "string", "const": "natural"},
+            "length_mm": {"type": "number", "minimum": 380, "maximum": 1250},
+            "leg_shape": {"type": "string", "const": "straight"},
+            "rise_ease_mm": {"type": "number", "minimum": 10, "maximum": 40},
+            "waistband_width_mm": {"type": "number", "minimum": 30, "maximum": 55},
+            "fly_length_mm": {"type": "number", "minimum": 120, "maximum": 240},
+            "pocket_opening_mm": {"type": "number", "minimum": 120, "maximum": 220},
+            "pocket_type": {"type": "string", "const": "slash"},
+            "pleat_count": {"type": "integer", "const": 0}
+          }
+        },
         "closure": {
           "type": "object", "additionalProperties": false,
           "required": ["type", "location", "length_mm"],
@@ -108,7 +124,8 @@
             "front_facing": {"type": "boolean"},
             "lining": {"type": "boolean"},
             "pockets": {"type": "boolean"},
-            "vent": {"type": "boolean"}
+            "vent": {"type": "boolean"},
+            "fly_front": {"type": "boolean"}
           }
         }
       }
@@ -150,6 +167,19 @@
             "not": {"required": ["jacket"]},
             "properties": {"shaping": {"const": "darts"}}
           }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"garment_type": {"enum": ["trousers", "shorts"]}}, "required": ["garment_type"]},
+      "then": {
+        "properties": {
+          "parameters": {"required": ["trousers"]}
+        }
+      },
+      "else": {
+        "properties": {
+          "parameters": {"not": {"required": ["trousers"]}}
         }
       }
     }

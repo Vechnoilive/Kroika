@@ -20,6 +20,8 @@ STAGE12_UPPER = ("dress", "sundress", "top", "blouse", "shirt", "vest")
 STAGE13_UPPER = (*STAGE12_UPPER, "jacket")
 STAGE12_ALL = (*STAGE12_UPPER, "skirt")
 STAGE13_ALL = (*STAGE13_UPPER, "skirt")
+STAGE14_LOWER = ("trousers", "shorts")
+STAGE14_ALL = (*STAGE13_ALL, *STAGE14_LOWER)
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,10 +68,10 @@ MEASUREMENTS: tuple[MeasurementDefinition, ...] = (
             "bust", UPPER, STAGE13_UPPER),
     _linear("waist", "Обхват талии", "Обхваты", 450, 1700,
             "Повяжите установочную ленту по естественной талии и измерьте вокруг неё без натяжения.",
-            "waist", ALL, STAGE13_ALL),
+            "waist", ALL, STAGE14_ALL),
     _linear("hips", "Обхват бёдер", "Обхваты", 650, 1900,
             "Измерьте горизонтально вокруг наиболее выступающих точек ягодиц и бёдер.",
-            "hips", ALL, STAGE13_ALL),
+            "hips", ALL, STAGE14_ALL),
     _linear("neck_circumference", "Обхват шеи", "Обхваты", 250, 650,
             "Проведите ленту по основанию шеи через седьмой шейный позвонок и яремную впадину.",
             "neck", UPPER, ("shirt", "jacket")),
@@ -141,28 +143,33 @@ MEASUREMENTS: tuple[MeasurementDefinition, ...] = (
             "shoulder-diagonal", ("jacket",), ("jacket",)),
     _linear("sitting_height", "Высота сидения", "Брюки", 180, 420,
             "Сидя на ровной поверхности измерьте вертикально от талии сбоку до поверхности сиденья.",
-            "trousers", ("trousers", "shorts", "jumpsuit")),
+            "trousers", ("trousers", "shorts", "jumpsuit"),
+            ("trousers", "shorts", "jumpsuit")),
     _linear("crotch_length", "Дуга сидения", "Брюки", 450, 1000,
             "Проведите ленту от талии спереди через пах до талии сзади, без натяжения.",
-            "trousers", ("trousers", "shorts", "jumpsuit")),
+            "trousers", ("trousers", "shorts", "jumpsuit"),
+            ("trousers", "shorts", "jumpsuit")),
     _linear("outside_leg_length", "Длина по боку", "Брюки", 650, 1250,
             "От уровня талии измерьте вертикально по боку до пола или выбранной длины.",
-            "trousers", ("trousers", "shorts", "jumpsuit")),
+            "trousers", ("trousers", "shorts", "jumpsuit"),
+            ("trousers", "shorts", "jumpsuit")),
     _linear("inseam_length", "Шаговая длина", "Брюки", 350, 950,
             "Измерьте от паха по внутренней стороне ноги до пола или выбранного уровня.",
-            "trousers", ("trousers", "shorts", "jumpsuit")),
+            "trousers", ("trousers", "shorts", "jumpsuit"),
+            ("trousers", "shorts", "jumpsuit")),
     _linear("thigh_circumference", "Обхват бедра ноги", "Брюки", 300, 1000,
             "Измерьте горизонтально вокруг наиболее полной части верхней части ноги.",
-            "trousers", ("trousers", "shorts", "jumpsuit")),
+            "trousers", ("trousers", "shorts", "jumpsuit"),
+            ("trousers", "shorts", "jumpsuit")),
     _linear("knee_circumference", "Обхват колена", "Брюки", 220, 700,
             "Измерьте вокруг колена при положении ноги, принятом для выбранной методики.",
-            "trousers", ("trousers", "jumpsuit")),
+            "trousers", ("trousers", "jumpsuit"), ("trousers", "jumpsuit")),
     _linear("trouser_hem_circumference", "Обхват низа брючины", "Брюки", 180, 800,
             "Укажите желаемый готовый обхват одной брючины по линии низа.",
-            "trousers", ("trousers", "jumpsuit")),
+            "trousers", ("trousers", "jumpsuit"), ("trousers", "jumpsuit")),
     _linear("knee_height", "Высота колена", "Брюки", 300, 750,
             "Измерьте вертикально от пола до уровня центра колена.",
-            "trousers", ("trousers", "jumpsuit")),
+            "trousers", ("trousers", "jumpsuit"), ("trousers", "jumpsuit")),
     MeasurementDefinition(
         "shoulder_slope", "Наклон плеча", "Плечо и баланс", "angle", "deg", 0, 40,
         "Угол измеряйте инструментом либо получайте только по явно указанной формуле методики.",

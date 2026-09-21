@@ -65,3 +65,40 @@
 `expected_fit_error_mm=null`: ошибка посадки неизвестна. `expert_review.author=null`, `date=null`: проверки специалистом не было. Поля будущих property/golden/toile tests равны null, а не фиктивным именам успешно пройденных тестов. Контрольные примеры: [REFERENCE_CALCULATIONS.md](REFERENCE_CALCULATIONS.md).
 
 Формулы кривых, длины дуги, замыкания вытачек, расклешения, горловины, обтачек и одношовного рукава должны получить собственные записи до реализации этих узлов. Не импортировать приложенные исследовательские `.py.txt` как готовый движок.
+
+## T01–T24: независимая брючная основа этапа 14
+
+Эти записи принадлежат отдельному методу `kroika-woven-trousers 0.1.0` и не
+изменяют исторический реестр F01–F41. Все длины — mm. Формулы реализованы и
+проверены автоматически, но их экспертный и макетный статус остаётся `pending`.
+
+| ID | Назначение | Выражение → результат |
+| --- | --- | --- |
+| T01 | Контрольная высота сидения | `outside_leg_length - inseam_length` → `measured_rise` |
+| T02 | Конструктивная глубина сидения | `(sitting_height + measured_rise) / 2 + rise_ease_mm` → `rise_depth` |
+| T03 | Готовая талия | `waist + waist_ease_mm` → `finished_waist` |
+| T04 | Готовые бёдра | `hips + hip_ease_mm` → `finished_hips` |
+| T05 | Талия передней половинки | `finished_waist / 4 - 4` → `front_waist` |
+| T06 | Талия задней половинки | `finished_waist / 4 + 4` → `back_waist` |
+| T07 | Передняя вытачка | `clamp((finished_hips - finished_waist) / 16, 12, 24)` → `front_waist_dart` |
+| T08 | Задняя вытачка | `clamp((finished_hips - finished_waist) / 12, 18, 34)` → `back_waist_dart` |
+| T09 | Срез талии переда до закрытия вытачки | `front_waist + front_waist_dart` → `front_waist_seam` |
+| T10 | Срез талии спинки до закрытия вытачки | `back_waist + back_waist_dart` → `back_waist_seam` |
+| T11 | Опорная боковая точка талии | `max(front_waist_seam, back_waist_seam) + 6` → `side_waist_x` |
+| T12 | Четверть готовых бёдер | `finished_hips / 4` → `side_hip_x` |
+| T13 | Уровень колена/баланса ноги | измеренная высота колена либо 55% длины шорт ниже сидения → `leg_balance_y` |
+| T14 | Полуширина пары панелей на уровне баланса | `max(knee + 40, thigh * 0.62) / 2` → `balance_width` |
+| T15 | Полуширина пары панелей по низу | `hem_circumference / 2` → `hem_width` |
+| T16 | Ось долевой | `side_hip_x * 0.47` → `crease_x` |
+| T17 | Наружная точка уровня ноги | `crease_x + balance_width / 2` → `side_balance_x` |
+| T18 | Внутренняя точка уровня ноги | `crease_x - balance_width / 2` → `inner_balance_x` |
+| T19 | Наружная точка низа | `crease_x + hem_width / 2` → `side_hem_x` |
+| T20 | Внутренняя точка низа | `crease_x - hem_width / 2` → `inner_hem_x` |
+| T21 | Базовое удлинение сидения | `max(42, crotch_length / 16)` → `crotch_extension` |
+| T22 | Конечная точка шагового/среднего шва | `min(inner_balance_x - 12, -crotch_extension)` → `crotch_x` |
+| T23 | Длина гульфика | подтверждённый `fly_length_mm` → компонент застёжки |
+| T24 | Длина входа в карман | подтверждённый `pocket_opening_mm` → мешковина и подзор |
+
+`clamp` здесь означает явное ограничение формулы диапазоном, а не замену
+неизвестной мерки средним значением. Выход за геометрическую область или
+противоречие высот возвращает блокирующую ошибку.

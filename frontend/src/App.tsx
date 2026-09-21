@@ -202,7 +202,10 @@ export function PatternResultCard({
 
 function proposalFromAnalysis(project: ProjectDocument, analysis: StyleAnalysis): ProjectDocument['garment_spec'] {
   const current = project.garment_spec;
-  const supported: GarmentType[] = ['dress', 'sundress', 'skirt', 'top', 'blouse', 'shirt', 'vest', 'jacket'];
+  const supported: GarmentType[] = [
+    'dress', 'sundress', 'skirt', 'top', 'blouse', 'shirt', 'vest', 'jacket',
+    'trousers', 'shorts',
+  ];
   const garmentType = supported.includes(analysis.garment_category as GarmentType)
     ? analysis.garment_category as GarmentType
     : 'dress';
@@ -390,6 +393,25 @@ export default function App() {
     : project.fit_settings.status !== 'confirmed' || project.fabric_properties.status !== 'confirmed' ? 5
     : project.latest_generation?.status === 'succeeded' ? 7
     : 6;
+  const isLowerGarment = project
+    ? ['trousers', 'shorts'].includes(project.garment_spec.garment_type)
+    : false;
+  const garmentConstruction = project
+    ? isLowerGarment
+      ? 'прямая основа с поясом'
+      : project.garment_spec.garment_type === 'skirt'
+        ? 'А-силуэт с поясом'
+        : project.garment_spec.parameters.bodice_fit === 'fitted'
+          ? 'прилегающая основа'
+          : 'полуприлегающая основа'
+    : '';
+  const garmentLength = project
+    ? isLowerGarment
+      ? `Длина изделия ${(project.garment_spec.parameters.trousers?.length_mm ?? 0) / 10} см`
+      : ['dress', 'sundress', 'skirt'].includes(project.garment_spec.garment_type)
+        ? `Длина юбки ${project.garment_spec.parameters.skirt.length_from_waist_mm / 10} см`
+        : `Длина ниже талии ${(project.garment_spec.parameters.upper?.length_below_waist_mm ?? 100) / 10} см`
+    : '';
 
   return (
     <div className="app-shell">
@@ -412,7 +434,7 @@ export default function App() {
         </aside>
 
         <section className="content">
-          <div className="stage-badge">Qwen · 7 типов изделий · этап 12 из 15</div>
+          <div className="stage-badge">Qwen · 10 типов изделий · этап 14 из 15</div>
           {!project ? (
             <>
               <div className="intro"><p className="eyebrow">Начнём спокойно</p><h1>Создадим выкройку<br /><em>последовательно</em></h1><p>Каждый шаг сохраняется. Никакие мерки не угадываются, а результат AI всегда подтверждает человек.</p></div>
@@ -434,7 +456,7 @@ export default function App() {
               {activeStep === 4 && <MeasurementWizard key={`${project.project_id}-${project.garment_spec.confirmed_at}`} project={project} onSaveProject={saveMeasurements} />}
               {activeStep === 5 && <ConstructionEditor project={project} onSave={saveProject} />}
               {activeStep === 6 && (
-                <section className="generation-card" aria-labelledby="generation-title"><div className="action-card__icon" aria-hidden="true">06</div><div><p className="eyebrow">Все входы подтверждены</p><h2 id="generation-title">Построить выкройку?</h2><p>Формульный движок создаст детали из сохранённых мерок, фасона, ткани и прибавок, затем проверит геометрию.</p><ul><li>{GARMENT_NAMES[project.garment_spec.garment_type]} · {project.garment_spec.garment_type === 'skirt' ? 'А-силуэт с поясом' : project.garment_spec.parameters.bodice_fit === 'fitted' ? 'прилегающая основа' : 'полуприлегающая основа'}</li><li>{['dress', 'sundress', 'skirt'].includes(project.garment_spec.garment_type) ? `Длина юбки ${project.garment_spec.parameters.skirt.length_from_waist_mm / 10} см` : `Длина ниже талии ${(project.garment_spec.parameters.upper?.length_below_waist_mm ?? 100) / 10} см`}</li><li>Стабильная тканая ткань · пробный статус</li><li>Экспертная проверка и макет: ещё не пройдены</li></ul><button className="primary-button" onClick={() => void generatePattern()} disabled={busy}>{busy ? 'Строим и проверяем…' : 'Построить выкройку'} <span aria-hidden="true">→</span></button></div></section>
+                <section className="generation-card" aria-labelledby="generation-title"><div className="action-card__icon" aria-hidden="true">06</div><div><p className="eyebrow">Все входы подтверждены</p><h2 id="generation-title">Построить выкройку?</h2><p>Формульный движок создаст детали из сохранённых мерок, фасона, ткани и прибавок, затем проверит геометрию.</p><ul><li>{GARMENT_NAMES[project.garment_spec.garment_type]} · {garmentConstruction}</li><li>{garmentLength}</li><li>Стабильная тканая ткань · пробный статус</li><li>Экспертная проверка и макет: ещё не пройдены</li></ul><button className="primary-button" onClick={() => void generatePattern()} disabled={busy}>{busy ? 'Строим и проверяем…' : 'Построить выкройку'} <span aria-hidden="true">→</span></button></div></section>
               )}
               {activeStep === 7 && project.latest_generation && <PatternResultCard result={project.latest_generation} acceptance={currentAcceptance} onRebuild={() => void generatePattern()} onNewVersion={() => void startNewVersion()} busy={busy} />}
               <ProjectHistory project={project} onRestored={remember} />
