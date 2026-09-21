@@ -1,4 +1,4 @@
-"""Stage-12 garment scope and independently auditable acceptance states."""
+"""Stage-13 garment scope and independently auditable acceptance states."""
 
 from __future__ import annotations
 
@@ -59,6 +59,15 @@ GARMENT_CATALOGUE: dict[str, dict[str, Any]] = {
         "garment_type": "vest",
         "name_ru": "Жилет",
         "scope_ru": "Полуприлегающая основа без рукавов, передняя планка и цельные обтачки.",
+    },
+    "jacket": {
+        **_COMMON_PENDING,
+        "garment_type": "jacket",
+        "name_ru": "Лёгкий жакет",
+        "scope_ru": (
+            "Однобортный жакет на две пуговицы: рельеф переда, лацкан, воротник, "
+            "подборт, полная подкладка, накладные карманы, шлица и одношовный рукав."
+        ),
     },
 }
 

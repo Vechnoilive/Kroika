@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kroika-backend"
-version = "0.12.0"
+version = "0.13.0"
 description = "FastAPI application with versioned sewing workflow and deterministic pattern generation"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.141,<0.142",
   "httpx2>=2.12,<2.13",
   "kroika-contracts==1.0.0",
-  "kroika-pattern-engine==0.6.0",
+  "kroika-pattern-engine==0.7.0",
   "uvicorn>=0.53,<0.54",
 ]
 

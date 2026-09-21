@@ -109,9 +109,14 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
     ))
 
     method = request['pattern_method']
-    if (method['id'], method['version']) != ('kroika-gc-woven', '0.1.0'):
+    expected_method = (
+        ('kroika-light-jacket', '0.1.0')
+        if spec['garment_type'] == 'jacket'
+        else ('kroika-gc-woven', '0.1.0')
+    )
+    if (method['id'], method['version']) != expected_method:
         _add(issues, 'METHOD_NOT_AVAILABLE', '/pattern_method',
-             'Запрошенная версия методики отсутствует в текущем исследовательском комплекте.')
+             'Для выбранного изделия нужна отдельная доступная версия методики.')
 
     fabric = request['fabric_properties']
     if fabric['structure'] != 'woven' or fabric['stability'] != 'stable':
@@ -123,6 +128,7 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
 
     parameters = spec['parameters']
     garment_type = spec['garment_type']
+    jacket = parameters.get('jacket', {})
     expected_preset = {
         'dress': {
             'fitted': 'woven_fitted_trial',
@@ -137,6 +143,7 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
         'blouse': 'woven_blouse_trial',
         'shirt': 'woven_shirt_trial',
         'vest': 'woven_vest_trial',
+        'jacket': 'woven_light_jacket_trial',
     }.get(garment_type)
     finishing = parameters['finishing']
     common = (
@@ -200,11 +207,34 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
         and finishing['armhole_facing'] is True
         and not finishing.get('waistband', False)
         and not finishing.get('collar', False),
+        garment_type == 'jacket'
+        and method['id'] == 'kroika-light-jacket'
+        and parameters['bodice_fit'] == 'semi_fitted'
+        and parameters['shaping'] == 'princess_seams'
+        and parameters['sleeve']['type'] == 'long'
+        and parameters['closure']['type'] == 'buttons'
+        and parameters['closure']['location'] == 'center_front'
+        and jacket.get('variant') == 'light_single_breasted'
+        and jacket.get('button_count') == 2
+        and jacket.get('pocket_type') == 'patch'
+        and jacket.get('sleeve_construction') == 'one_piece'
+        and jacket.get('lining') == 'full'
+        and request['fit_settings']['wearing_ease_mm']['bust'] >= 90 + jacket.get('underlayer_allowance_mm', 31)
+        and request['fit_settings']['wearing_ease_mm']['waist'] >= 110 + jacket.get('underlayer_allowance_mm', 31)
+        and request['fit_settings']['wearing_ease_mm']['hips'] >= 90 + jacket.get('underlayer_allowance_mm', 31)
+        and request['fit_settings']['wearing_ease_mm']['upper_arm'] >= 70 + jacket.get('underlayer_allowance_mm', 31)
+        and finishing.get('front_facing') is True
+        and finishing.get('lining') is True
+        and finishing.get('pockets') is True
+        and finishing.get('vent') is True
+        and finishing.get('collar') is True
+        and not finishing.get('waistband', False)
+        and not finishing.get('armhole_facing', False),
     ))
     if not supported_variant:
         _add(
             issues, 'GARMENT_VARIANT_NOT_IMPLEMENTED', '/garment_spec/parameters',
-            'Выбранная комбинация деталей не входит в ограниченный каталог этапа 12. '
+            'Выбранная комбинация деталей не входит в ограниченный каталог этапа 13. '
             'Выберите один из явно показанных вариантов без произвольной подмены компонентов.',
         )
 

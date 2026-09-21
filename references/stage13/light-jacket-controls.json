@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0.0",
+  "method": {"id": "kroika-light-jacket", "version": "0.1.0"},
+  "scope": {
+    "variant": "light_single_breasted",
+    "buttons": 2,
+    "pocket_type": "patch",
+    "sleeve_construction": "one_piece",
+    "lining": "full"
+  },
+  "wearing_ease_mm": {"bust": 110, "waist": 130, "hips": 110, "upper_arm": 90},
+  "piece_ids": [
+    "jacket_front_center",
+    "jacket_side_front",
+    "back_bodice",
+    "base_sleeve",
+    "jacket_front_facing",
+    "back_neck_facing",
+    "jacket_under_collar",
+    "jacket_top_collar",
+    "jacket_patch_pocket",
+    "jacket_front_lining",
+    "jacket_side_front_lining",
+    "jacket_back_lining",
+    "jacket_sleeve_lining"
+  ],
+  "seam_pair_count": 21,
+  "physical_gate": {
+    "paper_status": "pending",
+    "expert_status": "pending",
+    "toile_status": "pending",
+    "minimum_toiles": 3,
+    "production_allowed": false
+  }
+}

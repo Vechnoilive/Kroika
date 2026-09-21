@@ -1,4 +1,4 @@
-"""Stage-12 deterministic multi-garment generator boundary."""
+"""Stage-13 deterministic multi-garment generator boundary."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ class GeometryPatternEngine:
     """Build a bounded experimental garment and return an auditable report."""
 
     engine_id = "kroika-geometry"
-    engine_version = "0.6.0"
+    engine_version = "0.7.0"
 
     def __init__(self, clock: Callable[[], datetime] = _utc_now):
         self._clock = clock
@@ -93,7 +93,7 @@ class GeometryPatternEngine:
             maximum_residual = max(abs(blocks.controls[name]) for name in residual_names)
             expected_formula_count = 14 if garment_type == "skirt" else 41
             base_piece_count = 2 if garment_type == "skirt" else 4
-            sleeved = garment_type in {"blouse", "shirt"}
+            sleeved = garment_type in {"blouse", "shirt", "jacket"}
             checks.extend([
                 {
                     "id": "engine.pattern_blocks.formulas",
@@ -170,6 +170,18 @@ class GeometryPatternEngine:
                     "measured_value": assembly.controls["maximum_declared_ease_mm"],
                     "limit_value": 5.0,
                     "unit": "mm",
+                },
+                {
+                    "id": "engine.jacket.interfaces",
+                    "status": "passed" if garment_type == "jacket" else "not_run",
+                    "message_ru": (
+                        "Воротник, окат, подборта и подкладка имеют явные парные срезы."
+                        if garment_type == "jacket"
+                        else "Проверка относится только к отдельной методике лёгкого жакета."
+                    ),
+                    "measured_value": 0.0 if garment_type == "jacket" else None,
+                    "limit_value": 1.0 if garment_type == "jacket" else None,
+                    "unit": "mm" if garment_type == "jacket" else None,
                 },
                 {
                     "id": "engine.printing.cutting_contours",

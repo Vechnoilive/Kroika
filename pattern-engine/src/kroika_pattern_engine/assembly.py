@@ -319,6 +319,7 @@ def _extend_bodice(
     *,
     front_opening: bool = False,
     back_on_fold: bool = False,
+    front_extension_mm: float = 30.0,
 ) -> DraftPiece:
     if not 40.0 <= extension_mm <= 300.0:
         raise BlockConstructionError(
@@ -329,7 +330,7 @@ def _extend_bodice(
     waist = _segment(piece, f"{prefix}_waist")
     center = _segment(piece, f"{prefix}_center")
     side_hem = Point(max(hem_width_mm, waist.end.x_mm), -extension_mm)
-    placket_width = 30.0 if front_opening else 0.0
+    placket_width = front_extension_mm if front_opening else 0.0
     center_hem = Point(-placket_width, -extension_mm)
     segments: list[Any] = [
         LineSegment(center_hem, side_hem, f"{prefix}_upper_hem"),
@@ -397,6 +398,197 @@ def _collar_band(front_neck_mm: float, back_neck_mm: float) -> DraftPiece:
             LineSegment(p3, p0, "collar_band_center"),
         ),
         id="collar_band_seam",
+    )
+
+
+def _clone_piece(piece: DraftPiece, piece_id: str, name_ru: str, prefix: str) -> DraftPiece:
+    """Copy exact geometry while giving a lining/layer its own stable segment ids."""
+
+    def clone_segment(segment):
+        segment_id = f"{prefix}_{segment.id}"
+        if isinstance(segment, LineSegment):
+            return LineSegment(segment.start, segment.end, segment_id)
+        if isinstance(segment, CubicBezier):
+            return CubicBezier(
+                segment.start, segment.control_1, segment.control_2, segment.end, segment_id
+            )
+        raise BlockConstructionError(
+            "GARMENT_LAYER_CURVE_UNSUPPORTED",
+            "Тип кривой не поддерживается для слоя жакета.",
+            f"/pattern/pieces/{piece_id}",
+        )
+
+    return DraftPiece(
+        piece_id,
+        name_ru,
+        Contour(
+            tuple(clone_segment(segment) for segment in piece.seam_contour.segments),
+            closed=True,
+            id=f"{piece_id}_seam",
+        ),
+        tuple(
+            Contour(
+                tuple(clone_segment(segment) for segment in path.segments),
+                closed=path.closed,
+                id=f"{prefix}_{path.id}",
+            )
+            for path in piece.internal_paths
+        ),
+        piece.grainline_start,
+        piece.grainline_end,
+        piece.cut_quantity,
+        piece.cut_on_fold,
+        piece.mirrored_pair,
+    )
+
+
+def _jacket_collar(
+    piece_id: str, name_ru: str, front_neck_mm: float, back_neck_mm: float,
+    collar_width_mm: float,
+) -> DraftPiece:
+    total = front_neck_mm + back_neck_mm
+    p0 = Point(0.0, 0.0)
+    split = Point(front_neck_mm, 0.0)
+    p1 = Point(total, 0.0)
+    p2 = Point(total + 12.0, collar_width_mm)
+    p3 = Point(0.0, collar_width_mm)
+    contour = Contour((
+        LineSegment(p0, split, f"{piece_id}_front_neckline"),
+        LineSegment(split, p1, f"{piece_id}_back_neckline"),
+        LineSegment(p1, p2, f"{piece_id}_gorge"),
+        LineSegment(p2, p3, f"{piece_id}_outer"),
+        LineSegment(p3, p0, f"{piece_id}_center"),
+    ), id=f"{piece_id}_seam")
+    validate_simple_contour(contour)
+    return DraftPiece(
+        piece_id, name_ru, contour,
+        (_line_path(
+            f"{piece_id}_roll_line", Point(0.0, 25.0), Point(total, 25.0),
+            f"{piece_id}_roll_line_segment",
+        ),),
+        Point(total * 0.25, 10.0), Point(total * 0.75, 10.0),
+        2, True, False,
+    )
+
+
+def _jacket_facing(front_edge_mm: float, width_mm: float) -> DraftPiece:
+    return _rectangle_piece(
+        "jacket_front_facing", "Жакет · подборт", width_mm, front_edge_mm,
+        cut_quantity=2, cut_on_fold=False, mirrored_pair=True,
+    )
+
+
+def _named_cubic(curve: CubicBezier, segment_id: str) -> CubicBezier:
+    return CubicBezier(
+        curve.start, curve.control_1, curve.control_2, curve.end, segment_id
+    )
+
+
+def _split_jacket_front(
+    front: DraftPiece, princess_x: float, extension_mm: float,
+) -> tuple[DraftPiece, DraftPiece]:
+    """Turn the front princess line into two actual cut pieces."""
+
+    armhole = _segment(front, "front_armhole")
+    if not isinstance(armhole, CubicBezier):
+        raise BlockConstructionError(
+            "JACKET_PRINCESS_ARMHOLE_UNSUPPORTED",
+            "Для рельефа жакета пройма переда должна быть кривой Безье.",
+            "/pattern/pieces/front_bodice/front_armhole",
+        )
+    side_armhole_raw, center_armhole_raw = armhole.split(0.48)
+    side_armhole = _named_cubic(side_armhole_raw, "jacket_side_front_armhole")
+    center_armhole = _named_cubic(center_armhole_raw, "jacket_center_front_armhole")
+    hem = _segment(front, "front_upper_hem")
+    hem_split = Point(princess_x, -extension_mm)
+    if not hem.start.x_mm < hem_split.x_mm < hem.end.x_mm:
+        raise BlockConstructionError(
+            "JACKET_PRINCESS_OUTSIDE_FRONT",
+            "Рельеф переда не помещается между бортом и боковой линией.",
+            "/garment_spec/parameters/jacket",
+        )
+    princess = LineSegment(
+        hem_split, side_armhole.end, "jacket_center_princess"
+    )
+    center_contour = Contour((
+        LineSegment(hem.start, hem_split, "jacket_center_front_hem"),
+        princess,
+        center_armhole,
+        _segment(front, "front_shoulder"),
+        _segment(front, "front_neckline"),
+        _segment(front, "front_placket_top"),
+        _segment(front, "front_placket_edge"),
+    ), id="jacket_front_center_seam")
+    side_contour = Contour((
+        LineSegment(hem_split, hem.end, "jacket_side_front_hem"),
+        _segment(front, "front_upper_extension_side"),
+        _segment(front, "front_side"),
+        side_armhole,
+        LineSegment(princess.end, princess.start, "jacket_side_princess"),
+    ), id="jacket_side_front_seam")
+    try:
+        validate_simple_contour(center_contour)
+        validate_simple_contour(side_contour)
+    except Exception as error:
+        raise BlockConstructionError(
+            "JACKET_PRINCESS_GEOMETRY_INVALID",
+            "Детали рельефного переда не прошли геометрическую проверку.",
+            "/garment_spec/parameters/jacket",
+        ) from error
+    center_paths = tuple(
+        path for path in front.internal_paths
+        if path.id in {"front_placket_fold", "jacket_roll_line", "jacket_button_line"}
+    )
+    side_paths = tuple(
+        path for path in front.internal_paths
+        if path.id in {"front_bust_line", "front_waist_reference"}
+    )
+    return (
+        DraftPiece(
+            "jacket_front_center", "Жакет · центр переда", center_contour, center_paths,
+            Point(15.0, -extension_mm + 25.0),
+            Point(15.0, front.grainline_end.y_mm),
+            2, False, True,
+        ),
+        DraftPiece(
+            "jacket_side_front", "Жакет · боковая часть переда", side_contour, side_paths,
+            Point(princess_x + 15.0, -extension_mm + 25.0),
+            Point(princess_x + 15.0, side_armhole.end.y_mm - 25.0),
+            2, False, True,
+        ),
+    )
+
+
+def _split_jacket_sleeve_front(
+    sleeve: DraftPiece, side_armhole_mm: float, total_front_armhole_mm: float,
+) -> DraftPiece:
+    cap = _segment(sleeve, "sleeve_cap_front")
+    if not isinstance(cap, CubicBezier):
+        raise BlockConstructionError(
+            "JACKET_SLEEVE_CAP_UNSUPPORTED", "Окат рукава должен быть кривой Безье.",
+            "/pattern/pieces/base_sleeve",
+        )
+    fraction = side_armhole_mm / total_front_armhole_mm
+    low, high = 0.0, 1.0
+    target = cap.length_mm * fraction
+    for _ in range(64):
+        middle = (low + high) / 2.0
+        left, _ = cap.split(middle)
+        if left.length_mm < target:
+            low = middle
+        else:
+            high = middle
+    side_raw, center_raw = cap.split((low + high) / 2.0)
+    contour = Contour((
+        _named_cubic(side_raw, "sleeve_cap_front_side"),
+        _named_cubic(center_raw, "sleeve_cap_front_center"),
+        *sleeve.seam_contour.segments[1:],
+    ), id=sleeve.seam_contour.id)
+    validate_simple_contour(contour)
+    return DraftPiece(
+        sleeve.id, sleeve.name_ru, contour, sleeve.internal_paths,
+        sleeve.grainline_start, sleeve.grainline_end, sleeve.cut_quantity,
+        sleeve.cut_on_fold, sleeve.mirrored_pair,
     )
     validate_simple_contour(contour)
     return DraftPiece(
@@ -697,6 +889,221 @@ def _assemble_upper(request: Mapping[str, Any], blocks: BaseBlockSet) -> Garment
     )
 
 
+def _assemble_jacket(request: Mapping[str, Any], blocks: BaseBlockSet) -> GarmentAssembly:
+    """Assemble the single bounded stage-13 light-jacket variant."""
+
+    parameters = request["garment_spec"]["parameters"]
+    jacket = parameters["jacket"]
+    finishing = parameters["finishing"]
+    supported = (
+        parameters["bodice_fit"] == "semi_fitted"
+        and parameters["shaping"] == "princess_seams"
+        and parameters["sleeve"]["type"] == "long"
+        and parameters["closure"]["type"] == "buttons"
+        and parameters["closure"]["location"] == "center_front"
+        and jacket["variant"] == "light_single_breasted"
+        and jacket["button_count"] == 2
+        and jacket["pocket_type"] == "patch"
+        and jacket["sleeve_construction"] == "one_piece"
+        and jacket["lining"] == "full"
+        and finishing.get("front_facing") is True
+        and finishing.get("lining") is True
+        and finishing.get("pockets") is True
+        and finishing.get("vent") is True
+        and finishing.get("collar") is True
+        and finishing.get("armhole_facing") is False
+    )
+    if not supported:
+        raise BlockConstructionError(
+            "GARMENT_VARIANT_NOT_IMPLEMENTED",
+            "Поддержан только лёгкий однобортный жакет на две пуговицы с рельефом, "
+            "одношовным рукавом, воротником, подбортом, подкладкой, карманами и шлицей.",
+            "/garment_spec/parameters",
+        )
+    extension = float(parameters["upper"]["length_below_waist_mm"])
+    front_extension = float(jacket["front_extension_mm"])
+    ratio = min(1.0, extension / blocks.formula_inputs["hip_depth"])
+    front_waist = _segment(blocks.front_bodice, "front_waist").end.x_mm
+    back_waist = _segment(blocks.back_bodice, "back_waist").end.x_mm
+    front_hem = front_waist + (blocks.formula_values["skirt_front_hip"] - front_waist) * ratio
+    back_hem = back_waist + (blocks.formula_values["skirt_back_hip"] - back_waist) * ratio
+
+    front_base = _extend_bodice(
+        blocks.front_bodice, "front", "Жакет · перед", extension, front_hem,
+        front_opening=True, front_extension_mm=front_extension,
+    )
+    roll_y = float(jacket["roll_line_from_waist_mm"])
+    princess_x = min(
+        blocks.formula_inputs["bust_span"] / 2.0,
+        front_waist * 0.72,
+    )
+    front_unsplit = DraftPiece(
+        front_base.id, front_base.name_ru, front_base.seam_contour,
+        (*front_base.internal_paths,
+         _line_path(
+             "jacket_roll_line", Point(0.0, roll_y),
+             Point(float(jacket["lapel_width_mm"]), roll_y + 105.0),
+             "jacket_roll_line_segment",
+         ),
+         _line_path(
+             "jacket_button_line", Point(-front_extension / 2.0, 25.0),
+             Point(-front_extension / 2.0, 125.0), "jacket_button_line_segment",
+         )),
+        front_base.grainline_start, front_base.grainline_end,
+        front_base.cut_quantity, front_base.cut_on_fold, front_base.mirrored_pair,
+    )
+    front, side_front = _split_jacket_front(front_unsplit, princess_x, extension)
+    back_base = _extend_bodice(
+        blocks.back_bodice, "back", "Жакет · спинка", extension, back_hem,
+        back_on_fold=False,
+    )
+    back = DraftPiece(
+        back_base.id, back_base.name_ru, back_base.seam_contour,
+        (*back_base.internal_paths,
+         _line_path(
+             "back_center_vent", Point(0.0, -extension),
+             Point(0.0, -extension + float(jacket["vent_length_mm"])),
+             "back_center_vent_segment",
+         )),
+        back_base.grainline_start, back_base.grainline_end,
+        back_base.cut_quantity, back_base.cut_on_fold, back_base.mirrored_pair,
+    )
+    sleeve_base = build_one_piece_sleeve(
+        front_armhole_length_mm=blocks.controls["front_armhole_length_mm"],
+        back_armhole_length_mm=blocks.controls["back_armhole_length_mm"],
+        upper_arm_circumference_mm=_measurement(request, "upper_arm_circumference"),
+        upper_arm_ease_mm=request["fit_settings"]["wearing_ease_mm"]["upper_arm"],
+        sleeve_length_mm=float(parameters["sleeve"]["length_mm"]),
+        wrist_circumference_mm=_measurement(request, "wrist_circumference"),
+        hand_circumference_mm=_measurement(request, "hand_circumference"),
+        sleeve_balance_mm=blocks.formula_values["sleeve_balance"],
+    ).piece
+    side_front_armhole = _length(side_front, ("jacket_side_front_armhole",))
+    total_front_armhole = side_front_armhole + _length(
+        front, ("jacket_center_front_armhole",)
+    )
+    sleeve = _split_jacket_sleeve_front(
+        sleeve_base, side_front_armhole, total_front_armhole
+    )
+    front_neck = _length(front, ("front_neckline",))
+    back_neck = _length(back, ("back_neckline",))
+    collar_width = float(jacket["collar_stand_mm"] + jacket["collar_fall_mm"])
+    under_collar = _jacket_collar(
+        "jacket_under_collar", "Жакет · нижний воротник",
+        front_neck, back_neck, collar_width,
+    )
+    top_collar = _jacket_collar(
+        "jacket_top_collar", "Жакет · верхний воротник",
+        front_neck, back_neck, collar_width,
+    )
+    facing = _jacket_facing(
+        _length(front, ("front_placket_edge",)), float(jacket["lapel_width_mm"])
+    )
+    back_facing = _neck_facing_piece(
+        back, "back", "Жакет · обтачка горловины спинки", False
+    )
+    pocket = _rectangle_piece(
+        "jacket_patch_pocket", "Жакет · накладной карман",
+        float(jacket["pocket_width_mm"]), float(jacket["pocket_depth_mm"]),
+        cut_quantity=2, cut_on_fold=False, mirrored_pair=True,
+    )
+    front_lining = _clone_piece(
+        front, "jacket_front_lining", "Жакет · подкладка центра переда", "lining"
+    )
+    side_front_lining = _clone_piece(
+        side_front, "jacket_side_front_lining",
+        "Жакет · подкладка боковой части переда", "lining",
+    )
+    back_lining = _clone_piece(back, "jacket_back_lining", "Жакет · подкладка спинки", "lining")
+    sleeve_lining = _clone_piece(sleeve, "jacket_sleeve_lining", "Жакет · подкладка рукава", "lining")
+
+    pieces = (
+        front, side_front, back, sleeve, facing, back_facing, under_collar, top_collar,
+        pocket, front_lining, side_front_lining, back_lining, sleeve_lining,
+    )
+    by_id = {piece.id: piece for piece in pieces}
+    pairs: list[dict[str, Any]] = []
+    _append_pair(pairs, by_id, "jacket_princess_join", "jacket_front_center",
+                 ("jacket_center_princess",), "jacket_side_front", ("jacket_side_princess",))
+    _append_pair(pairs, by_id, "jacket_shoulder_join", "jacket_front_center", ("front_shoulder",),
+                 "back_bodice", ("back_shoulder",))
+    _append_pair(
+        pairs, by_id, "jacket_side_join", "jacket_side_front", ("front_side",),
+        "back_bodice", ("back_side",), blocks.controls["front_side_dart_seam_reduction_mm"],
+    )
+    _append_pair(pairs, by_id, "jacket_lower_side_join", "jacket_side_front",
+                 ("front_upper_extension_side",), "back_bodice", ("back_upper_extension_side",))
+    _append_pair(pairs, by_id, "jacket_front_sleeve_side_join", "jacket_side_front",
+                 ("jacket_side_front_armhole",), "base_sleeve", ("sleeve_cap_front_side",))
+    _append_pair(pairs, by_id, "jacket_front_sleeve_center_join", "jacket_front_center",
+                 ("jacket_center_front_armhole",), "base_sleeve", ("sleeve_cap_front_center",))
+    _append_pair(pairs, by_id, "jacket_back_sleeve_join", "back_bodice", ("back_armhole",),
+                 "base_sleeve", ("sleeve_cap_back",))
+    _append_pair(pairs, by_id, "jacket_front_collar_join", "jacket_front_center", ("front_neckline",),
+                 "jacket_under_collar", ("jacket_under_collar_front_neckline",))
+    _append_pair(pairs, by_id, "jacket_back_collar_join", "back_bodice", ("back_neckline",),
+                 "jacket_under_collar", ("jacket_under_collar_back_neckline",))
+    _append_pair(pairs, by_id, "jacket_collar_layers_front", "jacket_under_collar",
+                 ("jacket_under_collar_front_neckline",), "jacket_top_collar",
+                 ("jacket_top_collar_front_neckline",))
+    _append_pair(pairs, by_id, "jacket_collar_layers_back", "jacket_under_collar",
+                 ("jacket_under_collar_back_neckline",), "jacket_top_collar",
+                 ("jacket_top_collar_back_neckline",))
+    _append_pair(pairs, by_id, "jacket_front_edge_facing", "jacket_front_center",
+                 ("front_placket_edge",), "jacket_front_facing", ("jacket_front_facing_side",))
+    _append_pair(pairs, by_id, "jacket_facing_lining", "jacket_front_facing",
+                 ("jacket_front_facing_center",), "jacket_front_lining",
+                 ("lining_front_placket_edge",))
+    _append_pair(pairs, by_id, "jacket_back_neck_facing", "back_bodice", ("back_neckline",),
+                 "back_neck_facing", ("back_neck_facing_neckline",))
+    _append_pair(pairs, by_id, "jacket_lining_shoulder", "jacket_front_lining",
+                 ("lining_front_shoulder",), "jacket_back_lining", ("lining_back_shoulder",))
+    _append_pair(pairs, by_id, "jacket_lining_princess", "jacket_front_lining",
+                 ("lining_jacket_center_princess",), "jacket_side_front_lining",
+                 ("lining_jacket_side_princess",))
+    _append_pair(
+        pairs, by_id, "jacket_lining_side", "jacket_side_front_lining", ("lining_front_side",),
+        "jacket_back_lining", ("lining_back_side",),
+        blocks.controls["front_side_dart_seam_reduction_mm"],
+    )
+    _append_pair(pairs, by_id, "jacket_lining_lower_side", "jacket_side_front_lining",
+                 ("lining_front_upper_extension_side",), "jacket_back_lining",
+                 ("lining_back_upper_extension_side",))
+    _append_pair(pairs, by_id, "jacket_lining_front_sleeve_side", "jacket_side_front_lining",
+                 ("lining_jacket_side_front_armhole",), "jacket_sleeve_lining",
+                 ("lining_sleeve_cap_front_side",))
+    _append_pair(pairs, by_id, "jacket_lining_front_sleeve_center", "jacket_front_lining",
+                 ("lining_jacket_center_front_armhole",), "jacket_sleeve_lining",
+                 ("lining_sleeve_cap_front_center",))
+    _append_pair(pairs, by_id, "jacket_lining_back_sleeve", "jacket_back_lining",
+                 ("lining_back_armhole",), "jacket_sleeve_lining", ("lining_sleeve_cap_back",))
+
+    residual, maximum_ease = _interface_controls(pairs, by_id)
+    return GarmentAssembly(
+        {
+            "schema_version": "1.0.0", "unit": "mm",
+            "pieces": [
+                _decorate_piece(piece, "Жакет", armhole_finish="sleeve")
+                for piece in pieces
+            ],
+            "seam_pairs": pairs,
+        },
+        {
+            "piece_count": float(len(pieces)),
+            "seam_pair_count": float(len(pairs)),
+            "maximum_interface_residual_mm": residual,
+            "maximum_declared_ease_mm": maximum_ease,
+            "waist_control_residual_mm": max(
+                abs(blocks.controls["front_bodice_waist_residual_mm"]),
+                abs(blocks.controls["back_bodice_waist_residual_mm"]),
+            ),
+            "jacket_collar_residual_mm": 0.0,
+            "jacket_facing_residual_mm": 0.0,
+            "jacket_lining_residual_mm": 0.0,
+        },
+    )
+
+
 def assemble_garment(
     request: Mapping[str, Any], blocks: BaseBlockSet | SkirtBlockSet
 ) -> GarmentAssembly:
@@ -720,6 +1127,14 @@ def assemble_garment(
                 "/garment_spec/garment_type",
             )
         return _assemble_upper(request, blocks)
+    if spec["garment_type"] == "jacket":
+        if not isinstance(blocks, BaseBlockSet):
+            raise BlockConstructionError(
+                "GARMENT_COMPONENT_MISMATCH",
+                "Для жакета должен использоваться базовый блок корпуса.",
+                "/garment_spec/garment_type",
+            )
+        return _assemble_jacket(request, blocks)
     if not isinstance(blocks, BaseBlockSet):
         raise BlockConstructionError(
             "GARMENT_COMPONENT_MISMATCH",

@@ -203,7 +203,7 @@ export const api = {
         locale: 'ru-RU',
         image_refs: imageRefs,
         supported_garment_categories: [
-          'dress', 'sundress', 'skirt', 'top', 'blouse', 'shirt', 'vest',
+          'dress', 'sundress', 'skirt', 'top', 'blouse', 'shirt', 'vest', 'jacket',
         ],
         supported_features: {
           neckline: ['round', 'v', 'square'],

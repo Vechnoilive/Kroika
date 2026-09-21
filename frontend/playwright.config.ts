@@ -22,8 +22,8 @@ export default defineConfig({
       reuseExistingServer: false,
       env: {
         ...process.env,
-        KROIKA_DATABASE_PATH: 'data/stage12-e2e.db',
-        KROIKA_IMAGE_STORAGE_PATH: 'data/stage12-e2e-images',
+        KROIKA_DATABASE_PATH: 'data/current-stage-e2e.db',
+        KROIKA_IMAGE_STORAGE_PATH: 'data/current-stage-e2e-images',
         KROIKA_AI_PROVIDER: 'mock',
         KROIKA_ENABLED_AI_PROVIDERS: 'mock,qwen',
         KROIKA_LOG_LEVEL: 'WARNING',
