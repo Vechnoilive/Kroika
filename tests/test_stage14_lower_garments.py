@@ -124,6 +124,26 @@ def test_lower_catalogue_measurements_and_jumpsuit_gate_are_explicit(tmp_path: P
             "outside_leg_length", "inseam_length", "thigh_circumference",
             "knee_circumference", "trouser_hem_circumference", "knee_height",
         } <= required
+        minimal_profile = {
+            "schema_version": "1.0.0", "profile_id": str(uuid4()),
+            "name": "Только брючные мерки", "status": "ready",
+            "normalized_unit": "mm", "values": {
+                name: {"value": value, "unit": "mm", "source": "user"}
+                for name, value in {
+                    "waist": 740, "hips": 1000, "sitting_height": 270,
+                    "crotch_length": 720, "outside_leg_length": 1040,
+                    "inseam_length": 780, "thigh_circumference": 590,
+                    "knee_circumference": 400,
+                    "trouser_hem_circumference": 380, "knee_height": 560,
+                }.items()
+            },
+        }
+        validation = api.post(
+            "/api/v1/measurements/validate?garment_type=trousers&sleeve_type=sleeveless",
+            json=minimal_profile,
+        )
+        assert validation.status_code == 200, validation.text
+        assert validation.json()["status"] == "ready"
     assert reference["jumpsuit_dependency"] == "blocked_until_upper_and_lower_toile_verified"
 
 
