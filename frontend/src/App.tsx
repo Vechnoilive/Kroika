@@ -44,6 +44,33 @@ const LAYERS: Array<{id: PatternLayer; label: string}> = [
   {id: 'dimensions', label: 'Размеры деталей'},
 ];
 
+type EditableWorkflowStep = 2 | 3 | 4 | 5;
+
+export interface ErrorNavigationTarget {
+  step: EditableWorkflowStep;
+  label: string;
+}
+
+export function errorNavigationTarget(error: ApiError): ErrorNavigationTarget | null {
+  for (const {json_pointer: pointer} of error.issues ?? []) {
+    if (pointer.startsWith('/body_measurements')) {
+      return {step: 4, label: 'Перейти к меркам'};
+    }
+    if (pointer.startsWith('/garment_spec') || pointer.startsWith('/pattern_method')) {
+      return {step: 3, label: 'Исправить фасон и размеры изделия'};
+    }
+    if (pointer.startsWith('/fit_settings') || pointer.startsWith('/fabric_properties')) {
+      return {step: 5, label: 'Исправить ткань и прибавки'};
+    }
+    if (pointer.startsWith('/style_analysis')
+        || pointer.startsWith('/image_refs')
+        || pointer.startsWith('/privacy')) {
+      return {step: 2, label: 'Вернуться к эскизу'};
+    }
+  }
+  return null;
+}
+
 function Logo() {
   return <div className="brand-mark" aria-hidden="true"><span>K</span></div>;
 }
@@ -57,15 +84,30 @@ function Step({number, title, state}: {number: number; title: string; state: 'do
   );
 }
 
-function FriendlyError({error}: {error: ApiError}) {
+export function FriendlyError({
+  error,
+  onNavigate,
+}: {
+  error: ApiError;
+  onNavigate?: (target: ErrorNavigationTarget) => void;
+}) {
+  const target = errorNavigationTarget(error);
+  const additionalIssues = (error.issues ?? [])
+    .filter((item) => item.message_ru !== error.message)
+    .slice(0, 5);
   return (
     <div className="notice notice--error" role="alert">
       <strong>Не получилось выполнить действие</strong>
       <span>{error.message}</span>
-      {error.issues && error.issues.length > 0 && (
-        <ul>{error.issues.slice(0, 5).map((item) => (
+      {additionalIssues.length > 0 && (
+        <ul>{additionalIssues.map((item) => (
           <li key={`${item.code}-${item.json_pointer}`}>{item.message_ru}</li>
         ))}</ul>
+      )}
+      {target && onNavigate && (
+        <button className="notice__action" type="button" onClick={() => onNavigate(target)}>
+          {target.label} <span aria-hidden="true">→</span>
+        </button>
       )}
       {error.requestId && <small>Код обращения: {error.requestId.slice(0, 8)}</small>}
     </div>
@@ -228,9 +270,11 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const [garmentCatalogue, setGarmentCatalogue] = useState<GarmentAcceptanceStatus[]>([]);
+  const [repairStep, setRepairStep] = useState<EditableWorkflowStep | null>(null);
 
   function remember(updated: ProjectDocument) {
     setProject(updated);
+    setRepairStep(null);
     localStorage.setItem(LAST_PROJECT_KEY, updated.project_id);
     setProjects((items) => {
       const summary: ProjectSummary = {
@@ -299,7 +343,13 @@ export default function App() {
   function startAnother() {
     setProject(null);
     setError(null);
+    setRepairStep(null);
     localStorage.removeItem(LAST_PROJECT_KEY);
+  }
+
+  function navigateToIssue(target: ErrorNavigationTarget) {
+    setError(null);
+    setRepairStep(target.step);
   }
 
   async function saveProject(candidate: ProjectDocument): Promise<ProjectDocument> {
@@ -386,13 +436,14 @@ export default function App() {
   const currentAcceptance = project
     ? garmentCatalogue.find((item) => item.garment_type === project.garment_spec.garment_type)
     : undefined;
-  const activeStep = !project ? 1
+  const naturalStep = !project ? 1
     : !analysis ? 2
     : project.garment_spec.selection_status !== 'confirmed' ? 3
     : project.body_measurements.status !== 'ready' ? 4
     : project.fit_settings.status !== 'confirmed' || project.fabric_properties.status !== 'confirmed' ? 5
     : project.latest_generation?.status === 'succeeded' ? 7
     : 6;
+  const activeStep = repairStep ?? naturalStep;
   const isLowerGarment = project
     ? ['trousers', 'shorts'].includes(project.garment_spec.garment_type)
     : false;
@@ -449,7 +500,7 @@ export default function App() {
           ) : (
             <>
               <div className="project-heading"><div><p className="eyebrow">{STATUS_NAMES[project.status]} · версия {project.revision}</p><h1>{project.name}</h1><p>Черновик сохраняется на каждом завершённом шаге.</p></div><button className="text-button" onClick={startAnother}>Другой проект</button></div>
-              {error && <FriendlyError error={error} />}
+              {error && <FriendlyError error={error} onNavigate={navigateToIssue} />}
 
               {activeStep === 2 && <VisionAnalyzer projectId={project.project_id} onComplete={saveAnalysis} />}
               {activeStep === 3 && analysis && <StyleEditor project={project} analysis={analysis as StyleAnalysis} providerName={analysisProvider} acceptance={currentAcceptance} onSave={saveProject} />}

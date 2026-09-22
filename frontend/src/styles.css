@@ -95,6 +95,8 @@ button:disabled { cursor: not-allowed; }
 .notice--success { border: 1px solid #aed2c2; background: #edf8f3; color: #285f4d; }
 .notice ul { margin: 5px 0 0; padding-left: 20px; }
 .notice small { opacity: .8; }
+.notice__action { width: fit-content; min-height: 42px; display: inline-flex; align-items: center; gap: 10px; margin-top: 8px; padding: 0 14px; border: 1px solid currentColor; border-radius: 10px; background: white; color: inherit; font: inherit; font-weight: 700; cursor: pointer; }
+.notice__action:hover { background: #fff9f7; }
 .analysis-card { max-width: 800px; display: grid; grid-template-columns: 54px 1fr; gap: 18px; padding: clamp(24px, 4vw, 38px); border: 1px solid var(--line); border-radius: 26px; background: var(--paper); box-shadow: var(--shadow); }
 .vision-card { max-width: 800px; display: grid; grid-template-columns: 54px 1fr; gap: 18px; padding: clamp(24px, 4vw, 38px); border: 1px solid var(--line); border-radius: 26px; background: var(--paper); box-shadow: var(--shadow); }
 .vision-card h2 { margin: 2px 0 9px; font: 28px/1.3 'Prata', Georgia, serif; font-weight: 400; }
@@ -157,6 +159,8 @@ button:disabled { cursor: not-allowed; }
 .measurement-guide figcaption { max-width: 260px; color: var(--muted); font-size: 10px; line-height: 1.5; text-align: center; }
 .guide-body { fill: #f4dcd4; stroke: #8a7273; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 path.guide-body { fill: none; }
+path.guide-body--shape { fill: #fbefea; }
+.guide-body--limb, .guide-body--leg { stroke-width: 2; }
 .guide-measure { fill: none; stroke: var(--peach-dark); stroke-width: 4; stroke-linecap: round; }
 .guide-reference { fill: none; stroke: #968b95; stroke-width: 1.5; stroke-dasharray: 4 4; }
 .guide-arrow { fill: none; stroke: var(--peach-dark); stroke-width: 2; stroke-linecap: round; }
