@@ -25,8 +25,10 @@ JPEG, PNG и WebP до 10 МБ проверяются по фактическо�
 
 Qwen вызывается через официальный OpenAI-compatible vision endpoint с multimodal
 `image_url`. Gemini использует официальный `interactions` REST API с inline base64 и
-`response_format` JSON Schema; для приватности запрос задаёт `store=false`. После любого
-сервиса backend независимо выполняет:
+JSON-режимом; для приватности запрос задаёт `store=false`. Полная каноническая схема
+передаётся Gemini один раз в инструкции, но не дублируется в `response_format`: Google
+может отклонять слишком большие или глубоко вложенные Structured Output схемы. После
+любого сервиса backend независимо выполняет:
 
 1. JSON-разбор без `NaN`/`Infinity`, лишнего текста и ответов больше 256 КБ.
 2. Проверку `ai-style-analysis.schema.json`, включая enum и запрет лишних полей.

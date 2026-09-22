@@ -265,8 +265,12 @@ class GeminiProvider(ExternalVisionProvider):
             "store": False,
             "generation_config": {"temperature": 0.1},
             "response_format": {
+                # The canonical contract is already included once in the instruction.
+                # Repeating that large, deeply nested schema here makes Gemini compile
+                # it as Structured Output and can end in upstream 503/timeout errors.
+                # JSON mode keeps the response machine-readable; the strict contract
+                # and semantic checks in analyze_style remain the trust boundary.
                 "type": "text", "mime_type": "application/json",
-                "schema": provider_analysis_schema(),
             },
         }
 
