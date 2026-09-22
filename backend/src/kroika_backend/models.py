@@ -81,6 +81,27 @@ class GarmentCatalogueResponse(BaseModel):
     items: list[GarmentAcceptanceStatus]
 
 
+class BlockedGarmentRelease(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    garment_type: Literal[
+        "dress", "sundress", "skirt", "top", "blouse", "shirt", "vest", "jacket",
+        "trousers", "shorts",
+    ]
+    missing_gates: list[Literal["paper", "expert", "toile"]]
+
+
+class ReleaseStatusResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    stage: Literal[15]
+    status: Literal["ready", "blocked"]
+    production_ready: bool
+    policy: str
+    ready_garments: list[str]
+    blocked_garments: list[BlockedGarmentRelease]
+
+
 class ProjectSummary(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

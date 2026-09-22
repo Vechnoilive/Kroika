@@ -9,7 +9,6 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
-import sys
 import time
 import urllib.request
 import venv
@@ -53,6 +52,8 @@ def _fingerprint() -> str:
         ROOT / "requirements-stage12.txt",
         ROOT / "requirements-stage13.txt",
         ROOT / "requirements-stage14.txt",
+        ROOT / "requirements-runtime.txt",
+        ROOT / "requirements-stage15.txt",
         ROOT / "pyproject.toml",
         ROOT / "pattern-engine" / "pyproject.toml",
         ROOT / "backend" / "pyproject.toml",
@@ -75,7 +76,7 @@ def bootstrap() -> None:
 
     print("Устанавливаем Python-зависимости…")
     subprocess.run(
-        [str(python), "-m", "pip", "install", "-r", str(ROOT / "requirements-stage14.txt")],
+        [str(python), "-m", "pip", "install", "-r", str(ROOT / "requirements-stage15.txt")],
         cwd=ROOT,
         check=True,
     )

@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0.0",
+  "pilot_status": "not_started",
+  "participant_role": "patternmaker",
+  "projects": [],
+  "required_project_fields": [
+    "anonymous_project_id",
+    "garment_type",
+    "method_id",
+    "method_version",
+    "engine_version",
+    "input_hash",
+    "fabric",
+    "ease_settings",
+    "printer_model",
+    "control_square_measured_mm",
+    "paired_seam_measurements_mm",
+    "paper_check",
+    "toile_check",
+    "fit_observations",
+    "corrections",
+    "reviewer",
+    "reviewed_at",
+    "repeat_result"
+  ],
+  "note_ru": "Реальные проекты не проводились. Не менять статус без бумажной проверки, макета и подписи закройщика."
+}

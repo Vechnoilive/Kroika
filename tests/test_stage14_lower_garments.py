@@ -157,7 +157,7 @@ def test_trousers_and_shorts_build_complete_balanced_sets(tmp_path: Path):
             assert response.status_code == 200, response.text
             result = response.json()
         assert result["status"] == "succeeded"
-        assert result["engine_version"] == "0.8.0"
+        assert result["engine_version"] == "0.8.1"
         assert [piece["id"] for piece in result["pattern"]["pieces"]] == reference["piece_ids"]
         assert len(result["pattern"]["seam_pairs"]) == reference["seam_pair_count"]
         assert all(piece["cutting_contour"] for piece in result["pattern"]["pieces"])
@@ -210,7 +210,11 @@ def test_stage14_contract_and_current_only_ci_are_wired(tmp_path: Path):
     launcher = (ROOT / "scripts/start_local.py").read_text(encoding="utf-8")
     workflow = (ROOT / ".github/workflows/verify.yml").read_text(encoding="utf-8")
     assert '"requirements-stage14.txt"' in launcher
-    assert "python scripts/verify_stage14.py" in workflow
+    current_stage = max(
+        int(path.stem.removeprefix("verify_stage"))
+        for path in (ROOT / "scripts").glob("verify_stage*.py")
+    )
+    assert f"python scripts/verify_stage{current_stage}.py" in workflow
     assert "verify_all.py" not in workflow
     assert "verify_stage13.py" not in workflow
 

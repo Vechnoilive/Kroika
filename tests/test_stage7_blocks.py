@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from copy import deepcopy
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -249,12 +248,8 @@ def test_stage7_is_latest_bootstrap_and_documented_layer():
     requirements = (ROOT / "requirements-stage7.txt").read_text(encoding="utf-8")
     verifier = (ROOT / "scripts" / "verify_all.py").read_text(encoding="utf-8")
     documentation = (ROOT / "docs" / "BASE_BLOCKS.md").read_text(encoding="utf-8")
-    latest_requirements = max(
-        ROOT.glob("requirements-stage*.txt"),
-        key=lambda path: int(path.stem.removeprefix("requirements-stage")),
-    ).name
     assert '"requirements-stage7.txt"' in launcher
-    assert f"-r {latest_requirements}" in dockerfile
+    assert "-r requirements-runtime.txt" in dockerfile
     assert "-r requirements-stage6.txt" in requirements
     assert "verify_stage7.py" in verifier
     for term in ("F01–F41", "вытач", "пройм", "GARMENT_ASSEMBLY_STAGE_NOT_READY"):

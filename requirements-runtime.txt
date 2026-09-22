@@ -1,0 +1,4 @@
+-r requirements-stage14.txt
+Pillow==12.3.0
+
+# Production runtime only. Release-audit tools live in requirements-stage15.txt.

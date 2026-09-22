@@ -196,12 +196,8 @@ def test_stage8_bootstrap_and_documentation_are_wired():
     requirements = (ROOT / "requirements-stage8.txt").read_text(encoding="utf-8")
     verifier = (ROOT / "scripts" / "verify_all.py").read_text(encoding="utf-8")
     documentation = (ROOT / "docs" / "GARMENT_GENERATOR.md").read_text(encoding="utf-8")
-    latest_requirements = max(
-        ROOT.glob("requirements-stage*.txt"),
-        key=lambda path: int(path.stem.removeprefix("requirements-stage")),
-    ).name
     assert '"requirements-stage8.txt"' in launcher
-    assert f"-r {latest_requirements}" in dockerfile
+    assert "-r requirements-runtime.txt" in dockerfile
     assert "-r requirements-stage7.txt" in requirements
     assert "verify_stage8.py" in verifier
     for term in ("10", "SVG", "сарафан", "production_export_allowed=false"):

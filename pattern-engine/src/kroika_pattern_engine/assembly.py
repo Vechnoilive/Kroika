@@ -412,6 +412,18 @@ def _collar_band(front_neck_mm: float, back_neck_mm: float) -> DraftPiece:
         ),
         id="collar_band_seam",
     )
+    validate_simple_contour(contour)
+    return DraftPiece(
+        "collar_band",
+        "Рубашка · стойка воротника",
+        contour,
+        (),
+        Point(total * 0.25, 8.0),
+        Point(total * 0.75, 8.0),
+        2,
+        True,
+        False,
+    )
 
 
 def _clone_piece(piece: DraftPiece, piece_id: str, name_ru: str, prefix: str) -> DraftPiece:
@@ -602,18 +614,6 @@ def _split_jacket_sleeve_front(
         sleeve.id, sleeve.name_ru, contour, sleeve.internal_paths,
         sleeve.grainline_start, sleeve.grainline_end, sleeve.cut_quantity,
         sleeve.cut_on_fold, sleeve.mirrored_pair,
-    )
-    validate_simple_contour(contour)
-    return DraftPiece(
-        "collar_band",
-        "Рубашка · стойка воротника",
-        contour,
-        (),
-        Point(total * 0.25, 8.0),
-        Point(total * 0.75, 8.0),
-        2,
-        True,
-        False,
     )
 
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import math
 import re
-from typing import Self, TypeAlias
+from typing import Self, TypeAlias, overload
 
 from .errors import (
     ConvergenceError,
@@ -191,6 +191,12 @@ class Point:
         if not isinstance(vector, Vector):
             return NotImplemented
         return type(self)(self.x_mm + vector.dx_mm, self.y_mm + vector.dy_mm)
+
+    @overload
+    def __sub__(self, other: Point) -> Vector: ...
+
+    @overload
+    def __sub__(self, other: Vector) -> Self: ...
 
     def __sub__(self, other: object) -> Vector | Self:
         if isinstance(other, Point):

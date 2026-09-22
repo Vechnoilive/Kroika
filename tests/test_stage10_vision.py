@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import base64
 from copy import deepcopy
+from io import BytesIO
 import json
 from pathlib import Path
 import sys
@@ -10,6 +11,7 @@ import sys
 from fastapi.testclient import TestClient
 from openapi_spec_validator import validate
 from openapi_spec_validator.readers import read_from_filename
+from PIL import Image
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -136,6 +138,22 @@ def test_image_store_rejects_false_types_oversize_and_unknown_refs(tmp_path: Pat
         store.save_base64(base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"x" * 100).decode(), "image/png")
     with pytest.raises(AIProviderError):
         store.resolve("../../secret")
+
+
+def test_image_store_applies_orientation_and_removes_private_metadata(tmp_path: Path):
+    raw = BytesIO()
+    exif = Image.Exif()
+    exif[0x010E] = "private-client-location"
+    exif[0x0112] = 6
+    Image.new("RGB", (3, 2), "red").save(raw, format="JPEG", exif=exif)
+
+    asset = LocalImageStore(tmp_path).save_base64(
+        base64.b64encode(raw.getvalue()).decode(), "image/jpeg"
+    )
+    assert b"private-client-location" not in asset.data
+    with Image.open(BytesIO(asset.data)) as stored:
+        assert stored.size == (2, 3)
+        assert not stored.getexif()
 
 
 def test_api_lists_choices_uploads_safely_and_keeps_mock_fallback(tmp_path: Path):

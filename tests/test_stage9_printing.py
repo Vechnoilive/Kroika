@@ -186,7 +186,7 @@ def test_stage9_runtime_contract_remains_wired():
         for path in (ROOT / "scripts").glob("verify_stage*.py")
     )
     assert "reportlab==4.4.9" in requirements
-    assert "pypdf==6.10.0" in requirements
+    assert "pypdf==6.19.0" in requirements
     assert '"requirements-stage9.txt"' in launcher
     assert "-r requirements-stage9.txt" in current_requirements
     assert "fonts-dejavu-core" in dockerfile

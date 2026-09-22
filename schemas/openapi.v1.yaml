@@ -3,11 +3,11 @@ info:
   title: Kroika API contracts
   version: 1.0.0
   description: >-
-    Контракт API. Этап 12 добавляет ограниченные варианты юбки, топа, блузки,
-    рубашки и жилета с отдельными статусами expert/toile. В интерфейсе включены
-    mock и Qwen; производственный экспорт до физической приёмки запрещён.
+    Контракт API этапа 15. В интерфейсе включены mock и Qwen; системный release
+    gate, приватное удаление и резервное восстановление не позволяют выдать
+    experimental-модули за готовые к производству.
 servers:
-  - url: http://localhost:8000
+  - url: http://127.0.0.1:8000
     description: Локальный сервер
 paths:
   /health/live:
@@ -80,6 +80,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GarmentCatalogue'
+  /api/v1/release/status:
+    get:
+      operationId: getReleaseStatus
+      summary: Показать единый fail-closed gate производственного выпуска
+      responses:
+        '200':
+          description: Готовые и заблокированные изделия с незакрытыми физическими gates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseStatus'
   /api/v1/ai/providers:
     get:
       operationId: listAIProviders
@@ -103,13 +114,26 @@ paths:
               $ref: '#/components/schemas/ImageUploadRequest'
       responses:
         '201':
-          description: Непрозрачная локальная ссылка без исходного имени пути
+          description: Непрозрачная локальная ссылка; изображение перекодировано без исходных метаданных
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ImageUploadResponse'
         '422':
           $ref: '#/components/responses/ContractError'
+  /api/v1/images/{image_ref}:
+    parameters:
+      - name: image_ref
+        in: path
+        required: true
+        schema: {type: string, pattern: '^img_[a-f0-9]{32}$'}
+    delete:
+      operationId: deleteGarmentImage
+      summary: Удалить неиспользуемое локальное изображение
+      responses:
+        '204': {description: Изображение удалено}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
   /api/v1/projects:
     get:
       operationId: listProjects
@@ -186,6 +210,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
           $ref: '#/components/responses/ContractError'
+    delete:
+      operationId: deleteProject
+      summary: Удалить проект, его ревизии, построения и осиротевшие изображения
+      responses:
+        '204': {description: Локальные данные проекта удалены}
+        '404': {$ref: '#/components/responses/NotFound'}
   /api/v1/projects/{project_id}/history:
     parameters:
       - $ref: '#/components/parameters/ProjectId'
@@ -357,6 +387,12 @@ paths:
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/ContractError'
+    delete:
+      operationId: deleteMeasurementProfile
+      summary: Удалить сохранённый профиль мерок
+      responses:
+        '204': {description: Профиль мерок удалён}
+        '404': {$ref: '#/components/responses/NotFound'}
   /api/v1/patterns/generate:
     post:
       operationId: generatePattern
@@ -579,7 +615,7 @@ components:
         paper_status: {type: string, enum: [pending, passed]}
         expert_status: {type: string, enum: [pending, passed]}
         toile_status: {type: string, enum: [pending, passed]}
-        production_allowed: {type: boolean, const: false}
+        production_allowed: {type: boolean}
     GarmentCatalogue:
       type: object
       additionalProperties: false
@@ -591,6 +627,30 @@ components:
           maxItems: 10
           items:
             $ref: '#/components/schemas/GarmentAcceptanceStatus'
+    BlockedGarmentRelease:
+      type: object
+      additionalProperties: false
+      required: [garment_type, missing_gates]
+      properties:
+        garment_type: {type: string, enum: [dress, sundress, skirt, top, blouse, shirt, vest, jacket, trousers, shorts]}
+        missing_gates:
+          type: array
+          items: {type: string, enum: [paper, expert, toile]}
+    ReleaseStatus:
+      type: object
+      additionalProperties: false
+      required: [stage, status, production_ready, policy, ready_garments, blocked_garments]
+      properties:
+        stage: {type: integer, const: 15}
+        status: {type: string, enum: [ready, blocked]}
+        production_ready: {type: boolean}
+        policy: {type: string, minLength: 1}
+        ready_garments:
+          type: array
+          items: {type: string}
+        blocked_garments:
+          type: array
+          items: {$ref: '#/components/schemas/BlockedGarmentRelease'}
     ImageUploadRequest:
       type: object
       additionalProperties: false

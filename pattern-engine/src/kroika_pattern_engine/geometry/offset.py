@@ -15,7 +15,6 @@ from .errors import (
 from .primitives import (
     ArcSegment,
     Contour,
-    CubicBezier,
     DEFAULT_TOLERANCE,
     GeometryTolerance,
     LineSegment,

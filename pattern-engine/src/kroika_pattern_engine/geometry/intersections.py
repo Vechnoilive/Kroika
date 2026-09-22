@@ -145,7 +145,7 @@ def line_arc_intersections(
             or arc_parameter <= 1e-12
             or arc_parameter >= 1.0 - 1e-12
         )
-        kind = "tangent" if normalized_cross <= tangent_limit else (
+        kind: Literal["crossing", "touching", "tangent"] = "tangent" if normalized_cross <= tangent_limit else (
             "touching" if endpoint else "crossing"
         )
         found.append(Intersection(point, line_parameter, arc_parameter, kind))
