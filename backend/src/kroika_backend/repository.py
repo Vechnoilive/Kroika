@@ -59,8 +59,18 @@ def _change_summary(before: dict[str, Any] | None, after: dict[str, Any]) -> str
 
 
 class SQLiteRepository:
+    SCHEMA_VERSION = 1
+
     def __init__(self, database_path: Path):
         self.database_path = database_path
+
+    @staticmethod
+    def _make_private(path: Path, mode: int) -> None:
+        try:
+            path.chmod(mode)
+        except OSError:
+            # Windows uses ACLs rather than POSIX mode bits.
+            pass
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.database_path, timeout=5)
@@ -70,8 +80,15 @@ class SQLiteRepository:
         return connection
 
     def initialize(self) -> None:
-        self.database_path.parent.mkdir(parents=True, exist_ok=True)
+        self.database_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        self._make_private(self.database_path.parent, 0o700)
         with self._connect() as connection:
+            current_version = int(connection.execute("PRAGMA user_version").fetchone()[0])
+            if current_version > self.SCHEMA_VERSION:
+                raise RuntimeError(
+                    "База данных создана более новой версией Kroika. "
+                    "Откройте её совместимой версией приложения."
+                )
             connection.execute("PRAGMA journal_mode = WAL")
             connection.executescript("""
                 CREATE TABLE IF NOT EXISTS projects (
@@ -156,6 +173,8 @@ class SQLiteRepository:
                 "SELECT project_id, revision, payload, updated_at, ? FROM projects",
                 ("Сохранённая версия до включения истории",),
             )
+            connection.execute(f"PRAGMA user_version = {self.SCHEMA_VERSION}")
+        self._make_private(self.database_path, 0o600)
 
     def health(self) -> bool:
         with self._connect() as connection:
@@ -174,6 +193,33 @@ class SQLiteRepository:
                 "SELECT payload FROM projects WHERE project_id = ?", (project_id,)
             ).fetchone()
         return _load(row["payload"]) if row else None
+
+    def project_image_refs(self, project_id: str) -> set[str]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT payload FROM projects WHERE project_id = ? "
+                "UNION ALL SELECT payload FROM project_revisions WHERE project_id = ?",
+                (project_id, project_id),
+            ).fetchall()
+        return {
+            str(image_ref)
+            for row in rows
+            for image_ref in _load(row["payload"]).get("image_refs", [])
+        }
+
+    def image_ref_in_use(self, image_ref: str) -> bool:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT payload FROM projects UNION ALL SELECT payload FROM project_revisions"
+            ).fetchall()
+        return any(image_ref in _load(row["payload"]).get("image_refs", []) for row in rows)
+
+    def delete_project(self, project_id: str) -> bool:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM projects WHERE project_id = ?", (project_id,)
+            )
+        return cursor.rowcount == 1
 
     def create_project(self, project: dict[str, Any]) -> dict[str, Any]:
         validate_project(project)
@@ -345,6 +391,13 @@ class SQLiteRepository:
             "updated_at": row["updated_at"],
             "profile": _load(row["payload"]),
         }
+
+    def delete_measurement_profile(self, profile_id: str) -> bool:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM measurement_profiles WHERE profile_id = ?", (profile_id,)
+            )
+        return cursor.rowcount == 1
 
     def create_measurement_profile(self, profile: dict[str, Any]) -> dict[str, Any]:
         validate_measurement_profile(profile)

@@ -1,4 +1,4 @@
-"""FastAPI composition root for the stage-14 multi-garment workflow."""
+"""FastAPI composition root for the stage-15 validated multi-garment workflow."""
 
 from __future__ import annotations
 
@@ -25,6 +25,7 @@ from kroika_pattern_engine import (
     render_pattern_svg,
     SVG_PREVIEW_LAYERS,
     garment_catalogue,
+    release_gate,
 )
 
 from .config import Settings
@@ -44,11 +45,12 @@ from .models import (
     ProjectHistoryResponse,
     ProjectSummary,
     ReadinessResponse,
+    ReleaseStatusResponse,
 )
 from .repository import SQLiteRepository
 from .vision_providers import ProviderRegistry, build_provider_registry
 
-APP_VERSION = "0.14.0"
+APP_VERSION = "0.15.0"
 
 
 def _project_or_404(repository: SQLiteRepository, project_id: str) -> dict[str, Any]:
@@ -104,7 +106,7 @@ def create_app(
         CORSMiddleware,
         allow_origins=list(settings.cors_origins),
         allow_credentials=False,
-        allow_methods=["GET", "POST", "PUT"],
+        allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["Content-Type", "If-Match", "X-Request-ID"],
         expose_headers=[
             "X-Request-ID",
@@ -123,6 +125,14 @@ def create_app(
         started = perf_counter()
         response = await call_next(request)
         response.headers["X-Request-ID"] = request_id
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault(
+            "Permissions-Policy", "camera=(), microphone=(), geolocation=()"
+        )
+        if request.url.path.startswith("/api/"):
+            response.headers.setdefault("Cache-Control", "no-store")
         route = request.scope.get("route")
         logger.info(
             "request_completed",
@@ -167,6 +177,17 @@ def create_app(
     @app.get("/api/v1/projects/{project_id}", tags=["projects"])
     def get_project(project_id: UUID) -> dict[str, Any]:
         return _project_or_404(repository, str(project_id))
+
+    @app.delete("/api/v1/projects/{project_id}", status_code=204, tags=["privacy"])
+    def delete_project(project_id: UUID) -> Response:
+        _project_or_404(repository, str(project_id))
+        image_refs = repository.project_image_refs(str(project_id))
+        if not repository.delete_project(str(project_id)):
+            raise AppError(404, "PROJECT_NOT_FOUND", "Проект не найден.")
+        for image_ref in image_refs:
+            if not repository.image_ref_in_use(image_ref):
+                image_store.delete(image_ref)
+        return Response(status_code=204)
 
     @app.put("/api/v1/projects/{project_id}", tags=["projects"])
     def replace_project(
@@ -263,6 +284,16 @@ def create_app(
             raise AppError(404, "MEASUREMENT_PROFILE_NOT_FOUND", "Профиль мерок не найден.")
         return record
 
+    @app.delete(
+        "/api/v1/measurement-profiles/{profile_id}", status_code=204, tags=["privacy"]
+    )
+    def delete_measurement_profile(profile_id: UUID) -> Response:
+        if not repository.delete_measurement_profile(str(profile_id)):
+            raise AppError(
+                404, "MEASUREMENT_PROFILE_NOT_FOUND", "Профиль мерок не найден."
+            )
+        return Response(status_code=204)
+
     @app.put(
         "/api/v1/measurement-profiles/{profile_id}",
         response_model=MeasurementProfileRecord, tags=["measurements"],
@@ -291,6 +322,14 @@ def create_app(
     def list_garment_catalogue() -> dict[str, Any]:
         return {"items": garment_catalogue()}
 
+    @app.get(
+        "/api/v1/release/status",
+        response_model=ReleaseStatusResponse,
+        tags=["release"],
+    )
+    def get_release_status() -> dict[str, Any]:
+        return release_gate()
+
     @app.post(
         "/api/v1/images", status_code=201,
         response_model=ImageUploadResponse, tags=["garments"],
@@ -304,6 +343,18 @@ def create_app(
             "media_type": asset.media_type,
             "size_bytes": len(asset.data),
         }
+
+    @app.delete("/api/v1/images/{image_ref}", status_code=204, tags=["privacy"])
+    def delete_image(image_ref: str) -> Response:
+        if repository.image_ref_in_use(image_ref):
+            raise AppError(
+                409,
+                "IMAGE_IN_USE",
+                "Изображение используется в проекте. Сначала удалите проект.",
+            )
+        if not image_store.delete(image_ref):
+            raise AppError(404, "IMAGE_NOT_FOUND", "Изображение не найдено.")
+        return Response(status_code=204)
 
     @app.post("/api/v1/garments/analyze-image", tags=["garments"])
     async def analyze_image(
@@ -432,7 +483,13 @@ def create_app(
         project = _project_or_404(repository, result["project_id"])
         return JSONResponse(
             project,
-            headers={"Content-Disposition": f'attachment; filename="kroika-{project["project_id"]}.json"'},
+            headers={
+                "Cache-Control": "no-store",
+                "Content-Disposition": (
+                    f'attachment; filename="kroika-{project["project_id"]}.json"'
+                ),
+                "X-Content-Type-Options": "nosniff",
+            },
         )
 
     return app

@@ -266,6 +266,12 @@ class ProviderRegistry:
 
     def get(self, provider_id: str | None = None) -> AIProvider:
         selected = provider_id or self.default_provider
+        if provider_id is not None and selected not in self.enabled_for_users:
+            raise AIProviderError(
+                ProviderErrorCode.PROVIDER_UNAVAILABLE,
+                "Выбранный сервис анализа отключён в настройках приложения.",
+                False,
+            )
         provider = self.providers.get(selected)
         if provider is None:
             raise AIProviderError(
@@ -280,8 +286,12 @@ class ProviderRegistry:
         result = []
         for provider_id in ("mock", "qwen", "gemini"):
             provider = self.providers[provider_id]
-            external = isinstance(provider, ExternalVisionProvider)
-            configured = provider.configured if external else True
+            if isinstance(provider, ExternalVisionProvider):
+                external = True
+                configured = provider.configured
+            else:
+                external = False
+                configured = True
             result.append({
                 "provider_id": provider_id,
                 "name": names[provider_id],
@@ -302,19 +312,20 @@ class ProviderRegistry:
 
 
 def build_provider_registry(settings: Settings, image_store: LocalImageStore) -> ProviderRegistry:
-    common = {
-        "image_store": image_store,
-        "timeout_seconds": settings.ai_timeout_seconds,
-        "max_attempts": settings.ai_max_attempts,
-    }
     return ProviderRegistry(settings.ai_provider, {
         "mock": MockVisionProvider(),
         "qwen": QwenProvider(
-            **common, api_key=settings.qwen_api_key, base_url=settings.qwen_base_url,
+            image_store=image_store,
+            timeout_seconds=settings.ai_timeout_seconds,
+            max_attempts=settings.ai_max_attempts,
+            api_key=settings.qwen_api_key, base_url=settings.qwen_base_url,
             model=settings.qwen_model,
         ),
         "gemini": GeminiProvider(
-            **common, api_key=settings.gemini_api_key, base_url=settings.gemini_base_url,
+            image_store=image_store,
+            timeout_seconds=settings.ai_timeout_seconds,
+            max_attempts=settings.ai_max_attempts,
+            api_key=settings.gemini_api_key, base_url=settings.gemini_base_url,
             model=settings.gemini_model,
         ),
     }, settings.enabled_ai_providers)

@@ -1,4 +1,4 @@
-"""Stage-14 garment scope and independently auditable acceptance states."""
+"""Garment scope and independently auditable release acceptance states."""
 
 from __future__ import annotations
 
@@ -93,11 +93,51 @@ GARMENT_CATALOGUE: dict[str, dict[str, Any]] = {
 def garment_catalogue() -> list[dict[str, Any]]:
     """Return a defensive copy so HTTP consumers cannot mutate engine policy."""
 
-    return [deepcopy(item) for item in GARMENT_CATALOGUE.values()]
+    return [_with_release_policy(item) for item in GARMENT_CATALOGUE.values()]
 
 
 def garment_acceptance(garment_type: str) -> dict[str, Any]:
     try:
-        return deepcopy(GARMENT_CATALOGUE[garment_type])
+        return _with_release_policy(GARMENT_CATALOGUE[garment_type])
     except KeyError as error:
         raise ValueError(f"Неизвестный тип изделия: {garment_type}") from error
+
+
+def _with_release_policy(item: dict[str, Any]) -> dict[str, Any]:
+    """Derive the production flag instead of trusting a manually edited boolean."""
+
+    result = deepcopy(item)
+    result["production_allowed"] = all((
+        result["formula_status"] == "implemented",
+        result["reference_status"] == "automated_passed",
+        result["invariant_status"] == "automated_passed",
+        result["paper_status"] == "passed",
+        result["expert_status"] == "passed",
+        result["toile_status"] == "passed",
+    ))
+    return result
+
+
+def release_gate() -> dict[str, Any]:
+    """Return the single fail-closed production policy used by API and tests."""
+
+    items = garment_catalogue()
+    ready = [item["garment_type"] for item in items if item["production_allowed"]]
+    blocked = [{
+        "garment_type": item["garment_type"],
+        "missing_gates": [
+            name for name, passed in (
+                ("paper", item["paper_status"] == "passed"),
+                ("expert", item["expert_status"] == "passed"),
+                ("toile", item["toile_status"] == "passed"),
+            ) if not passed
+        ],
+    } for item in items if not item["production_allowed"]]
+    return {
+        "stage": 15,
+        "status": "ready" if not blocked else "blocked",
+        "production_ready": not blocked,
+        "policy": "paper + expert + toile verification are required per garment",
+        "ready_garments": ready,
+        "blocked_garments": blocked,
+    }

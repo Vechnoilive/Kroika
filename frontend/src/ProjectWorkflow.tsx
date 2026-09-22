@@ -186,7 +186,7 @@ export function StyleEditor({
       {suggestedUnsupported.length > 0 && (
         <div className="notice notice--warning">
           <strong>Анализ изображения нужно сверить</strong>
-          <span>{suggestedUnsupported.join(', ')}. Ниже доступны только ограниченные варианты этапа 14; выбранные замены показаны явно.</span>
+          <span>{suggestedUnsupported.join(', ')}. Ниже доступны только проверяемые варианты текущего каталога; выбранные замены показаны явно.</span>
         </div>
       )}
 

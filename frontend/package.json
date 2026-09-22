@@ -1,7 +1,7 @@
 {
   "name": "kroika-frontend",
   "private": true,
-  "version": "0.14.0",
+  "version": "0.15.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,12 +12,14 @@
     "test:stage12": "vitest run src/Stage12Garments.test.tsx",
     "test:stage13": "vitest run src/Stage13Jacket.test.tsx",
     "test:stage14": "vitest run src/Stage14LowerGarments.test.tsx",
+    "test:stage15": "vitest run src/Stage15Accessibility.test.tsx",
     "e2e": "playwright test --grep-invert @qwen-live",
     "e2e:stage12": "playwright test e2e/stage12-garments.spec.ts",
     "e2e:stage13": "playwright test e2e/stage13-jacket.spec.ts",
     "e2e:stage14": "playwright test e2e/stage14-lower-garments.spec.ts",
     "e2e:qwen": "playwright test --grep @qwen-live",
-    "typecheck": "tsc -b --pretty false"
+    "typecheck": "tsc -b --pretty false",
+    "audit:dependencies": "npm audit --audit-level=high"
   },
   "dependencies": {
     "react": "19.3.0",
@@ -31,6 +33,7 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.1",
+    "axe-core": "4.13.0",
     "jsdom": "30.0.1",
     "typescript": "7.0.2",
     "vite": "8.3.0",

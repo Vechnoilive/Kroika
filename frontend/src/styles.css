@@ -71,7 +71,7 @@ button:disabled { cursor: not-allowed; }
 .action-card input:focus { border-color: var(--peach); box-shadow: 0 0 0 4px rgba(239, 143, 119, .15); }
 .primary-button { width: 100%; min-height: 52px; display: flex; align-items: center; justify-content: space-between; margin-top: 13px; padding: 0 18px; border: 0; border-radius: 12px; background: var(--ink); color: white; font-size: 13px; font-weight: 700; transition: transform .18s ease, background .18s ease; }
 .primary-button:hover:not(:disabled) { transform: translateY(-1px); background: #443849; }
-.primary-button:focus-visible, .secondary-button:focus-visible, .text-button:focus-visible, .project-list button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid rgba(185, 75, 61, .35); outline-offset: 3px; }
+.primary-button:focus-visible, .secondary-button:focus-visible, .text-button:focus-visible, .project-list button:focus-visible, a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid rgba(185, 75, 61, .55); outline-offset: 3px; }
 .primary-button:disabled { opacity: .55; }
 .action-card .demo-warning { margin: 12px 0 0; color: #8b644f; font-size: 11px; }
 

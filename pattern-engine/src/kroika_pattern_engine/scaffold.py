@@ -1,4 +1,4 @@
-"""Stage-14 deterministic multi-garment generator boundary."""
+"""Deterministic multi-garment generator boundary."""
 
 from __future__ import annotations
 
@@ -10,7 +10,10 @@ from uuid import NAMESPACE_URL, uuid5
 from .assembly import assemble_garment
 from .allowances import apply_seam_allowances
 from .blocks import (
+    BaseBlockSet,
     BlockConstructionError,
+    SkirtBlockSet,
+    TrouserBlockSet,
     build_base_blocks,
     build_skirt_blocks,
     build_trouser_blocks,
@@ -27,7 +30,7 @@ class GeometryPatternEngine:
     """Build a bounded experimental garment and return an auditable report."""
 
     engine_id = "kroika-geometry"
-    engine_version = "0.8.0"
+    engine_version = "0.8.1"
 
     def __init__(self, clock: Callable[[], datetime] = _utc_now):
         self._clock = clock
@@ -59,6 +62,7 @@ class GeometryPatternEngine:
         acceptance = garment_acceptance(garment_type)
 
         try:
+            blocks: BaseBlockSet | SkirtBlockSet | TrouserBlockSet
             if garment_type == "skirt":
                 blocks = build_skirt_blocks(request)
             elif garment_type in {"trousers", "shorts"}:

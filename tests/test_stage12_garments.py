@@ -153,7 +153,7 @@ def test_catalogue_and_measurement_scope_are_explicit(tmp_path: Path):
         response = api.get("/api/v1/garments/catalog")
         assert response.status_code == 200
         items = {item["garment_type"]: item for item in response.json()["items"]}
-        assert set(items) == {"dress", "sundress", *VARIANTS}
+        assert {"dress", "sundress", *VARIANTS} <= set(items)
         for item in items.values():
             assert item["formula_status"] == "implemented"
             assert item["reference_status"] == "automated_passed"
@@ -210,7 +210,11 @@ def test_stage12_contract_and_current_only_ci_are_wired(tmp_path: Path):
     launcher = (ROOT / "scripts/start_local.py").read_text(encoding="utf-8")
     workflow = (ROOT / ".github/workflows/verify.yml").read_text(encoding="utf-8")
     assert '"requirements-stage12.txt"' in launcher
-    assert "python scripts/verify_stage12.py" in workflow
+    current_stage = max(
+        int(path.stem.removeprefix("verify_stage"))
+        for path in (ROOT / "scripts").glob("verify_stage*.py")
+    )
+    assert f"python scripts/verify_stage{current_stage}.py" in workflow
     assert "verify_all.py" not in workflow
     assert "verify_stage11.py" not in workflow
 

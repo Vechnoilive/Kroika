@@ -434,7 +434,7 @@ export default function App() {
         </aside>
 
         <section className="content">
-          <div className="stage-badge">Qwen · 10 типов изделий · этап 14 из 15</div>
+          <div className="stage-badge">Qwen · 10 типов изделий · этап 15 из 15</div>
           {!project ? (
             <>
               <div className="intro"><p className="eyebrow">Начнём спокойно</p><h1>Создадим выкройку<br /><em>последовательно</em></h1><p>Каждый шаг сохраняется. Никакие мерки не угадываются, а результат AI всегда подтверждает человек.</p></div>
