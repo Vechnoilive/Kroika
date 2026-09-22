@@ -9,9 +9,23 @@ export function MeasurementGuide({variant, label}: {variant: string; label: stri
     <figure className="measurement-guide">
       <svg viewBox="0 0 220 270" role="img" aria-labelledby="measurement-guide-title">
         <title id="measurement-guide-title">Схема: {label}</title>
-        <circle className="guide-body" cx="110" cy="31" r="20" />
-        <path className="guide-body" d="M81 61 Q110 49 139 61 L151 151 Q145 211 139 250 M81 61 L69 151 Q75 211 81 250 M90 60 Q83 105 86 157 L77 249 M130 60 Q137 105 134 157 L143 249" />
-        <path className="guide-body" d="M82 68 L48 151 M138 68 L172 151" />
+        <circle className="guide-body guide-body--head" cx="110" cy="30" r="18" />
+        <path
+          className="guide-body guide-body--shape"
+          d="M97 51 L95 61 L82 67 C86 88 85 111 79 135 C78 147 83 158 94 168 L88 250 L100 250 L110 177 L120 250 L132 250 L126 168 C137 158 142 147 141 135 C135 111 134 88 138 67 L125 61 L123 51 C119 56 115 58 110 58 C105 58 101 56 97 51 Z"
+        />
+        <path className="guide-body guide-body--limb" d="M82 67 C72 91 61 120 48 151" />
+        <path
+          className="guide-body guide-body--limb guide-body--mirror"
+          d="M82 67 C72 91 61 120 48 151"
+          transform="translate(220 0) scale(-1 1)"
+        />
+        <path className="guide-body guide-body--leg" d="M100 169 C98 197 95 224 94 250" />
+        <path
+          className="guide-body guide-body--leg guide-body--mirror"
+          d="M100 169 C98 197 95 224 94 250"
+          transform="translate(220 0) scale(-1 1)"
+        />
         {isCircumference && (
           <>
             <ellipse className="guide-measure" cx="110" cy={level} rx={level > 120 ? 38 : 33} ry="9" />
