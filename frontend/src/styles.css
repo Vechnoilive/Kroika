@@ -42,13 +42,13 @@ button:disabled { cursor: not-allowed; }
 .journey h2 { margin: 0 0 28px; font: 23px/1.35 'Prata', Georgia, serif; }
 .journey ol { list-style: none; padding: 0; margin: 0; position: relative; }
 .journey ol::before { content: ''; position: absolute; left: 17px; top: 24px; bottom: 24px; width: 1px; background: var(--line); }
-.step { min-height: 56px; position: relative; display: flex; align-items: center; gap: 14px; color: #a69da7; font-size: 13px; font-weight: 600; }
+.step { min-height: 56px; position: relative; display: flex; align-items: center; gap: 14px; color: var(--muted); font-size: 13px; font-weight: 600; }
 .step__number { width: 35px; height: 35px; z-index: 1; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: var(--paper); font-size: 11px; }
 .step--active { color: var(--ink); }
 .step--active .step__number { border-color: var(--peach); background: var(--peach); color: white; box-shadow: 0 0 0 5px #fcebe5; }
 .step--done { color: var(--green); }
 .step--done .step__number { border-color: #8cbda9; color: var(--green); }
-.privacy-note { display: flex; gap: 11px; margin-top: 35px; padding: 16px; border-radius: 16px; background: #f2eee9; color: var(--muted); }
+.privacy-note { display: flex; gap: 11px; margin-top: 35px; padding: 16px; border-radius: 16px; background: #f2eee9; color: #675d69; }
 .privacy-note > span { color: var(--green); font-size: 18px; }
 .privacy-note p { display: grid; gap: 4px; margin: 0; font-size: 11px; line-height: 1.5; }
 .privacy-note strong { color: var(--ink); font-size: 12px; }
