@@ -1,4 +1,4 @@
-"""FastAPI composition root for the stage-15 validated multi-garment workflow."""
+"""FastAPI composition root for the stage-16 design-aware workflow."""
 
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ from .models import (
 from .repository import SQLiteRepository
 from .vision_providers import ProviderRegistry, build_provider_registry
 
-APP_VERSION = "0.15.0"
+APP_VERSION = "0.16.0"
 
 
 def _project_or_404(repository: SQLiteRepository, project_id: str) -> dict[str, Any]:

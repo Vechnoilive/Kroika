@@ -53,6 +53,38 @@ _DEMO_ANALYSIS: dict[str, Any] = {
         "Есть ли сзади талиевые вытачки?",
     ],
     "unsupported_features": [],
+    "design_features": {
+        "elements": [{
+            "element_id": "front_darts",
+            "type": "dart",
+            "variant": "standard",
+            "description_ru": "Нагрудные и талиевые вытачки переда.",
+            "location": "bodice_front",
+            "construction": "integrated",
+            "count": 2,
+            "symmetry": "symmetric",
+            "confidence": 0.78,
+            "evidence_ru": "На демонстрационном виде показаны линии вытачек переда.",
+            "requires_confirmation": False,
+        }],
+        "layers": [{
+            "layer_id": "main_fabric",
+            "role": "main",
+            "coverage": "full",
+            "material_hint_ru": "Основная ткань средней плотности.",
+            "opacity": "opaque",
+            "drape": "medium",
+            "confidence": 0.72,
+            "requires_confirmation": False,
+        }],
+        "proportions": {
+            "waist_position": "natural",
+            "volume": "regular",
+            "hem_shape": "straight",
+            "asymmetry": "no",
+            "confidence": 0.84,
+        },
+    },
 }
 
 

@@ -204,11 +204,20 @@ export const api = {
         image_refs: imageRefs,
         supported_garment_categories: [
           'dress', 'sundress', 'skirt', 'top', 'blouse', 'shirt', 'vest', 'jacket',
+          'trousers', 'shorts',
         ],
         supported_features: {
           neckline: ['round', 'v', 'square'],
           sleeve: ['sleeveless', 'short', 'long'],
           skirt: ['straight', 'a_line'],
+          trousers: ['natural_waist', 'straight_leg', 'slash_pocket', 'front_fly'],
+          design_elements: [
+            'waistband', 'belt', 'sash', 'pleat', 'tuck', 'gather', 'ruffle',
+            'flounce', 'peplum', 'yoke', 'panel', 'overlay', 'drape', 'pocket',
+            'closure', 'slit', 'vent', 'hood', 'collar', 'cuff', 'strap', 'dart',
+            'princess_seam', 'decorative_seam', 'other',
+          ],
+          layers: ['main', 'lining', 'interfacing', 'overlay'],
         },
         image_transmission_confirmed: true,
       }),

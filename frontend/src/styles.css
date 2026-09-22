@@ -42,7 +42,10 @@ button:disabled { cursor: not-allowed; }
 .journey h2 { margin: 0 0 28px; font: 23px/1.35 'Prata', Georgia, serif; }
 .journey ol { list-style: none; padding: 0; margin: 0; position: relative; }
 .journey ol::before { content: ''; position: absolute; left: 17px; top: 24px; bottom: 24px; width: 1px; background: var(--line); }
-.step { min-height: 56px; position: relative; display: flex; align-items: center; gap: 14px; color: var(--muted); font-size: 13px; font-weight: 600; }
+.step { min-height: 56px; position: relative; color: var(--muted); font-size: 13px; font-weight: 600; }
+.step > button, .step__content { width: 100%; min-height: 56px; display: flex; align-items: center; gap: 14px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; }
+.step > button { border-radius: 10px; cursor: pointer; }
+.step > button:hover { color: var(--ink); }
 .step__number { width: 35px; height: 35px; z-index: 1; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: var(--paper); font-size: 11px; }
 .step--active { color: var(--ink); }
 .step--active .step__number { border-color: var(--peach); background: var(--peach); color: white; box-shadow: 0 0 0 5px #fcebe5; }
@@ -84,6 +87,9 @@ button:disabled { cursor: not-allowed; }
 .project-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 24px; }
 .project-heading h1 { font-size: clamp(34px, 5vw, 52px); overflow-wrap: anywhere; }
 .text-button { min-height: 44px; padding: 0 14px; border: 1px solid var(--line); border-radius: 12px; background: transparent; color: var(--muted); }
+.workflow-navigation { max-width: 900px; display: flex; justify-content: space-between; gap: 12px; margin: -8px 0 18px; }
+.workflow-navigation button { min-height: 42px; padding: 0 13px; border: 1px solid var(--line); border-radius: 11px; background: rgba(255,255,255,.72); color: var(--violet); font-size: 11px; font-weight: 700; }
+.workflow-navigation button:hover { border-color: var(--violet); background: white; }
 
 .mock-preview { min-height: 260px; display: grid; place-items: center; padding: 15px; margin-bottom: 18px; border: 1px dashed #d9c8c0; border-radius: 18px; background: #fff8f3; color: var(--muted); font-size: 11px; }
 .mock-preview svg { width: 180px; height: 190px; }
@@ -208,7 +214,8 @@ footer { min-height: 56px; display: flex; align-items: center; justify-content: 
   .journey { order: 2; padding: 24px; border: 1px solid var(--line); border-radius: 22px; background: rgba(255,255,255,.55); }
   .journey ol { display: grid; grid-template-columns: repeat(7, 1fr); }
   .journey ol::before { left: 6%; right: 6%; top: 17px; bottom: auto; width: auto; height: 1px; }
-  .step { min-height: auto; display: grid; justify-items: center; align-content: start; gap: 8px; text-align: center; font-size: 10px; }
+  .step { min-height: auto; text-align: center; font-size: 10px; }
+  .step > button, .step__content { min-height: auto; display: grid; justify-items: center; align-content: start; gap: 8px; text-align: center; }
   .privacy-note { display: none; }
   .stage-badge { margin-left: 0; }
 }
@@ -314,6 +321,22 @@ footer { min-height: 56px; display: flex; align-items: center; justify-content: 
 .locked-features div { display: grid; gap: 4px; padding: 14px; border-radius: 13px; background: #f3f0ed; }
 .locked-features strong { font-size: 12px; }
 .locked-features span { color: var(--muted); font-size: 10px; line-height: 1.4; }
+.design-intent { display: grid; gap: 14px; padding: 20px; border: 1px solid #ddd3e4; border-radius: 18px; background: #fbf8fc; }
+.design-intent__heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; }
+.design-intent__heading h3 { margin: 0; font: 21px 'Prata', Georgia, serif; font-weight: 400; }
+.design-intent > p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.design-intent__status { flex: 0 0 auto; padding: 6px 9px; border-radius: 99px; font-size: 9px; font-weight: 700; }
+.design-intent__status--ready { background: #e2f2eb; color: #285f4d; }
+.design-intent__status--partial, .design-intent__status--needs_confirmation { background: #fff0d1; color: #70552c; }
+.design-element-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.design-element-list li { min-height: 64px; display: grid; grid-template-columns: 12px 1fr auto; gap: 11px; align-items: center; padding: 11px 13px; border-radius: 12px; background: white; }
+.design-element-list li > span:nth-child(2) { display: grid; gap: 3px; }
+.design-element-list strong { font-size: 12px; }
+.design-element-list small { color: var(--muted); font-size: 10px; line-height: 1.4; }
+.design-element-list em { color: var(--muted); font-size: 9px; font-style: normal; font-weight: 700; }
+.design-element-marker { width: 9px; height: 9px; border-radius: 50%; background: #d3a34f; }
+.design-element-marker--supported { background: var(--green); }
+.design-element-marker--needs_confirmation { background: var(--peach-dark); }
 .number-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .compact-number { min-width: 0; display: grid; gap: 6px; color: var(--ink); font-size: 11px; font-weight: 700; }
 .compact-number > span:nth-child(2) { display: grid; grid-template-columns: 1fr 45px; overflow: hidden; border: 1px solid #d8ccc6; border-radius: 11px; background: white; }
@@ -359,6 +382,10 @@ footer { min-height: 56px; display: flex; align-items: center; justify-content: 
   .workflow-card { padding: 22px 16px; }
   .workflow-card__header { grid-template-columns: 1fr; }
   .locked-features, .number-grid, .form-grid { grid-template-columns: 1fr; }
+  .workflow-navigation, .design-intent__heading { align-items: stretch; flex-direction: column; }
+  .design-intent__status { width: fit-content; }
+  .design-element-list li { grid-template-columns: 12px 1fr; }
+  .design-element-list em { grid-column: 2; }
   .history-panel li { align-items: flex-start; flex-direction: column; }
   .export-actions--three { grid-template-columns: 1fr; }
 }

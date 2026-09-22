@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kroika.local/schemas/v1/garment-design-intent.schema.json",
+  "title": "Human-reviewable garment design intent v1",
+  "description": "Конструктивный план фасона между визуальным анализом и проверенными модулями выкройки.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source", "status", "elements", "layers", "proportions", "pending_questions"],
+  "properties": {
+    "schema_version": {"$ref": "common.schema.json#/$defs/schema_version"},
+    "source": {"type": "string", "enum": ["ai", "manual"]},
+    "status": {"type": "string", "enum": ["ready", "partial", "needs_confirmation"]},
+    "elements": {
+      "type": "array",
+      "maxItems": 24,
+      "items": {"$ref": "#/$defs/intent_element"}
+    },
+    "layers": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 6,
+      "items": {"$ref": "#/$defs/intent_layer"}
+    },
+    "proportions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["waist_position", "volume", "hem_shape", "asymmetry", "confidence", "support_status", "module_id"],
+      "properties": {
+        "waist_position": {"type": "string", "enum": ["low", "natural", "high", "unknown"]},
+        "volume": {"type": "string", "enum": ["fitted", "regular", "relaxed", "voluminous", "unknown"]},
+        "hem_shape": {"type": "string", "enum": ["straight", "curved", "asymmetric", "tiered", "unknown"]},
+        "asymmetry": {"type": "string", "enum": ["yes", "no", "unknown"]},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "support_status": {"$ref": "#/$defs/support_status"},
+        "module_id": {"$ref": "#/$defs/module_id"}
+      },
+      "allOf": [{
+        "if": {"properties": {"support_status": {"const": "supported"}}, "required": ["support_status"]},
+        "then": {"properties": {"module_id": {"type": "string"}}},
+        "else": {"properties": {"module_id": {"type": "null"}}}
+      }]
+    },
+    "pending_questions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 500}
+    }
+  },
+  "$defs": {
+    "support_status": {"type": "string", "enum": ["supported", "planned", "needs_confirmation"]},
+    "module_id": {
+      "anyOf": [
+        {"type": "string", "pattern": "^[a-z][a-z0-9_-]{1,79}$"},
+        {"type": "null"}
+      ]
+    },
+    "intent_element": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_element_id", "type", "variant", "description_ru", "location", "construction", "count", "symmetry", "confidence", "evidence_ru", "requires_confirmation", "support_status", "module_id"],
+      "properties": {
+        "source_element_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{1,63}$"},
+        "type": {"type": "string", "enum": ["waistband", "belt", "sash", "pleat", "tuck", "gather", "ruffle", "flounce", "peplum", "yoke", "panel", "overlay", "drape", "pocket", "closure", "slit", "vent", "hood", "collar", "cuff", "strap", "dart", "princess_seam", "decorative_seam", "other"]},
+        "variant": {"type": "string", "enum": ["standard", "straight", "shaped", "elastic", "tie", "knife", "box", "inverted", "accordion", "soft", "circular", "gathered", "patch", "slash", "welt", "zipper", "buttons", "hooks", "concealed", "single", "double", "shirt", "notched", "shawl", "stand", "other", "unknown"]},
+        "description_ru": {"type": "string", "minLength": 1, "maxLength": 240},
+        "location": {"type": "string", "enum": ["bodice_front", "bodice_back", "neckline", "shoulder", "waist", "skirt_front", "skirt_back", "trouser_front", "trouser_back", "sleeve", "hem", "full_garment", "unknown"]},
+        "construction": {"type": "string", "enum": ["integrated", "separate_piece", "applied", "layered", "unknown"]},
+        "count": {"type": ["integer", "null"], "minimum": 1, "maximum": 32},
+        "symmetry": {"type": "string", "enum": ["symmetric", "asymmetric", "single", "unknown"]},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "evidence_ru": {"type": "string", "minLength": 1, "maxLength": 500},
+        "requires_confirmation": {"type": "boolean"},
+        "support_status": {"$ref": "#/$defs/support_status"},
+        "module_id": {"$ref": "#/$defs/module_id"}
+      },
+      "allOf": [{
+        "if": {"properties": {"support_status": {"const": "supported"}}, "required": ["support_status"]},
+        "then": {"properties": {"module_id": {"type": "string"}}},
+        "else": {"properties": {"module_id": {"type": "null"}}}
+      }]
+    },
+    "intent_layer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_layer_id", "role", "coverage", "material_hint_ru", "opacity", "drape", "confidence", "requires_confirmation", "support_status", "module_id"],
+      "properties": {
+        "source_layer_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{1,63}$"},
+        "role": {"type": "string", "enum": ["main", "lining", "interfacing", "overlay"]},
+        "coverage": {"type": "string", "enum": ["full", "bodice", "skirt", "sleeves", "detail", "unknown"]},
+        "material_hint_ru": {"type": "string", "minLength": 1, "maxLength": 160},
+        "opacity": {"type": "string", "enum": ["opaque", "semi_transparent", "transparent", "unknown"]},
+        "drape": {"type": "string", "enum": ["crisp", "medium", "fluid", "unknown"]},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "requires_confirmation": {"type": "boolean"},
+        "support_status": {"$ref": "#/$defs/support_status"},
+        "module_id": {"$ref": "#/$defs/module_id"}
+      },
+      "allOf": [{
+        "if": {"properties": {"support_status": {"const": "supported"}}, "required": ["support_status"]},
+        "then": {"properties": {"module_id": {"type": "string"}}},
+        "else": {"properties": {"module_id": {"type": "null"}}}
+      }]
+    }
+  }
+}

@@ -52,7 +52,7 @@ docker compose down
 
 ## Проверка текущего этапа
 
-После подготовки окружения выполните `.venv/bin/python scripts/verify_stage15.py` на macOS/Linux или `.venv\Scripts\python.exe scripts\verify_stage15.py` в Windows PowerShell.
+Для проверки только текущего этапа выполните `.venv/bin/python scripts/verify_stage16.py` на macOS/Linux или `.venv\Scripts\python.exe scripts\verify_stage16.py` в Windows PowerShell. Исторические проверки этой командой не запускаются.
 
 Команда проверяет release policy, приватность, backup/recovery, производительность, accessibility, безопасность и зависимости, затем собирает frontend и запускает все mock E2E. Общая историческая регрессия этапов 2–15 доступна через `scripts/verify_all.py`.
 

@@ -1,6 +1,7 @@
 import {FormEvent, useEffect, useState} from 'react';
 import {api, ApiError} from './api';
 import {configureGarment, easeForGarment, GARMENT_OPTIONS, methodForGarment, presetForGarment} from './garments';
+import {buildDesignIntent, DESIGN_ELEMENT_NAMES} from './designIntent';
 import type {
   FabricProperties,
   FitSettings,
@@ -86,8 +87,24 @@ export function StyleEditor({
     }});
   }
 
+  function selectGarment(garmentType: GarmentType) {
+    const configured = configureGarment(spec, garmentType);
+    setSpec({...configured, design_intent: buildDesignIntent(analysis, configured)});
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (spec.design_intent && spec.design_intent.status !== 'ready') {
+      const unresolved = [
+        ...spec.design_intent.elements,
+        ...spec.design_intent.layers,
+        spec.design_intent.proportions,
+      ].filter((item) => item.support_status !== 'supported');
+      setError(
+        `Нельзя подтвердить точный фасон: ${unresolved.length} ${unresolved.length === 1 ? 'деталь ещё не перенесена' : 'детали ещё не перенесены'} в математический движок. Проверьте список выше.`,
+      );
+      return;
+    }
     const {neckline, skirt, upper, sleeve, closure, trousers} = spec.parameters;
     const skirtBased = ['dress', 'sundress', 'skirt'].includes(spec.garment_type);
     const upperOnly = ['top', 'blouse', 'shirt', 'vest', 'jacket'].includes(spec.garment_type);
@@ -194,7 +211,7 @@ export function StyleEditor({
         <legend>Что строим?</legend>
         {GARMENT_OPTIONS.map((item) => (
           <label key={item.id}>
-            <input type="radio" checked={spec.garment_type === item.id} onChange={() => setSpec(configureGarment(spec, item.id))} />
+            <input type="radio" checked={spec.garment_type === item.id} onChange={() => selectGarment(item.id)} />
             <span><strong>{item.name}</strong><small>{item.short}</small></span>
           </label>
         ))}
@@ -209,6 +226,68 @@ export function StyleEditor({
       <div className="locked-features" aria-label="Зафиксированные поддержанные элементы">
         {features[spec.garment_type].map(([title, detail]) => <div key={title}><strong>{title}</strong><span>{detail}</span></div>)}
       </div>
+
+      {spec.design_intent && (
+        <section className="design-intent" aria-labelledby="design-intent-title">
+          <div className="design-intent__heading">
+            <div>
+              <p className="eyebrow">Разбор фотографии</p>
+              <h3 id="design-intent-title">Конструктивные элементы фасона</h3>
+            </div>
+            <span className={`design-intent__status design-intent__status--${spec.design_intent.status}`}>
+              {spec.design_intent.status === 'ready' ? 'Все элементы поддержаны'
+                : spec.design_intent.status === 'partial' ? 'Нужны новые модули'
+                  : 'Нужно уточнение'}
+            </span>
+          </div>
+          <p>Модель перечисляет детали отдельно. Зелёные элементы уже связаны с проверяемым модулем; остальные не будут молча отброшены.</p>
+          <ul className="design-element-list">
+            {spec.design_intent.elements.map((item) => (
+              <li key={item.source_element_id}>
+                <span className={`design-element-marker design-element-marker--${item.support_status}`} aria-hidden="true" />
+                <span>
+                  <strong>{DESIGN_ELEMENT_NAMES[item.type]}</strong>
+                  <small>{item.description_ru}</small>
+                  <small>{item.evidence_ru}</small>
+                </span>
+                <em>{item.support_status === 'supported' ? 'Будет учтено'
+                  : item.support_status === 'planned' ? 'Модуль не готов'
+                    : 'Нужно подтвердить'}</em>
+              </li>
+            ))}
+            {spec.design_intent.layers.map((item) => (
+              <li key={item.source_layer_id}>
+                <span className={`design-element-marker design-element-marker--${item.support_status}`} aria-hidden="true" />
+                <span>
+                  <strong>{item.role === 'main' ? 'Основной слой'
+                    : item.role === 'overlay' ? 'Накладной слой'
+                      : item.role === 'lining' ? 'Подкладка' : 'Прокладка'}</strong>
+                  <small>{item.material_hint_ru}</small>
+                </span>
+                <em>{item.support_status === 'supported' ? 'Будет учтено'
+                  : item.support_status === 'planned' ? 'Модуль не готов'
+                    : 'Нужно подтвердить'}</em>
+              </li>
+            ))}
+            <li>
+              <span className={`design-element-marker design-element-marker--${spec.design_intent.proportions.support_status}`} aria-hidden="true" />
+              <span>
+                <strong>Пропорции и асимметрия</strong>
+                <small>Талия: {spec.design_intent.proportions.waist_position}; объём: {spec.design_intent.proportions.volume}; низ: {spec.design_intent.proportions.hem_shape}; асимметрия: {spec.design_intent.proportions.asymmetry}.</small>
+              </span>
+              <em>{spec.design_intent.proportions.support_status === 'supported' ? 'Будет учтено'
+                : spec.design_intent.proportions.support_status === 'planned' ? 'Модуль не готов'
+                  : 'Нужно подтвердить'}</em>
+            </li>
+          </ul>
+          {spec.design_intent.status !== 'ready' && (
+            <div className="notice notice--warning">
+              <strong>Точная выкройка пока заблокирована</strong>
+              <span>Элементы сохранены в проекте, но продолжать с базовым шаблоном под видом исходного фасона нельзя.</span>
+            </div>
+          )}
+        </section>
+      )}
 
       <div className="notice notice--warning">
         <strong>{selectedAcceptance?.name_ru ?? GARMENT_OPTIONS.find((item) => item.id === spec.garment_type)?.name}: пробный статус</strong>

@@ -86,8 +86,58 @@ def validate_ai_analysis(analysis: Mapping[str, Any]) -> None:
         if not analysis['uncertainties'] and not analysis['targeted_questions']:
             _add(issues, 'AI_MISSING_CLARIFICATION', '/uncertainties',
                  'Нужно объяснить неопределённость или задать уточняющий вопрос.')
+    design = analysis.get('design_features')
+    if isinstance(design, Mapping):
+        element_ids = [item['element_id'] for item in design['elements']]
+        layer_ids = [item['layer_id'] for item in design['layers']]
+        if len(element_ids) != len(set(element_ids)):
+            _add(issues, 'AI_DESIGN_ELEMENT_ID_DUPLICATE', '/design_features/elements',
+                 'Каждая найденная деталь должна иметь отдельный element_id.')
+        if len(layer_ids) != len(set(layer_ids)):
+            _add(issues, 'AI_DESIGN_LAYER_ID_DUPLICATE', '/design_features/layers',
+                 'Каждый слой изделия должен иметь отдельный layer_id.')
+        if sum(item['role'] == 'main' for item in design['layers']) != 1:
+            _add(issues, 'AI_DESIGN_MAIN_LAYER_COUNT', '/design_features/layers',
+                 'В визуальном разборе должен быть ровно один основной слой.')
+        uncertain_features = [
+            item for group in ('elements', 'layers') for item in design[group]
+            if item['requires_confirmation']
+        ]
+        if uncertain_features and not analysis['targeted_questions']:
+            _add(issues, 'AI_DESIGN_QUESTION_MISSING', '/targeted_questions',
+                 'Для сомнительной детали или слоя нужен точный вопрос пользователю.')
     if issues:
         raise SemanticContractError(issues)
+
+
+def _validate_design_intent(
+    spec: Mapping[str, Any], issues: list[SemanticIssue], *, require_ready: bool,
+) -> None:
+    intent = spec.get('design_intent')
+    if not isinstance(intent, Mapping):
+        return
+    statuses = [
+        item['support_status']
+        for group in ('elements', 'layers')
+        for item in intent[group]
+    ]
+    statuses.append(intent['proportions']['support_status'])
+    expected = (
+        'needs_confirmation' if 'needs_confirmation' in statuses
+        else 'partial' if 'planned' in statuses
+        else 'ready'
+    )
+    if intent['status'] != expected:
+        _add(issues, 'DESIGN_INTENT_STATUS_MISMATCH', '/garment_spec/design_intent/status',
+             'Статус конструктивного плана не соответствует состоянию его элементов.')
+    if require_ready and expected != 'ready':
+        _add(
+            issues,
+            'GARMENT_DESIGN_NOT_COMPILED',
+            '/garment_spec/design_intent',
+            'В фасоне есть неподтверждённые или ещё не реализованные детали. '
+            'Их нельзя молча исключить из итоговой выкройки.',
+        )
 
 
 def validate_engine_request(request: Mapping[str, Any]) -> None:
@@ -104,6 +154,7 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
              'Доли прибавки переда и спинки должны в сумме давать 1.')
 
     spec = request['garment_spec']
+    _validate_design_intent(spec, issues, require_ready=True)
     issues.extend(_measurement_issues(
         request['body_measurements'], spec['garment_type'], spec['parameters']['sleeve']['type'],
     ))
@@ -283,6 +334,10 @@ def validate_project(project: Mapping[str, Any]) -> None:
         )
         if item.severity == 'blocking_error'
     ]
+    _validate_design_intent(
+        project['garment_spec'], issues,
+        require_ready=project['garment_spec']['selection_status'] == 'confirmed',
+    )
     if project['status'] != 'draft' and project['body_measurements']['status'] != 'ready':
         _add(
             issues, 'PROJECT_MEASUREMENTS_NOT_READY', '/body_measurements/status',

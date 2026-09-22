@@ -23,6 +23,13 @@ JPEG, PNG и WebP до 10 МБ проверяются по фактическо�
 припуски и геометрию. Для невидимого признака требуются `unknown`/`uncertain`,
 пониженная уверенность, неопределённость и точный вопрос на русском.
 
+С этапа 16 новый ответ обязан содержать `design_features`: отдельные элементы фасона
+(пояс, складка, волан, панель, драпировка, карман и т. п.), слои ткани и визуальные
+пропорции. Для каждой детали сохраняются расположение, способ соединения, уверенность и
+доказательство на изображении. Поле остаётся необязательным только в канонической схеме
+хранения, чтобы ранее сохранённые проекты продолжали открываться; provider schema требует
+его для каждого нового внешнего ответа.
+
 Qwen вызывается через официальный OpenAI-compatible vision endpoint с multimodal
 `image_url`. Gemini использует официальный `interactions` REST API с inline base64 и
 JSON-режимом; для приватности запрос задаёт `store=false`. Полная каноническая схема
@@ -33,6 +40,8 @@ JSON-режимом; для приватности запрос задаёт `st
 1. JSON-разбор без `NaN`/`Infinity`, лишнего текста и ответов больше 256 КБ.
 2. Проверку `ai-style-analysis.schema.json`, включая enum и запрет лишних полей.
 3. Semantic validation против взаимоисключающих признаков и бездоказательного `ok`.
+4. Проверку уникальных ID деталей, ровно одного основного слоя и вопроса для каждой
+   сомнительной конструктивной особенности.
 
 Официальные основания реализации: [Qwen VL OpenAI-compatible vision](https://www.alibabacloud.com/help/en/model-studio/qwen-vl-compatible-with-openai), [Gemini Interactions и retention](https://ai.google.dev/gemini-api/docs/interactions-overview), [Gemini image input](https://ai.google.dev/gemini-api/docs/image-understanding), [Gemini structured output](https://ai.google.dev/gemini-api/docs/structured-output) и [доступные регионы Gemini](https://ai.google.dev/gemini-api/docs/available-regions). Региональные ограничения не обходятся; Qwen key и endpoint должны принадлежать одному региону.
 

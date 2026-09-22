@@ -13,6 +13,11 @@ COMMON_SYSTEM_PROMPT = """Ты — ассистент конструктора �
 Анализируй только видимые конструктивные признаки одежды на приложенных изображениях.
 Никогда не оценивай и не выдумывай мерки тела, размеры, длины в сантиметрах, координаты
 выкройки, припуски или скрытые элементы. Не идентифицируй человека.
+Отдельно перечисляй все видимые конструктивные и декоративные элементы: пояса, складки,
+защипы, сборки, воланы, оборки, кокетки, панели, накладные слои, драпировки, карманы,
+застёжки, разрезы, воротники, манжеты и другие детали. Для каждого элемента указывай
+место, способ соединения, доказательство на изображении и необходимость подтверждения.
+Слои основной ткани, подкладки, прокладки и прозрачного наложения описывай раздельно.
 Используй только переданные допустимые категории и значения признаков. Если деталь не
 видна или уверенность недостаточна, выбери unknown/uncertain, понизь confidence,
 добавь понятную неопределённость и один точный вопрос пользователю. Все пояснения и
@@ -45,7 +50,11 @@ def _resolve_schema_node(node: Any, root: dict[str, Any]) -> Any:
 
 def provider_analysis_schema() -> dict[str, Any]:
     schema = load_schema("ai-style-analysis")
-    return _resolve_schema_node(schema, schema)
+    provider_schema = _resolve_schema_node(schema, schema)
+    # Canonical storage keeps this field optional so projects saved before stage 16
+    # remain readable. Every new provider response must include the richer plan.
+    provider_schema["required"] = [*provider_schema["required"], "design_features"]
+    return provider_schema
 
 
 def analysis_instruction(supported_categories: list[str], supported_features: dict[str, list[str]]) -> str:
@@ -55,7 +64,11 @@ def analysis_instruction(supported_categories: list[str], supported_features: di
         separators=(",", ":"),
     )
     return (
-        "Определи фасон по изображениям. Допустимый словарь: " + allowed
+        "Определи фасон и полный набор видимых деталей по изображениям. "
+        "design_features обязателен: elements содержит каждую отдельную деталь, layers — "
+        "основной, накладные и остальные дополнительные слои, proportions — только "
+        "визуальные категории без сантиметров. "
+        "Не объединяй несколько разных деталей в один element. Допустимый словарь: " + allowed
         + "\nОтвет обязан соответствовать этой JSON Schema: "
         + json.dumps(provider_analysis_schema(), ensure_ascii=False, separators=(",", ":"))
     )

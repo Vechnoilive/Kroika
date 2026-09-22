@@ -5,6 +5,7 @@ import {MeasurementWizard} from './MeasurementWizard';
 import {ConstructionEditor, ProjectHistory, StyleEditor} from './ProjectWorkflow';
 import {VisionAnalyzer} from './VisionAnalyzer';
 import {configureGarment, GARMENT_NAMES} from './garments';
+import {buildDesignIntent} from './designIntent';
 import type {
   BodyMeasurements,
   GarmentAcceptanceStatus,
@@ -44,10 +45,17 @@ const LAYERS: Array<{id: PatternLayer; label: string}> = [
   {id: 'dimensions', label: 'Размеры деталей'},
 ];
 
-type EditableWorkflowStep = 2 | 3 | 4 | 5;
+type WorkflowStep = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+type ErrorWorkflowStep = 2 | 3 | 4 | 5;
+type RevisitableWorkflowStep = 2 | 3 | 4 | 5 | 6 | 7;
+
+const WORKFLOW_TITLES = [
+  'Создать проект', 'Добавить эскиз', 'Подтвердить фасон', 'Ввести мерки',
+  'Ткань и прибавки', 'Построить', 'Проверить и скачать',
+] as const;
 
 export interface ErrorNavigationTarget {
-  step: EditableWorkflowStep;
+  step: ErrorWorkflowStep;
   label: string;
 }
 
@@ -75,11 +83,23 @@ function Logo() {
   return <div className="brand-mark" aria-hidden="true"><span>K</span></div>;
 }
 
-function Step({number, title, state}: {number: number; title: string; state: 'done' | 'active' | 'locked'}) {
+export function Step({
+  number,
+  title,
+  state,
+  onSelect,
+}: {
+  number: WorkflowStep;
+  title: string;
+  state: 'done' | 'active' | 'locked';
+  onSelect?: () => void;
+}) {
+  const content = <><span className="step__number">{state === 'done' ? '✓' : number}</span><span>{title}</span></>;
   return (
     <li className={`step step--${state}`} aria-current={state === 'active' ? 'step' : undefined}>
-      <span className="step__number">{state === 'done' ? '✓' : number}</span>
-      <span>{title}</span>
+      {onSelect
+        ? <button type="button" onClick={onSelect} aria-label={`Перейти к шагу ${number}: ${title}`}>{content}</button>
+        : <span className="step__content">{content}</span>}
     </li>
   );
 }
@@ -252,7 +272,7 @@ function proposalFromAnalysis(project: ProjectDocument, analysis: StyleAnalysis)
     ? analysis.garment_category as GarmentType
     : 'dress';
   const bodiceFit = analysis.silhouette.fit === 'fitted' ? 'fitted' : 'semi_fitted';
-  return configureGarment({
+  const configured = configureGarment({
     ...current,
     parameters: {
       ...current.parameters,
@@ -260,6 +280,10 @@ function proposalFromAnalysis(project: ProjectDocument, analysis: StyleAnalysis)
     },
     unsupported_features: [],
   }, garmentType);
+  return {
+    ...configured,
+    design_intent: buildDesignIntent(analysis, configured),
+  };
 }
 
 export default function App() {
@@ -270,7 +294,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const [garmentCatalogue, setGarmentCatalogue] = useState<GarmentAcceptanceStatus[]>([]);
-  const [repairStep, setRepairStep] = useState<EditableWorkflowStep | null>(null);
+  const [repairStep, setRepairStep] = useState<RevisitableWorkflowStep | null>(null);
 
   function remember(updated: ProjectDocument) {
     setProject(updated);
@@ -444,6 +468,15 @@ export default function App() {
     : project.latest_generation?.status === 'succeeded' ? 7
     : 6;
   const activeStep = repairStep ?? naturalStep;
+
+  function navigateToStep(step: WorkflowStep) {
+    setError(null);
+    if (step === 1) {
+      startAnother();
+      return;
+    }
+    setRepairStep(step === naturalStep ? null : step);
+  }
   const isLowerGarment = project
     ? ['trousers', 'shorts'].includes(project.garment_spec.garment_type)
     : false;
@@ -476,16 +509,18 @@ export default function App() {
           <p className="eyebrow">Ваш путь</p>
           <h2>Семь понятных шагов</h2>
           <ol>
-            {['Создать проект', 'Добавить эскиз', 'Подтвердить фасон', 'Ввести мерки', 'Ткань и прибавки', 'Построить', 'Проверить и скачать'].map((title, index) => {
-              const number = index + 1;
-              return <Step key={title} number={number} title={title} state={activeStep > number ? 'done' : activeStep === number ? 'active' : 'locked'} />;
+            {WORKFLOW_TITLES.map((title, index) => {
+              const number = (index + 1) as WorkflowStep;
+              const state = activeStep === number ? 'active' : number <= naturalStep ? 'done' : 'locked';
+              const canNavigate = Boolean(project) && number <= naturalStep && number !== activeStep;
+              return <Step key={title} number={number} title={title} state={state} onSelect={canNavigate ? () => navigateToStep(number) : undefined} />;
             })}
           </ol>
           <div className="privacy-note"><span aria-hidden="true">⌂</span><p><strong>Мерки остаются на компьютере</strong>Фото отправляется Qwen только после отдельного согласия.</p></div>
         </aside>
 
         <section className="content">
-          <div className="stage-badge">Qwen · 10 типов изделий · этап 15 из 15</div>
+          <div className="stage-badge">AI-анализ деталей · этап 16</div>
           {!project ? (
             <>
               <div className="intro"><p className="eyebrow">Начнём спокойно</p><h1>Создадим выкройку<br /><em>последовательно</em></h1><p>Каждый шаг сохраняется. Никакие мерки не угадываются, а результат AI всегда подтверждает человек.</p></div>
@@ -501,6 +536,19 @@ export default function App() {
             <>
               <div className="project-heading"><div><p className="eyebrow">{STATUS_NAMES[project.status]} · версия {project.revision}</p><h1>{project.name}</h1><p>Черновик сохраняется на каждом завершённом шаге.</p></div><button className="text-button" onClick={startAnother}>Другой проект</button></div>
               {error && <FriendlyError error={error} onNavigate={navigateToIssue} />}
+
+              {activeStep > 2 && (
+                <nav className="workflow-navigation" aria-label="Навигация по шагам">
+                  <button type="button" onClick={() => navigateToStep((activeStep - 1) as WorkflowStep)}>
+                    <span aria-hidden="true">←</span> Назад: {WORKFLOW_TITLES[activeStep - 2]}
+                  </button>
+                  {repairStep && activeStep !== naturalStep && (
+                    <button type="button" onClick={() => navigateToStep(naturalStep as WorkflowStep)}>
+                      Вернуться к текущему шагу <span aria-hidden="true">→</span>
+                    </button>
+                  )}
+                </nav>
+              )}
 
               {activeStep === 2 && <VisionAnalyzer projectId={project.project_id} onComplete={saveAnalysis} />}
               {activeStep === 3 && analysis && <StyleEditor project={project} analysis={analysis as StyleAnalysis} providerName={analysisProvider} acceptance={currentAcceptance} onSave={saveProject} />}
