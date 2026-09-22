@@ -10,6 +10,13 @@
     "schema_version": {"$ref": "common.schema.json#/$defs/schema_version"},
     "source": {"type": "string", "enum": ["ai", "manual"]},
     "status": {"type": "string", "enum": ["ready", "partial", "needs_confirmation"]},
+    "review_status": {"type": "string", "enum": ["proposed", "confirmed"]},
+    "reviewed_at": {
+      "anyOf": [
+        {"type": "string", "format": "date-time"},
+        {"type": "null"}
+      ]
+    },
     "elements": {
       "type": "array",
       "maxItems": 24,
@@ -31,6 +38,7 @@
         "hem_shape": {"type": "string", "enum": ["straight", "curved", "asymmetric", "tiered", "unknown"]},
         "asymmetry": {"type": "string", "enum": ["yes", "no", "unknown"]},
         "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "confirmed_by_user": {"type": "boolean"},
         "support_status": {"$ref": "#/$defs/support_status"},
         "module_id": {"$ref": "#/$defs/module_id"}
       },
@@ -44,10 +52,14 @@
       "type": "array",
       "uniqueItems": true,
       "items": {"type": "string", "minLength": 1, "maxLength": 500}
+    },
+    "question_answers": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/question_answer"}
     }
   },
   "$defs": {
-    "support_status": {"type": "string", "enum": ["supported", "planned", "needs_confirmation"]},
+    "support_status": {"type": "string", "enum": ["supported", "planned", "needs_confirmation", "excluded"]},
     "module_id": {
       "anyOf": [
         {"type": "string", "pattern": "^[a-z][a-z0-9_-]{1,79}$"},
@@ -70,6 +82,9 @@
         "confidence": {"type": "number", "minimum": 0, "maximum": 1},
         "evidence_ru": {"type": "string", "minLength": 1, "maxLength": 500},
         "requires_confirmation": {"type": "boolean"},
+        "included": {"type": "boolean"},
+        "confirmed_by_user": {"type": "boolean"},
+        "dimensions_mm": {"$ref": "#/$defs/dimensions_mm"},
         "support_status": {"$ref": "#/$defs/support_status"},
         "module_id": {"$ref": "#/$defs/module_id"}
       },
@@ -92,6 +107,8 @@
         "drape": {"type": "string", "enum": ["crisp", "medium", "fluid", "unknown"]},
         "confidence": {"type": "number", "minimum": 0, "maximum": 1},
         "requires_confirmation": {"type": "boolean"},
+        "included": {"type": "boolean"},
+        "confirmed_by_user": {"type": "boolean"},
         "support_status": {"$ref": "#/$defs/support_status"},
         "module_id": {"$ref": "#/$defs/module_id"}
       },
@@ -100,6 +117,26 @@
         "then": {"properties": {"module_id": {"type": "string"}}},
         "else": {"properties": {"module_id": {"type": "null"}}}
       }]
+    },
+    "dimensions_mm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "length", "depth", "spacing"],
+      "properties": {
+        "width": {"type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 10000},
+        "length": {"type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 10000},
+        "depth": {"type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 10000},
+        "spacing": {"type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 10000}
+      }
+    },
+    "question_answer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question", "answer_ru"],
+      "properties": {
+        "question": {"type": "string", "minLength": 1, "maxLength": 500},
+        "answer_ru": {"type": "string", "maxLength": 1000}
+      }
     }
   }
 }

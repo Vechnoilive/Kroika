@@ -1,7 +1,8 @@
 import {FormEvent, useEffect, useState} from 'react';
 import {api, ApiError} from './api';
 import {configureGarment, easeForGarment, GARMENT_OPTIONS, methodForGarment, presetForGarment} from './garments';
-import {buildDesignIntent, DESIGN_ELEMENT_NAMES} from './designIntent';
+import {DesignIntentEditor} from './DesignIntentEditor';
+import {buildDesignIntent, prepareDesignIntentForReview, reevaluateDesignIntent} from './designIntent';
 import type {
   FabricProperties,
   FitSettings,
@@ -70,7 +71,12 @@ export function StyleEditor({
   acceptance?: GarmentAcceptanceStatus;
   onSave: SaveProject;
 }) {
-  const [spec, setSpec] = useState<GarmentSpec>(() => structuredClone(project.garment_spec));
+  const [spec, setSpec] = useState<GarmentSpec>(() => {
+    const initial = structuredClone(project.garment_spec);
+    return initial.design_intent
+      ? {...initial, design_intent: prepareDesignIntentForReview(initial.design_intent)}
+      : initial;
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -81,10 +87,13 @@ export function StyleEditor({
   ].filter(Boolean);
 
   function updateParameters(next: Partial<GarmentSpec['parameters']>) {
-    setSpec({...spec, selection_status: 'proposed', confirmed_at: null, parameters: {
+    const updated: GarmentSpec = {...spec, selection_status: 'proposed', confirmed_at: null, parameters: {
       ...spec.parameters,
       ...next,
-    }});
+    }};
+    setSpec(updated.design_intent
+      ? {...updated, design_intent: reevaluateDesignIntent(updated.design_intent, updated, analysis)}
+      : updated);
   }
 
   function selectGarment(garmentType: GarmentType) {
@@ -92,12 +101,42 @@ export function StyleEditor({
     setSpec({...configured, design_intent: buildDesignIntent(analysis, configured)});
   }
 
+  async function saveDesignReview(designIntent: NonNullable<GarmentSpec['design_intent']>) {
+    setBusy(true);
+    setError('');
+    try {
+      const saved = await onSave({
+        ...project,
+        status: 'draft',
+        garment_spec: {
+          ...spec,
+          selection_status: 'proposed',
+          confirmed_at: null,
+          design_intent: designIntent,
+        },
+        fit_settings: {...project.fit_settings, status: 'draft', confirmed_at: null},
+        fabric_properties: {...project.fabric_properties, status: 'draft', confirmed_at: null},
+        latest_generation: null,
+      });
+      setSpec(structuredClone(saved.garment_spec));
+    } catch (caught) {
+      throw new Error(caught instanceof ApiError ? caught.message : 'Не удалось сохранить проверку деталей.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (spec.design_intent?.review_status !== undefined
+        && spec.design_intent.review_status !== 'confirmed') {
+      setError('Сначала проверьте детали, слои и пропорции, затем нажмите «Сохранить проверку деталей».');
+      return;
+    }
     if (spec.design_intent && spec.design_intent.status !== 'ready') {
       const unresolved = [
-        ...spec.design_intent.elements,
-        ...spec.design_intent.layers,
+        ...spec.design_intent.elements.filter((item) => item.included !== false),
+        ...spec.design_intent.layers.filter((item) => item.included !== false),
         spec.design_intent.proportions,
       ].filter((item) => item.support_status !== 'supported');
       setError(
@@ -227,67 +266,14 @@ export function StyleEditor({
         {features[spec.garment_type].map(([title, detail]) => <div key={title}><strong>{title}</strong><span>{detail}</span></div>)}
       </div>
 
-      {spec.design_intent && (
-        <section className="design-intent" aria-labelledby="design-intent-title">
-          <div className="design-intent__heading">
-            <div>
-              <p className="eyebrow">Разбор фотографии</p>
-              <h3 id="design-intent-title">Конструктивные элементы фасона</h3>
-            </div>
-            <span className={`design-intent__status design-intent__status--${spec.design_intent.status}`}>
-              {spec.design_intent.status === 'ready' ? 'Все элементы поддержаны'
-                : spec.design_intent.status === 'partial' ? 'Нужны новые модули'
-                  : 'Нужно уточнение'}
-            </span>
-          </div>
-          <p>Модель перечисляет детали отдельно. Зелёные элементы уже связаны с проверяемым модулем; остальные не будут молча отброшены.</p>
-          <ul className="design-element-list">
-            {spec.design_intent.elements.map((item) => (
-              <li key={item.source_element_id}>
-                <span className={`design-element-marker design-element-marker--${item.support_status}`} aria-hidden="true" />
-                <span>
-                  <strong>{DESIGN_ELEMENT_NAMES[item.type]}</strong>
-                  <small>{item.description_ru}</small>
-                  <small>{item.evidence_ru}</small>
-                </span>
-                <em>{item.support_status === 'supported' ? 'Будет учтено'
-                  : item.support_status === 'planned' ? 'Модуль не готов'
-                    : 'Нужно подтвердить'}</em>
-              </li>
-            ))}
-            {spec.design_intent.layers.map((item) => (
-              <li key={item.source_layer_id}>
-                <span className={`design-element-marker design-element-marker--${item.support_status}`} aria-hidden="true" />
-                <span>
-                  <strong>{item.role === 'main' ? 'Основной слой'
-                    : item.role === 'overlay' ? 'Накладной слой'
-                      : item.role === 'lining' ? 'Подкладка' : 'Прокладка'}</strong>
-                  <small>{item.material_hint_ru}</small>
-                </span>
-                <em>{item.support_status === 'supported' ? 'Будет учтено'
-                  : item.support_status === 'planned' ? 'Модуль не готов'
-                    : 'Нужно подтвердить'}</em>
-              </li>
-            ))}
-            <li>
-              <span className={`design-element-marker design-element-marker--${spec.design_intent.proportions.support_status}`} aria-hidden="true" />
-              <span>
-                <strong>Пропорции и асимметрия</strong>
-                <small>Талия: {spec.design_intent.proportions.waist_position}; объём: {spec.design_intent.proportions.volume}; низ: {spec.design_intent.proportions.hem_shape}; асимметрия: {spec.design_intent.proportions.asymmetry}.</small>
-              </span>
-              <em>{spec.design_intent.proportions.support_status === 'supported' ? 'Будет учтено'
-                : spec.design_intent.proportions.support_status === 'planned' ? 'Модуль не готов'
-                  : 'Нужно подтвердить'}</em>
-            </li>
-          </ul>
-          {spec.design_intent.status !== 'ready' && (
-            <div className="notice notice--warning">
-              <strong>Точная выкройка пока заблокирована</strong>
-              <span>Элементы сохранены в проекте, но продолжать с базовым шаблоном под видом исходного фасона нельзя.</span>
-            </div>
-          )}
-        </section>
-      )}
+      {spec.design_intent && <DesignIntentEditor
+        intent={spec.design_intent}
+        spec={spec}
+        analysis={analysis}
+        busy={busy}
+        onChange={(designIntent) => setSpec({...spec, selection_status: 'proposed', confirmed_at: null, design_intent: designIntent})}
+        onSave={saveDesignReview}
+      />}
 
       <div className="notice notice--warning">
         <strong>{selectedAcceptance?.name_ru ?? GARMENT_OPTIONS.find((item) => item.id === spec.garment_type)?.name}: пробный статус</strong>
@@ -310,7 +296,7 @@ export function StyleEditor({
         {parameters.closure.type !== 'none' && <NumberField id="closure-length" label={parameters.closure.type === 'buttons' ? 'Длина застёжки' : 'Рабочая длина молнии'} value={(parameters.closure.length_mm ?? 550) / 10} min={lowerOnly ? 12 : 30} max={lowerOnly ? 24 : 90} onChange={(value) => updateParameters({closure: {...parameters.closure, length_mm: value * 10}, ...(parameters.trousers ? {trousers: {...parameters.trousers, fly_length_mm: value * 10}} : {})})} />}
       </div>
 
-      {analysis.targeted_questions.length > 0 && (
+      {!spec.design_intent && analysis.targeted_questions.length > 0 && (
         <div className="questions">
           <strong>Что стоит проверить по исходному изделию</strong>
           <ul>{analysis.targeted_questions.map((item) => <li key={item}>{item}</li>)}</ul>

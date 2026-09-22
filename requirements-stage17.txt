@@ -1,0 +1,3 @@
+-r requirements-stage16.txt
+
+# Stage 17 adds contracts and UI only; no new third-party runtime dependency.

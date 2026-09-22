@@ -116,20 +116,126 @@ def _validate_design_intent(
     intent = spec.get('design_intent')
     if not isinstance(intent, Mapping):
         return
-    statuses = [
-        item['support_status']
-        for group in ('elements', 'layers')
-        for item in intent[group]
+    review_aware = 'review_status' in intent
+    has_review_fields = (
+        any(key in intent for key in ('reviewed_at', 'question_answers'))
+        or any(
+            key in item
+            for group in ('elements', 'layers')
+            for item in intent[group]
+            for key in ('included', 'confirmed_by_user', 'dimensions_mm')
+        )
+        or 'confirmed_by_user' in intent['proportions']
+    )
+    if has_review_fields and not review_aware:
+        _add(issues, 'DESIGN_REVIEW_STATUS_MISSING',
+             '/garment_spec/design_intent/review_status',
+             'Поля ручной проверки требуют явный статус review_status.')
+    if not review_aware:
+        statuses = [
+            item['support_status']
+            for group in ('elements', 'layers')
+            for item in intent[group]
+        ]
+        statuses.append(intent['proportions']['support_status'])
+        expected = (
+            'needs_confirmation' if 'needs_confirmation' in statuses
+            else 'partial' if 'planned' in statuses
+            else 'ready'
+        )
+        if intent['status'] != expected:
+            _add(issues, 'DESIGN_INTENT_STATUS_MISMATCH', '/garment_spec/design_intent/status',
+                 'Статус конструктивного плана не соответствует состоянию его элементов.')
+        if require_ready and expected != 'ready':
+            _add(
+                issues,
+                'GARMENT_DESIGN_NOT_COMPILED',
+                '/garment_spec/design_intent',
+                'В фасоне есть неподтверждённые или ещё не реализованные детали. '
+                'Их нельзя молча исключить из итоговой выкройки.',
+            )
+        return
+
+    active: list[Mapping[str, Any]] = []
+    for group in ('elements', 'layers'):
+        for index, item in enumerate(intent[group]):
+            pointer = f'/garment_spec/design_intent/{group}/{index}'
+            included = item.get('included')
+            if included is False:
+                if item['support_status'] != 'excluded' or item['module_id'] is not None:
+                    _add(issues, 'DESIGN_EXCLUSION_MISMATCH', pointer,
+                         'Исключённая деталь должна иметь статус excluded без модуля.')
+                continue
+            if included is not True:
+                _add(issues, 'DESIGN_REVIEW_FIELD_MISSING', f'{pointer}/included',
+                     'Для проверки фасона явно укажите, включена ли деталь.')
+            if item['support_status'] == 'excluded':
+                _add(issues, 'DESIGN_EXCLUSION_MISMATCH', pointer,
+                     'Включённая деталь не может иметь статус excluded.')
+            dimensions = item.get('dimensions_mm') if group == 'elements' else None
+            if (isinstance(dimensions, Mapping)
+                    and any(value is not None for value in dimensions.values())
+                    and item['support_status'] == 'supported'):
+                _add(issues, 'DESIGN_DIMENSION_NOT_COMPILED', f'{pointer}/dimensions_mm',
+                     'Ручной размер нельзя пометить поддержанным, пока модуль его не применяет.')
+            active.append(item)
+
+    included_main = [
+        item for item in intent['layers']
+        if item.get('included') is not False and item['role'] == 'main'
     ]
-    statuses.append(intent['proportions']['support_status'])
+    if len(included_main) != 1:
+        _add(issues, 'DESIGN_MAIN_LAYER_COUNT', '/garment_spec/design_intent/layers',
+             'После проверки должен остаться ровно один основной слой изделия.')
+
+    proportions = intent['proportions']
+    if proportions['support_status'] == 'excluded':
+        _add(issues, 'DESIGN_PROPORTIONS_EXCLUDED', '/garment_spec/design_intent/proportions',
+             'Пропорции изделия нельзя исключить из проверки.')
+    active.append(proportions)
+
+    questions = intent['pending_questions']
+    answers = intent.get('question_answers')
+    if not isinstance(answers, list):
+        answers = []
+        _add(issues, 'DESIGN_ANSWERS_MISSING', '/garment_spec/design_intent/question_answers',
+             'Для проверки фасона сохраните ответы на вопросы модели.')
+    answer_questions = [item.get('question') for item in answers]
+    if len(answer_questions) != len(set(answer_questions)):
+        _add(issues, 'DESIGN_ANSWER_DUPLICATE', '/garment_spec/design_intent/question_answers',
+             'На каждый вопрос модели должен быть один ответ.')
+    if set(answer_questions) != set(questions):
+        _add(issues, 'DESIGN_ANSWER_QUESTION_MISMATCH',
+             '/garment_spec/design_intent/question_answers',
+             'Список ответов должен точно соответствовать вопросам модели.')
+
+    unanswered = any(not str(item.get('answer_ru', '')).strip() for item in answers)
+    unconfirmed = any(item.get('confirmed_by_user') is not True for item in active)
+    statuses = [item['support_status'] for item in active]
     expected = (
-        'needs_confirmation' if 'needs_confirmation' in statuses
+        'needs_confirmation' if unanswered or unconfirmed or 'needs_confirmation' in statuses
         else 'partial' if 'planned' in statuses
         else 'ready'
     )
     if intent['status'] != expected:
         _add(issues, 'DESIGN_INTENT_STATUS_MISMATCH', '/garment_spec/design_intent/status',
              'Статус конструктивного плана не соответствует состоянию его элементов.')
+    review_status = intent.get('review_status')
+    if review_status == 'confirmed' and (unanswered or unconfirmed):
+        _add(issues, 'DESIGN_REVIEW_INCOMPLETE', '/garment_spec/design_intent/review_status',
+             'Проверку нельзя подтвердить, пока не проверены детали и не даны ответы.')
+    reviewed_at = intent.get('reviewed_at')
+    if (review_status == 'confirmed') != (reviewed_at is not None):
+        _add(issues, 'DESIGN_REVIEW_TIMESTAMP_MISMATCH',
+             '/garment_spec/design_intent/reviewed_at',
+             'Время проверки сохраняется только для подтверждённого плана.')
+    if require_ready and review_status != 'confirmed':
+        _add(
+            issues,
+            'DESIGN_REVIEW_NOT_CONFIRMED',
+            '/garment_spec/design_intent/review_status',
+            'Перед подтверждением фасона проверьте все детали, слои, пропорции и ответы.',
+        )
     if require_ready and expected != 'ready':
         _add(
             issues,

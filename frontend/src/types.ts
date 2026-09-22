@@ -151,21 +151,35 @@ export interface GarmentDesignIntent {
   schema_version: '1.0.0';
   source: 'ai' | 'manual';
   status: 'ready' | 'partial' | 'needs_confirmation';
+  review_status?: 'proposed' | 'confirmed';
+  reviewed_at?: string | null;
   elements: Array<Omit<VisualDesignElement, 'element_id'> & {
     source_element_id: string;
-    support_status: 'supported' | 'planned' | 'needs_confirmation';
+    included?: boolean;
+    confirmed_by_user?: boolean;
+    dimensions_mm?: {
+      width: number | null;
+      length: number | null;
+      depth: number | null;
+      spacing: number | null;
+    };
+    support_status: 'supported' | 'planned' | 'needs_confirmation' | 'excluded';
     module_id: string | null;
   }>;
   layers: Array<Omit<VisualDesignLayer, 'layer_id'> & {
     source_layer_id: string;
-    support_status: 'supported' | 'planned' | 'needs_confirmation';
+    included?: boolean;
+    confirmed_by_user?: boolean;
+    support_status: 'supported' | 'planned' | 'needs_confirmation' | 'excluded';
     module_id: string | null;
   }>;
   proportions: VisualProportions & {
-    support_status: 'supported' | 'planned' | 'needs_confirmation';
+    confirmed_by_user?: boolean;
+    support_status: 'supported' | 'planned' | 'needs_confirmation' | 'excluded';
     module_id: string | null;
   };
   pending_questions: string[];
+  question_answers?: Array<{question: string; answer_ru: string}>;
 }
 
 export type GarmentType =
