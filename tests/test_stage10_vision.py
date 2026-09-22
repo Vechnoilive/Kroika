@@ -118,7 +118,7 @@ def test_openrouter_qwen_requires_structured_output_and_disables_reasoning(tmp_p
     assert captured[0]["reasoning"] == {"enabled": False}
 
 
-def test_gemini_payload_uses_inline_image_and_structured_output(tmp_path: Path):
+def test_gemini_payload_uses_inline_image_and_bounded_json_mode(tmp_path: Path):
     captured = []
 
     async def transport(url, headers, payload, timeout):
@@ -135,11 +135,30 @@ def test_gemini_payload_uses_inline_image_and_structured_output(tmp_path: Path):
     assert headers["x-goog-api-key"] == "server-only-secret"
     assert payload["input"][1]["type"] == "image"
     assert payload["input"][1]["mime_type"] == "image/png"
-    assert payload["response_format"]["mime_type"] == "application/json"
-    assert payload["response_format"]["schema"]["additionalProperties"] is False
+    assert payload["response_format"] == {
+        "type": "text", "mime_type": "application/json",
+    }
+    assert "Ответ обязан соответствовать этой JSON Schema" in payload["input"][0]["text"]
+    assert '"schema_version"' in payload["input"][0]["text"]
     assert payload["store"] is False
     assert "мерки" in payload["system_instruction"]
     assert request["project_id"] not in json.dumps(payload)
+
+
+def test_gemini_json_mode_still_rejects_incomplete_local_contract(tmp_path: Path):
+    async def transport(url, headers, payload, timeout):
+        return HTTPResult(200, {"steps": [{
+            "type": "model_output",
+            "content": [{
+                "type": "text", "text": '{"garment_category":"dress"}',
+            }],
+        }]})
+
+    provider, request = configured_provider(GeminiProvider, tmp_path, transport)
+    with pytest.raises(AIProviderError) as failure:
+        asyncio.run(provider.analyze_style(request))
+
+    assert failure.value.code is ProviderErrorCode.INVALID_SCHEMA
 
 
 def test_retry_is_bounded_and_invalid_model_output_is_rejected(tmp_path: Path):
