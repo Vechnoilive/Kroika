@@ -149,6 +149,7 @@ export interface VisualProportions {
 
 export interface GarmentDesignIntent {
   schema_version: '1.0.0';
+  coverage_schema_version?: '1.0.0';
   source: 'ai' | 'manual';
   status: 'ready' | 'partial' | 'needs_confirmation';
   review_status?: 'proposed' | 'confirmed';
@@ -393,10 +394,29 @@ export interface PatternPieceSummary {
   cut_on_fold: boolean;
 }
 
+export interface DesignCoverageEvidence {
+  piece_ids: string[];
+  seam_pair_ids: string[];
+  path_ids: string[];
+  segment_ids: string[];
+  operation_ids: string[];
+}
+
+export interface DesignCoverageCatalogue {
+  schema_version: '1.0.0';
+  modules: Array<{
+    module_id: string;
+    source_ids: string[];
+    evidence: DesignCoverageEvidence;
+  }>;
+  physical_validation_required: true;
+}
+
 export interface PatternData {
   unit: 'mm';
   pieces: PatternPieceSummary[];
   seam_pairs: Array<{id: string}>;
+  design_coverage?: DesignCoverageCatalogue;
   print_layout?: {
     page_format: 'A4';
     overlap_mm: number;

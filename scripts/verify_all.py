@@ -25,6 +25,7 @@ checks = [
     ROOT / 'scripts' / 'verify_stage17.py',
     ROOT / 'scripts' / 'verify_stage18.py',
     ROOT / 'scripts' / 'verify_stage19.py',
+    ROOT / 'scripts' / 'verify_stage20.py',
 ]
 
 for check in checks:

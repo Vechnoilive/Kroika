@@ -2,6 +2,7 @@
 
 from . import blocks, geometry
 from .assembly import GarmentAssembly, assemble_garment
+from .coverage import DesignCoverageResult, compile_design_coverage
 from .garment_catalogue import garment_acceptance, garment_catalogue, release_gate
 from .pdf import PDFRenderError, PDFRenderResult, render_pattern_pdf
 from .scaffold import GeometryPatternEngine, ScaffoldPatternEngine
@@ -9,6 +10,7 @@ from .svg import SVG_PREVIEW_LAYERS, SVGRenderError, render_pattern_svg
 
 __all__ = [
     "GarmentAssembly",
+    "DesignCoverageResult",
     "GeometryPatternEngine",
     "PDFRenderError",
     "PDFRenderResult",
@@ -16,6 +18,7 @@ __all__ = [
     "SVG_PREVIEW_LAYERS",
     "ScaffoldPatternEngine",
     "assemble_garment",
+    "compile_design_coverage",
     "blocks",
     "geometry",
     "garment_acceptance",

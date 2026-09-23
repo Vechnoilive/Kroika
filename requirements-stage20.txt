@@ -1,0 +1,3 @@
+-r requirements-stage19.txt
+
+# Stage 20 adds deterministic coverage evidence and UI only; no new dependency.

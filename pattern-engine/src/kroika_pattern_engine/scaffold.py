@@ -19,6 +19,7 @@ from .blocks import (
     build_trouser_blocks,
 )
 from .composites import apply_composite_transformations
+from .coverage import compile_design_coverage
 from .garment_catalogue import garment_acceptance
 from .geometry import run_core_diagnostics
 from .modeling import apply_modeling_transformations
@@ -32,7 +33,7 @@ class GeometryPatternEngine:
     """Build a bounded experimental garment and return an auditable report."""
 
     engine_id = "kroika-geometry"
-    engine_version = "0.10.0"
+    engine_version = "0.11.0"
 
     def __init__(self, clock: Callable[[], datetime] = _utc_now):
         self._clock = clock
@@ -74,12 +75,21 @@ class GeometryPatternEngine:
             assembly = assemble_garment(request, blocks)
             modeling = apply_modeling_transformations(assembly.pattern, request)
             composite = apply_composite_transformations(modeling.pattern, request)
-            printable_pattern = apply_seam_allowances(composite.pattern, request)
+            coverage = compile_design_coverage(composite.pattern, request)
+            printable_pattern = apply_seam_allowances(coverage.pattern, request)
         except BlockConstructionError as error:
             checks.append({
-                "id": "engine.garment_assembly",
+                "id": (
+                    "engine.design_coverage"
+                    if error.code == "DESIGN_COVERAGE_EVIDENCE_MISSING"
+                    else "engine.garment_assembly"
+                ),
                 "status": "failed",
-                "message_ru": "Изделие не собрано: проверьте указанное поле.",
+                "message_ru": (
+                    "Фасон не покрыт геометрией: вернитесь к деталям изделия."
+                    if error.code == "DESIGN_COVERAGE_EVIDENCE_MISSING"
+                    else "Изделие не собрано: проверьте указанное поле."
+                ),
             })
             issues.append({
                 "code": error.code,
@@ -246,6 +256,17 @@ class GeometryPatternEngine:
                     "measured_value": composite.maximum_invariant_residual_mm,
                     "limit_value": 1.0,
                     "unit": "mm",
+                },
+                {
+                    "id": "engine.design_coverage",
+                    "status": "passed",
+                    "message_ru": (
+                        "Каждый подтверждённый модуль фасона связан с реальными "
+                        "деталями, линиями, соединениями или операциями выкройки."
+                    ),
+                    "measured_value": coverage.required_module_count,
+                    "limit_value": coverage.required_module_count,
+                    "unit": "1",
                 },
                 {
                     "id": "engine.jacket.interfaces",
