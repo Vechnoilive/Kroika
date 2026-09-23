@@ -1,0 +1,3 @@
+-r requirements-stage21.txt
+
+# Stage 22 adds SQLite-backed validation records and UI only; no new dependency.

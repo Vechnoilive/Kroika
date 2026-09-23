@@ -92,6 +92,7 @@ def _draw_map_page(
     plan: TilePlan,
     regular_font: str,
     bold_font: str,
+    production_allowed: bool,
 ) -> None:
     document.setFillColor(HexColor("#fffdf9"))
     document.rect(0, 0, A4[0], A4[1], fill=1, stroke=0)
@@ -112,7 +113,36 @@ def _draw_map_page(
     _draw_top_text(document, "2. Отключите «Подогнать к странице».", 72, 50, font=regular_font, size=8.5)
     _draw_top_text(document, "3. Измерьте квадрат: каждая сторона 50 мм.", 72, 61, font=regular_font, size=8.5)
     _draw_top_text(document, "4. Совмещайте одинаковые метки листов.", 72, 72, font=regular_font, size=8.5)
-    _draw_top_text(document, "Только бумага/макет — не раскраивайте ткань.", 72, 84, font=bold_font, size=8.5, color=HexColor("#a33e34"))
+    status_text = (
+        "Журнал проверок этой версии пройден."
+        if production_allowed else "Только бумага/макет — не раскраивайте ткань."
+    )
+    status_color = HexColor("#27624f") if production_allowed else HexColor("#a33e34")
+    _draw_top_text(
+        document, status_text, 72, 84, font=bold_font, size=8.5, color=status_color
+    )
+    control_x_mm = 199.0
+    control_top_mm = 84.0
+    control_bottom_mm = control_top_mm + 200.0
+    document.setStrokeColor(HexColor("#17141a"))
+    document.setLineWidth(0.35 * mm)
+    document.line(
+        control_x_mm * mm,
+        (297 - control_top_mm) * mm,
+        control_x_mm * mm,
+        (297 - control_bottom_mm) * mm,
+    )
+    for top_mm in (control_top_mm, control_bottom_mm):
+        document.line(
+            (control_x_mm - 3) * mm,
+            (297 - top_mm) * mm,
+            (control_x_mm + 3) * mm,
+            (297 - top_mm) * mm,
+        )
+    _draw_top_text(
+        document, "Контрольная линия 200 мм", 143, 92,
+        font=regular_font, size=6.5,
+    )
 
     map_x, map_y, map_width, map_height = 14.0, 18.0, 182.0, 172.0
     scale = min(map_width / layout.width_mm, map_height / layout.height_mm)
@@ -186,6 +216,7 @@ def _draw_tile_content(
     tile: Tile,
     regular_font: str,
     bold_font: str,
+    production_allowed: bool,
 ) -> None:
     document.setFillColor(HexColor("#ffffff"))
     document.rect(0, 0, A4[0], A4[1], fill=1, stroke=0)
@@ -270,13 +301,14 @@ def _draw_tile_content(
         suffix = " · СГИБ" if piece["cut_on_fold"] else ""
         document.drawCentredString(center[0] * mm, (center[1] - 4) * mm, f"Крой: {piece['cut_quantity']}{suffix}")
 
-    document.setFillColor(Color(0.72, 0.25, 0.2, alpha=0.10))
-    document.setFont(bold_font, 26)
-    document.saveState()
-    document.translate(A4[0] / 2, A4[1] / 2)
-    document.rotate(35)
-    document.drawCentredString(0, 0, "ЭКСПЕРИМЕНТАЛЬНО · НЕ ДЛЯ ТКАНИ")
-    document.restoreState()
+    if not production_allowed:
+        document.setFillColor(Color(0.72, 0.25, 0.2, alpha=0.10))
+        document.setFont(bold_font, 26)
+        document.saveState()
+        document.translate(A4[0] / 2, A4[1] / 2)
+        document.rotate(35)
+        document.drawCentredString(0, 0, "ЭКСПЕРИМЕНТАЛЬНО · НЕ ДЛЯ ТКАНИ")
+        document.restoreState()
     document.restoreState()
     document.setFont(regular_font, 6)
     document.setFillColor(HexColor("#755e5a"))
@@ -284,7 +316,9 @@ def _draw_tile_content(
     document.showPage()
 
 
-def render_pattern_pdf(pattern: Mapping[str, Any]) -> PDFRenderResult:
+def render_pattern_pdf(
+    pattern: Mapping[str, Any], *, production_allowed: bool = False,
+) -> PDFRenderResult:
     """Create an A4 PDF: one assembly map followed by exact 1:1 pattern tiles."""
 
     spec = pattern.get("print_layout")
@@ -306,11 +340,20 @@ def render_pattern_pdf(pattern: Mapping[str, Any]) -> PDFRenderResult:
         invariant=1,
         pdfVersion=(1, 7),
     )
-    document.setTitle("Kroika — диагностическая выкройка A4 1:1")
+    document.setTitle(
+        "Kroika — выкройка A4 1:1"
+        if production_allowed else "Kroika — диагностическая выкройка A4 1:1"
+    )
     document.setAuthor("Kroika")
-    document.setSubject("Экспериментальная выкройка; production-ready=false")
-    _draw_map_page(document, layout, plan, regular_font, bold_font)
+    document.setSubject(
+        f"Журнал физических проверок; production-ready={str(production_allowed).lower()}"
+    )
+    _draw_map_page(
+        document, layout, plan, regular_font, bold_font, production_allowed
+    )
     for tile in plan.tiles:
-        _draw_tile_content(document, layout, plan, tile, regular_font, bold_font)
+        _draw_tile_content(
+            document, layout, plan, tile, regular_font, bold_font, production_allowed
+        )
     document.save()
     return PDFRenderResult(output.getvalue(), len(plan.tiles) + 1, len(plan.tiles), plan.columns, plan.rows)

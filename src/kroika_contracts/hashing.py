@@ -26,6 +26,12 @@ STAGE19_LAYER_MODULES = frozenset({
     'skirt_overlay_layer_v1',
 })
 
+STAGE21_TOPOLOGY_MODULES = frozenset({
+    'paired_straight_skirt_yoke_v1',
+    'paired_equal_skirt_panels_v1',
+    'front_waist_to_side_dart_v1',
+})
+
 
 def _modeling_elements(garment: Mapping[str, Any]) -> list[dict[str, Any]]:
     intent = garment.get('design_intent')
@@ -71,6 +77,31 @@ def _composite_elements(garment: Mapping[str, Any]) -> list[dict[str, Any]]:
         if element.get('included') is not False
         and element.get('support_status') == 'supported'
         and element.get('module_id') in STAGE19_ELEMENT_MODULES
+    ]
+    return sorted(elements, key=lambda element: (
+        element['module_id'], element['source_element_id'],
+    ))
+
+
+def _topology_elements(garment: Mapping[str, Any]) -> list[dict[str, Any]]:
+    intent = garment.get('design_intent')
+    if not isinstance(intent, Mapping):
+        return []
+    elements = [
+        {
+            'source_element_id': element['source_element_id'],
+            'type': element['type'],
+            'variant': element['variant'],
+            'location': element['location'],
+            'construction': element['construction'],
+            'count': element['count'],
+            'dimensions_mm': element.get('dimensions_mm'),
+            'module_id': element['module_id'],
+        }
+        for element in intent.get('elements', [])
+        if element.get('included') is not False
+        and element.get('support_status') == 'supported'
+        and element.get('module_id') in STAGE21_TOPOLOGY_MODULES
     ]
     return sorted(elements, key=lambda element: (
         element['module_id'], element['source_element_id'],
@@ -142,11 +173,14 @@ def canonical_generation_payload(request: Mapping[str, Any]) -> dict[str, Any]:
         'parameters': garment['parameters'],
     }
     modeling_elements = _modeling_elements(garment)
+    topology_elements = _topology_elements(garment)
     composite_elements = _composite_elements(garment)
     composite_layers = _composite_layers(garment)
     coverage_contract = _coverage_contract(garment)
     if modeling_elements:
         garment_payload['modeling_elements'] = modeling_elements
+    if topology_elements:
+        garment_payload['topology_elements'] = topology_elements
     if composite_elements:
         garment_payload['composite_elements'] = composite_elements
     if composite_layers:
@@ -156,7 +190,8 @@ def canonical_generation_payload(request: Mapping[str, Any]) -> dict[str, Any]:
     has_composites = bool(composite_elements or composite_layers)
     return {
         'hash_contract_version': (
-            '1.3.0' if coverage_contract is not None
+            '1.4.0' if topology_elements
+            else '1.3.0' if coverage_contract is not None
             else '1.2.0' if has_composites
             else '1.1.0' if modeling_elements
             else '1.0.0'

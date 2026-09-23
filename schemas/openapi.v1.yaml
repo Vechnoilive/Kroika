@@ -3,9 +3,8 @@ info:
   title: Kroika API contracts
   version: 1.0.0
   description: >-
-    Контракт API этапа 15. В интерфейсе включены mock и Qwen; системный release
-    gate, приватное удаление и резервное восстановление не позволяют выдать
-    experimental-модули за готовые к производству.
+    Контракт API этапа 22. Журнал физических проверок привязан к точной версии
+    генерации; допуск выводится из последних записей печати, конструктора и макета.
 servers:
   - url: http://127.0.0.1:8000
     description: Локальный сервер
@@ -91,6 +90,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReleaseStatus'
+  /api/v1/patterns/{generation_id}/physical-validation:
+    parameters:
+      - name: generation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getPhysicalValidation
+      summary: Получить журнал физической проверки точной версии выкройки
+      responses:
+        '200':
+          description: Последние статусы, вычисленный допуск и неизменяемая история
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhysicalValidationSummary'
+        '404':
+          $ref: '#/components/responses/ContractError'
+    post:
+      operationId: recordPhysicalValidation
+      summary: Добавить наблюдение печати, конструктора или макета
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhysicalValidationCreate'
+      responses:
+        '201':
+          description: Пересчитанный статус после добавления записи
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhysicalValidationSummary'
+        '409':
+          $ref: '#/components/responses/ContractError'
+        '422':
+          $ref: '#/components/responses/ContractError'
   /api/v1/ai/providers:
     get:
       operationId: listAIProviders
@@ -651,6 +690,66 @@ components:
         blocked_garments:
           type: array
           items: {$ref: '#/components/schemas/BlockedGarmentRelease'}
+    PhysicalValidationCreate:
+      type: object
+      additionalProperties: false
+      required: [gate, reviewer_name]
+      properties:
+        gate: {type: string, enum: [paper, expert, toile]}
+        outcome: {type: [string, 'null'], enum: [passed, failed, null]}
+        reviewer_name: {type: string, minLength: 2, maxLength: 120}
+        notes: {type: string, maxLength: 2000, default: ''}
+        printer_name: {type: [string, 'null'], minLength: 2, maxLength: 120}
+        square_width_mm: {type: [number, 'null'], exclusiveMinimum: 0, maximum: 100}
+        square_height_mm: {type: [number, 'null'], exclusiveMinimum: 0, maximum: 100}
+        control_line_mm: {type: [number, 'null'], exclusiveMinimum: 0, maximum: 400}
+        figure_label: {type: [string, 'null'], minLength: 2, maxLength: 120}
+    PhysicalValidationRecord:
+      type: object
+      additionalProperties: false
+      required: [record_id, project_id, generation_id, gate, outcome, reviewer_name, notes, printer_name, square_width_mm, square_height_mm, control_line_mm, figure_label, created_at]
+      properties:
+        record_id: {type: string, format: uuid}
+        project_id: {type: string, format: uuid}
+        generation_id: {type: string, format: uuid}
+        gate: {type: string, enum: [paper, expert, toile]}
+        outcome: {type: string, enum: [passed, failed]}
+        reviewer_name: {type: string, minLength: 2, maxLength: 120}
+        notes: {type: string, maxLength: 2000}
+        printer_name: {type: [string, 'null'], minLength: 2, maxLength: 120}
+        square_width_mm: {type: [number, 'null'], exclusiveMinimum: 0, maximum: 100}
+        square_height_mm: {type: [number, 'null'], exclusiveMinimum: 0, maximum: 100}
+        control_line_mm: {type: [number, 'null'], exclusiveMinimum: 0, maximum: 400}
+        figure_label: {type: [string, 'null'], minLength: 2, maxLength: 120}
+        created_at: {type: string, format: date-time}
+    PhysicalGateStatus:
+      type: object
+      additionalProperties: false
+      required: [gate, status, latest_record_id, checked_at, passed_observations, required_observations]
+      properties:
+        gate: {type: string, enum: [paper, expert, toile]}
+        status: {type: string, enum: [pending, passed, failed]}
+        latest_record_id: {type: [string, 'null'], format: uuid}
+        checked_at: {type: [string, 'null'], format: date-time}
+        passed_observations: {type: integer, minimum: 0}
+        required_observations: {type: integer, minimum: 1}
+    PhysicalValidationSummary:
+      type: object
+      additionalProperties: false
+      required: [project_id, generation_id, gates, production_allowed, policy, records]
+      properties:
+        project_id: {type: string, format: uuid}
+        generation_id: {type: string, format: uuid}
+        gates:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items: {$ref: '#/components/schemas/PhysicalGateStatus'}
+        production_allowed: {type: boolean}
+        policy: {type: string, minLength: 1}
+        records:
+          type: array
+          items: {$ref: '#/components/schemas/PhysicalValidationRecord'}
     ImageUploadRequest:
       type: object
       additionalProperties: false

@@ -59,6 +59,8 @@ def _fingerprint() -> str:
         ROOT / "requirements-stage18.txt",
         ROOT / "requirements-stage19.txt",
         ROOT / "requirements-stage20.txt",
+        ROOT / "requirements-stage21.txt",
+        ROOT / "requirements-stage22.txt",
         ROOT / "pyproject.toml",
         ROOT / "pattern-engine" / "pyproject.toml",
         ROOT / "backend" / "pyproject.toml",
@@ -81,7 +83,7 @@ def bootstrap() -> None:
 
     print("Устанавливаем Python-зависимости…")
     subprocess.run(
-        [str(python), "-m", "pip", "install", "-r", str(ROOT / "requirements-stage20.txt")],
+        [str(python), "-m", "pip", "install", "-r", str(ROOT / "requirements-stage22.txt")],
         cwd=ROOT,
         check=True,
     )

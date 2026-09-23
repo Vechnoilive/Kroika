@@ -21,6 +21,12 @@ const STAGE19_LAYER_MODULES = new Set([
   'skirt_overlay_layer_v1',
 ]);
 
+const STAGE21_TOPOLOGY_MODULES = new Set([
+  'paired_straight_skirt_yoke_v1',
+  'paired_equal_skirt_panels_v1',
+  'front_waist_to_side_dart_v1',
+]);
+
 function coverageContract(garment: JsonObject): JsonObject | null {
   const intent = garment.design_intent;
   if (!intent || intent.coverage_schema_version !== '1.0.0') return null;
@@ -88,6 +94,26 @@ export function canonicalGenerationPayload(request: JsonObject): JsonObject {
       return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
     });
   if (modelingElements.length > 0) garmentSpec.modeling_elements = modelingElements;
+  const topologyElements = (garment.design_intent?.elements ?? [])
+    .filter((element: JsonObject) => element.included !== false
+      && element.support_status === 'supported'
+      && STAGE21_TOPOLOGY_MODULES.has(element.module_id))
+    .map((element: JsonObject) => ({
+      source_element_id: element.source_element_id,
+      type: element.type,
+      variant: element.variant,
+      location: element.location,
+      construction: element.construction,
+      count: element.count,
+      dimensions_mm: element.dimensions_mm ?? null,
+      module_id: element.module_id,
+    }))
+    .sort((left: JsonObject, right: JsonObject) => {
+      const leftKey = `${left.module_id}\u0000${left.source_element_id}`;
+      const rightKey = `${right.module_id}\u0000${right.source_element_id}`;
+      return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
+    });
+  if (topologyElements.length > 0) garmentSpec.topology_elements = topologyElements;
   const compositeElements = (garment.design_intent?.elements ?? [])
     .filter((element: JsonObject) => element.included !== false
       && element.support_status === 'supported'
@@ -130,8 +156,9 @@ export function canonicalGenerationPayload(request: JsonObject): JsonObject {
   if (coverage) garmentSpec.coverage_contract = coverage;
   const hasComposites = compositeElements.length > 0 || compositeLayers.length > 0;
   return {
-    hash_contract_version: coverage
-      ? '1.3.0'
+    hash_contract_version: topologyElements.length > 0
+      ? '1.4.0'
+      : coverage ? '1.3.0'
       : hasComposites
       ? '1.2.0'
       : modelingElements.length > 0 ? '1.1.0' : '1.0.0',

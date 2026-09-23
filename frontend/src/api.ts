@@ -10,6 +10,8 @@ import type {
   ProjectList,
   PatternEngineResult,
   PatternLayer,
+  PhysicalValidationCreate,
+  PhysicalValidationSummary,
   ProjectHistoryEntry,
   Readiness,
   StyleAnalysis,
@@ -179,6 +181,15 @@ export const api = {
     requestBlob(`/api/v1/patterns/${encodeURIComponent(generationId)}/export/a4-pdf`, {
       method: 'POST',
     }),
+  physicalValidation: (generationId: string) =>
+    request<PhysicalValidationSummary>(
+      `/api/v1/patterns/${encodeURIComponent(generationId)}/physical-validation`,
+    ),
+  recordPhysicalValidation: (generationId: string, record: PhysicalValidationCreate) =>
+    request<PhysicalValidationSummary>(
+      `/api/v1/patterns/${encodeURIComponent(generationId)}/physical-validation`,
+      {method: 'POST', body: JSON.stringify(record)},
+    ),
   visionProviders: () => request<VisionProviderList>('/api/v1/ai/providers'),
   garmentCatalogue: () => request<GarmentCatalogue>('/api/v1/garments/catalog'),
   uploadImage: async (file: File) => request<ImageUploadResult>('/api/v1/images', {

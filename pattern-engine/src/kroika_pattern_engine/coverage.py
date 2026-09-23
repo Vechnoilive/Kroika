@@ -63,7 +63,7 @@ def compile_design_coverage(
             "front_bodice", "back_bodice", "front_skirt", "back_skirt",
             "front_trouser", "back_trouser", "jacket_front_center",
             "jacket_side_front", "base_sleeve",
-        }
+        } or "_skirt_panel_" in piece_id or piece_id.endswith("_skirt_yoke")
     )
     if core_pieces:
         add("main_fabric_layer", piece_ids=core_pieces)
@@ -90,6 +90,16 @@ def compile_design_coverage(
         _add_token_evidence(add, index, "bounded_closure", closure_tokens)
 
     for operation in result.get("modeling_operations", []):
+        if not isinstance(operation, Mapping):
+            continue
+        add(
+            str(operation["module_id"]),
+            source_ids=[str(operation["source_element_id"])],
+            piece_ids=[str(item) for item in operation.get("target_piece_ids", [])],
+            operation_ids=[str(operation["operation_id"])],
+        )
+
+    for operation in result.get("topology_operations", []):
         if not isinstance(operation, Mapping):
             continue
         add(

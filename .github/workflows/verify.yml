@@ -29,10 +29,10 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements-stage20.txt
+          python -m pip install -r requirements-stage22.txt
           python -m pip install --no-deps -e . -e pattern-engine -e backend
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
-      - name: Run stage 20 only
-        run: python scripts/verify_stage20.py
+      - name: Run stage 22 only
+        run: python scripts/verify_stage22.py
