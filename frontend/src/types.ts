@@ -204,6 +204,53 @@ export interface GarmentCatalogue {
   items: GarmentAcceptanceStatus[];
 }
 
+export type PhysicalValidationGate = 'paper' | 'expert' | 'toile';
+export type PhysicalValidationOutcome = 'passed' | 'failed';
+
+export interface PhysicalValidationCreate {
+  gate: PhysicalValidationGate;
+  outcome?: PhysicalValidationOutcome;
+  reviewer_name: string;
+  notes: string;
+  printer_name?: string;
+  square_width_mm?: number;
+  square_height_mm?: number;
+  control_line_mm?: number;
+  figure_label?: string;
+}
+
+export interface PhysicalValidationRecord {
+  record_id: string;
+  project_id: string;
+  generation_id: string;
+  gate: PhysicalValidationGate;
+  outcome: PhysicalValidationOutcome;
+  reviewer_name: string;
+  notes: string;
+  printer_name: string | null;
+  square_width_mm: number | null;
+  square_height_mm: number | null;
+  control_line_mm: number | null;
+  figure_label: string | null;
+  created_at: string;
+}
+
+export interface PhysicalValidationSummary {
+  project_id: string;
+  generation_id: string;
+  gates: Array<{
+    gate: PhysicalValidationGate;
+    status: 'pending' | PhysicalValidationOutcome;
+    latest_record_id: string | null;
+    checked_at: string | null;
+    passed_observations: number;
+    required_observations: number;
+  }>;
+  production_allowed: boolean;
+  policy: string;
+  records: PhysicalValidationRecord[];
+}
+
 export interface FitSettings {
   schema_version: '1.0.0';
   settings_id: string;

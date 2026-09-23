@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class HealthResponse(BaseModel):
@@ -100,6 +100,81 @@ class ReleaseStatusResponse(BaseModel):
     policy: str
     ready_garments: list[str]
     blocked_garments: list[BlockedGarmentRelease]
+
+
+class PhysicalValidationCreate(BaseModel):
+    """One append-only observation for an exact generated pattern."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    gate: Literal["paper", "expert", "toile"]
+    outcome: Literal["passed", "failed"] | None = None
+    reviewer_name: str = Field(min_length=2, max_length=120)
+    notes: str = Field(default="", max_length=2000)
+    printer_name: str | None = Field(default=None, min_length=2, max_length=120)
+    square_width_mm: float | None = Field(default=None, gt=0, le=100)
+    square_height_mm: float | None = Field(default=None, gt=0, le=100)
+    control_line_mm: float | None = Field(default=None, gt=0, le=400)
+    figure_label: str | None = Field(default=None, min_length=2, max_length=120)
+
+    @model_validator(mode="after")
+    def validate_gate_fields(self) -> "PhysicalValidationCreate":
+        if self.gate == "paper":
+            if self.outcome is not None:
+                raise ValueError("Результат печати вычисляется по измерениям.")
+            if not self.printer_name or any(value is None for value in (
+                self.square_width_mm, self.square_height_mm, self.control_line_mm,
+            )):
+                raise ValueError(
+                    "Для проверки печати укажите принтер, обе стороны квадрата и линию 200 мм."
+                )
+        elif self.outcome is None:
+            raise ValueError("Для экспертной проверки и макета выберите результат.")
+        if self.gate == "toile" and not self.figure_label:
+            raise ValueError("Для макета укажите фигуру или профиль мерок.")
+        if self.outcome == "failed" and not self.notes.strip():
+            raise ValueError("Для неудачной проверки опишите замечания.")
+        return self
+
+
+class PhysicalValidationRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    record_id: str
+    project_id: str
+    generation_id: str
+    gate: Literal["paper", "expert", "toile"]
+    outcome: Literal["passed", "failed"]
+    reviewer_name: str
+    notes: str
+    printer_name: str | None
+    square_width_mm: float | None
+    square_height_mm: float | None
+    control_line_mm: float | None
+    figure_label: str | None
+    created_at: str
+
+
+class PhysicalGateStatus(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    gate: Literal["paper", "expert", "toile"]
+    status: Literal["pending", "passed", "failed"]
+    latest_record_id: str | None
+    checked_at: str | None
+    passed_observations: int = Field(ge=0)
+    required_observations: int = Field(ge=1)
+
+
+class PhysicalValidationSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: str
+    generation_id: str
+    gates: list[PhysicalGateStatus]
+    production_allowed: bool
+    policy: str
+    records: list[PhysicalValidationRecord]
 
 
 class ProjectSummary(BaseModel):

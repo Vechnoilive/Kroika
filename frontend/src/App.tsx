@@ -7,6 +7,7 @@ import {VisionAnalyzer} from './VisionAnalyzer';
 import {configureGarment, GARMENT_NAMES} from './garments';
 import {buildDesignIntent} from './designIntent';
 import {DesignCoverageSummary} from './DesignCoverage';
+import {PhysicalValidationJournal} from './PhysicalValidationJournal';
 import type {
   BodyMeasurements,
   GarmentAcceptanceStatus,
@@ -14,6 +15,7 @@ import type {
   GarmentType,
   PatternEngineResult,
   PatternLayer,
+  PhysicalValidationSummary,
   ProjectDocument,
   ProjectSummary,
   StyleAnalysis,
@@ -159,6 +161,9 @@ export function PatternResultCard({
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
   const [layers, setLayers] = useState<PatternLayer[]>(LAYERS.map((item) => item.id));
+  const [physicalSummary, setPhysicalSummary] = useState<PhysicalValidationSummary | null>(null);
+  const productionAllowed = physicalSummary?.generation_id === result.generation_id
+    && physicalSummary.production_allowed;
   const pattern = result.pattern;
   if (!pattern) return null;
   if (!pattern.print_layout) {
@@ -251,10 +256,6 @@ export function PatternResultCard({
           onEditDesign={onEditDesign}
         />
       )}
-      <div className="notice notice--warning">
-        <strong>Печатать можно для проверки — кроить ткань пока нельзя</strong>
-        <span>{acceptance?.name_ru ?? 'Изделие'}: expert status — {acceptance?.expert_status ?? 'pending'}, toile status — {acceptance?.toile_status ?? 'pending'}. Проверьте квадрат, бумажную сборку и макет.</span>
-      </div>
       <section className="print-guide" aria-labelledby="print-guide-title">
         <h3 id="print-guide-title">Как распечатать без ошибки</h3>
         <ol>
@@ -263,11 +264,22 @@ export function PatternResultCard({
           <li><span>3</span><p><strong>Соберите по меткам</strong>Нахлёст листов — {pattern.print_layout.overlap_mm} мм.</p></li>
         </ol>
       </section>
+      <PhysicalValidationJournal
+        key={result.generation_id}
+        generationId={result.generation_id}
+        garmentName={acceptance?.name_ru}
+        onSummary={setPhysicalSummary}
+      />
       {downloadError && <div className="inline-error" role="alert">{downloadError}</div>}
       <div className="export-actions export-actions--three">
         <a className="secondary-link" href={api.printSvgUrl(result.generation_id)} download>Единый SVG</a>
         <a className="secondary-link" href={api.projectJsonUrl(result.generation_id)} download>JSON проекта</a>
-        <button className="primary-button" onClick={() => void downloadPdf()} disabled={downloading}>{downloading ? 'Готовим…' : 'PDF A4 для проверки'} <span aria-hidden="true">↓</span></button>
+        <button className="primary-button" onClick={() => void downloadPdf()} disabled={downloading}>
+          {downloading
+            ? 'Готовим…'
+            : productionAllowed ? 'PDF A4 · проверенная версия' : 'PDF A4 для проверки'}{' '}
+          <span aria-hidden="true">↓</span>
+        </button>
       </div>
       {onNewVersion && (
         <button className="text-button new-version-button" type="button" onClick={onNewVersion} disabled={busy}>
@@ -536,7 +548,7 @@ export default function App() {
         </aside>
 
         <section className="content">
-          <div className="stage-badge">Покрытие фасона · этап 20</div>
+          <div className="stage-badge">Физическая приёмка · этап 22</div>
           {!project ? (
             <>
               <div className="intro"><p className="eyebrow">Начнём спокойно</p><h1>Создадим выкройку<br /><em>последовательно</em></h1><p>Каждый шаг сохраняется. Никакие мерки не угадываются, а результат AI всегда подтверждает человек.</p></div>
@@ -553,7 +565,7 @@ export default function App() {
               <div className="project-heading"><div><p className="eyebrow">{STATUS_NAMES[project.status]} · версия {project.revision}</p><h1>{project.name}</h1><p>Черновик сохраняется на каждом завершённом шаге.</p></div><button className="text-button" onClick={startAnother}>Другой проект</button></div>
               {error && <FriendlyError error={error} onNavigate={navigateToIssue} />}
 
-              {activeStep > 2 && (
+              {activeStep > 1 && (
                 <nav className="workflow-navigation" aria-label="Навигация по шагам">
                   <button type="button" onClick={() => navigateToStep((activeStep - 1) as WorkflowStep)}>
                     <span aria-hidden="true">←</span> Назад: {WORKFLOW_TITLES[activeStep - 2]}

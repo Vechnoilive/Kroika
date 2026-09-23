@@ -68,7 +68,8 @@ def _fold_paths(placed: PlacedPiece, shift_y: float) -> list[str]:
 
 
 def render_pattern_svg(
-    pattern: Mapping[str, Any], visible_layers: Collection[str] | None = None,
+    pattern: Mapping[str, Any], visible_layers: Collection[str] | None = None, *,
+    production_allowed: bool = False,
 ) -> str:
     """Render a printable 1:1 unified SVG without scripts or external resources."""
 
@@ -81,16 +82,26 @@ def render_pattern_svg(
         layout = layout_pattern(pattern)
     except (KeyError, TypeError, ValueError) as error:
         raise SVGRenderError("Не удалось разместить детали на общем листе.") from error
-    header_height = 88.0
+    header_height = 102.0
     canvas_width = max(layout.width_mm, 210.0)
     canvas_height = layout.height_mm + header_height
     has_cutting = all(piece.piece.get("cutting_contour") for piece in layout.pieces)
     mode = "линия шва и линия среза" if has_cutting else "только линия шва"
+    title = (
+        "Выкройка Kroika 1:1 — журнал физических проверок пройден"
+        if production_allowed else "Выкройка Kroika для диагностической печати 1:1"
+    )
+    description = (
+        "Печать, проверка конструктора и макет отмечены пройденными для этой версии."
+        if production_allowed
+        else "Экспериментальная выкройка. Проверьте квадрат 50 на 50 мм и изготовьте макет до раскроя ткани."
+    )
+    export_mode = "production" if production_allowed else "diagnostic"
     fragments = [
         f'<svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="0 0 {_fmt(canvas_width)} {_fmt(canvas_height)}" width="{_fmt(canvas_width)}mm" height="{_fmt(canvas_height)}mm">',
-        "<title>Выкройка Kroika для диагностической печати 1:1</title>",
-        "<desc>Экспериментальная выкройка. Проверьте квадрат 50 на 50 мм и изготовьте макет до раскроя ткани.</desc>",
-        "<metadata>unit=mm; scale=1:1; export=diagnostic; production-ready=false</metadata>",
+        f"<title>{title}</title>",
+        f"<desc>{description}</desc>",
+        f"<metadata>unit=mm; scale=1:1; export={export_mode}; production-ready={str(production_allowed).lower()}</metadata>",
         '<defs><marker id="grain-arrow" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#604a70"/></marker></defs>',
         "<style>.sheet{fill:#fff}.cutting{fill:#fffaf4;stroke:#17141a;stroke-width:1;vector-effect:non-scaling-stroke}.seam{fill:none;stroke:#b84539;stroke-width:.65;stroke-dasharray:5 3;vector-effect:non-scaling-stroke}.internal{fill:none;stroke:#806378;stroke-width:.55;stroke-dasharray:4 3;vector-effect:non-scaling-stroke}.grain{stroke:#604a70;stroke-width:.7;stroke-dasharray:8 3;marker-end:url(#grain-arrow);vector-effect:non-scaling-stroke}.notch{stroke:#17141a;stroke-width:1.2;vector-effect:non-scaling-stroke}.fold{fill:none;stroke:#17746f;stroke-width:1.5;stroke-dasharray:10 3 2 3;vector-effect:non-scaling-stroke}.label{font:700 7px sans-serif;fill:#17141a}.meta{font:5px sans-serif;fill:#5f5762}.dimension{font:4.5px sans-serif;fill:#6b587f}.title{font:700 9px sans-serif;fill:#17141a}.warning{font:700 6px sans-serif;fill:#a43e34}.calibration{fill:none;stroke:#17141a;stroke-width:.45}.legend{font:5.5px sans-serif;fill:#302b32}.watermark{font:700 18px sans-serif;fill:#b84539;opacity:.08}</style>",
         f'<rect class="sheet" width="{_fmt(canvas_width)}" height="{_fmt(canvas_height)}"/>',
@@ -103,8 +114,20 @@ def render_pattern_svg(
         '<text class="legend" x="82" y="49">Зелёный штрихпунктир — сгиб</text>',
         '<text class="warning" x="82" y="61">Печатать 100% / Actual size</text>',
         '<text class="warning" x="82" y="70">Не использовать «Подогнать к странице»</text>',
-        f'<text class="watermark" x="{_fmt(canvas_width / 2 - 75)}" y="{_fmt(header_height + 22)}">ЭКСПЕРИМЕНТАЛЬНО</text>',
+        '<line id="control-line-200mm" class="calibration" x1="5" y1="92" x2="205" y2="92"/>',
+        '<line class="calibration" x1="5" y1="88" x2="5" y2="96"/>',
+        '<line class="calibration" x1="205" y1="88" x2="205" y2="96"/>',
+        '<text class="legend" x="82" y="100">Контрольная линия 200 мм</text>',
     ]
+    if production_allowed:
+        fragments.append(
+            '<text class="legend" x="82" y="81">Проверки этой версии записаны в журнале</text>'
+        )
+    else:
+        fragments.append(
+            f'<text class="watermark" x="{_fmt(canvas_width / 2 - 75)}" '
+            f'y="{_fmt(header_height + 22)}">ЭКСПЕРИМЕНТАЛЬНО</text>'
+        )
 
     for placed in layout.pieces:
         piece = placed.piece

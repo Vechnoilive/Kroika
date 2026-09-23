@@ -29,7 +29,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements-stage21.txt
+          python -m pip install -r requirements-stage22.txt
           python -m pip install --no-deps -e . -e pattern-engine -e backend
       - name: Install frontend dependencies
         working-directory: frontend
@@ -37,5 +37,5 @@ jobs:
       - name: Install Chromium for E2E
         working-directory: frontend
         run: npx playwright install --with-deps chromium
-      - name: Run every automated gate from stages 2–21
+      - name: Run every automated gate from stages 2–22
         run: python scripts/verify_all.py

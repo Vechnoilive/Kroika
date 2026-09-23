@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import sqlite3
 from typing import Any
+from uuid import uuid4
 
 from kroika_contracts.semantic import validate_project
 from kroika_contracts.measurements import validate_measurement_profile
@@ -59,7 +60,7 @@ def _change_summary(before: dict[str, Any] | None, after: dict[str, Any]) -> str
 
 
 class SQLiteRepository:
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 2
 
     def __init__(self, database_path: Path):
         self.database_path = database_path
@@ -167,6 +168,23 @@ class SQLiteRepository:
                     CREATE INDEX generations_project_idx
                         ON generations(project_id, created_at);
                 """)
+            connection.executescript("""
+                CREATE TABLE IF NOT EXISTS physical_validation_records (
+                    sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+                    record_id TEXT NOT NULL UNIQUE,
+                    generation_id TEXT NOT NULL,
+                    project_id TEXT NOT NULL,
+                    gate TEXT NOT NULL CHECK (gate IN ('paper', 'expert', 'toile')),
+                    outcome TEXT NOT NULL CHECK (outcome IN ('passed', 'failed')),
+                    payload TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY (generation_id) REFERENCES generations(generation_id)
+                        ON DELETE CASCADE,
+                    FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS physical_validation_generation_idx
+                    ON physical_validation_records(generation_id, sequence DESC);
+            """)
             connection.execute(
                 "INSERT OR IGNORE INTO project_revisions "
                 "(project_id, revision, payload, updated_at, change_summary) "
@@ -462,6 +480,92 @@ class SQLiteRepository:
                 "SELECT payload FROM generations WHERE generation_id = ?", (generation_id,)
             ).fetchone()
         return _load(row["payload"]) if row else None
+
+    def physical_validation_summary(self, generation_id: str) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            generation = connection.execute(
+                "SELECT project_id FROM generations WHERE generation_id = ?", (generation_id,)
+            ).fetchone()
+            if generation is None:
+                return None
+            rows = connection.execute(
+                "SELECT payload FROM physical_validation_records "
+                "WHERE generation_id = ? ORDER BY sequence DESC",
+                (generation_id,),
+            ).fetchall()
+        records = [_load(row["payload"]) for row in rows]
+        required = {"paper": 2, "expert": 1, "toile": 3}
+        gates: list[dict[str, Any]] = []
+        for gate in ("paper", "expert", "toile"):
+            gate_records = [record for record in records if record["gate"] == gate]
+            latest = gate_records[0] if gate_records else None
+            if gate == "expert":
+                current = [latest] if latest else []
+            else:
+                scope_field = "printer_name" if gate == "paper" else "figure_label"
+                current_by_scope: dict[str, dict[str, Any]] = {}
+                for record in gate_records:
+                    scope = str(record.get(scope_field) or "").strip().casefold()
+                    current_by_scope.setdefault(scope, record)
+                current = list(current_by_scope.values())
+            passed = sum(record["outcome"] == "passed" for record in current)
+            if any(record["outcome"] == "failed" for record in current):
+                status = "failed"
+            elif passed >= required[gate]:
+                status = "passed"
+            else:
+                status = "pending"
+            gates.append({
+                "gate": gate,
+                "status": status,
+                "latest_record_id": latest["record_id"] if latest else None,
+                "checked_at": latest["created_at"] if latest else None,
+                "passed_observations": passed,
+                "required_observations": required[gate],
+            })
+        return {
+            "project_id": generation["project_id"],
+            "generation_id": generation_id,
+            "gates": gates,
+            "production_allowed": all(gate["status"] == "passed" for gate in gates),
+            "policy": (
+                "Допуск относится только к этой версии: нужны успешные проверки на двух "
+                "разных принтерах, заключение конструктора и три макета на разных фигурах; "
+                "последняя отрицательная запись соответствующей проверки снимает допуск."
+            ),
+            "records": records,
+        }
+
+    def add_physical_validation(
+        self, generation_id: str, observation: dict[str, Any]
+    ) -> dict[str, Any]:
+        with self._connect() as connection:
+            generation = connection.execute(
+                "SELECT project_id FROM generations WHERE generation_id = ?", (generation_id,)
+            ).fetchone()
+            if generation is None:
+                raise AppError(404, "GENERATION_NOT_FOUND", "Результат построения не найден.")
+            document = deepcopy(observation)
+            document.update({
+                "record_id": str(uuid4()),
+                "project_id": generation["project_id"],
+                "generation_id": generation_id,
+                "created_at": _now(),
+            })
+            connection.execute(
+                "INSERT INTO physical_validation_records "
+                "(record_id, generation_id, project_id, gate, outcome, payload, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    document["record_id"], generation_id, generation["project_id"],
+                    document["gate"], document["outcome"], _dump(document),
+                    document["created_at"],
+                ),
+            )
+        summary = self.physical_validation_summary(generation_id)
+        if summary is None:  # pragma: no cover - protected by the transaction above.
+            raise AppError(404, "GENERATION_NOT_FOUND", "Результат построения не найден.")
+        return summary
 
     def get_generation_by_hash(
         self, project_id: str, input_hash: str, engine_version: str

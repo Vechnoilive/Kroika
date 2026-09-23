@@ -1,4 +1,4 @@
-"""FastAPI composition root for the stage-21 topology-aware workflow."""
+"""FastAPI composition root for the stage-22 physically validated workflow."""
 
 from __future__ import annotations
 
@@ -41,6 +41,8 @@ from .models import (
     MeasurementProfileListResponse,
     MeasurementProfileRecord,
     MeasurementProfileSummary,
+    PhysicalValidationCreate,
+    PhysicalValidationSummary,
     ProjectListResponse,
     ProjectHistoryResponse,
     ProjectSummary,
@@ -50,7 +52,10 @@ from .models import (
 from .repository import SQLiteRepository
 from .vision_providers import ProviderRegistry, build_provider_registry
 
-APP_VERSION = "0.21.0"
+APP_VERSION = "0.22.0"
+
+PAPER_SQUARE_TOLERANCE_MM = 1.0
+PAPER_CONTROL_LINE_TOLERANCE_MM = 1.0
 
 
 def _project_or_404(repository: SQLiteRepository, project_id: str) -> dict[str, Any]:
@@ -330,6 +335,47 @@ def create_app(
     def get_release_status() -> dict[str, Any]:
         return release_gate()
 
+    @app.get(
+        "/api/v1/patterns/{generation_id}/physical-validation",
+        response_model=PhysicalValidationSummary,
+        tags=["release"],
+    )
+    def get_physical_validation(generation_id: UUID) -> dict[str, Any]:
+        _generation_or_404(repository, str(generation_id))
+        summary = repository.physical_validation_summary(str(generation_id))
+        if summary is None:  # pragma: no cover - generation was checked above.
+            raise AppError(404, "GENERATION_NOT_FOUND", "Результат построения не найден.")
+        return summary
+
+    @app.post(
+        "/api/v1/patterns/{generation_id}/physical-validation",
+        status_code=201,
+        response_model=PhysicalValidationSummary,
+        tags=["release"],
+    )
+    def record_physical_validation(
+        generation_id: UUID,
+        request_document: PhysicalValidationCreate,
+    ) -> dict[str, Any]:
+        result = _generation_or_404(repository, str(generation_id))
+        if result.get("status") != "succeeded" or result.get("pattern") is None:
+            raise AppError(
+                409,
+                "PHYSICAL_VALIDATION_UNAVAILABLE",
+                "Физическую проверку можно записать только для построенной выкройки.",
+            )
+        observation = request_document.model_dump()
+        if request_document.gate == "paper":
+            observation["outcome"] = "passed" if all((
+                abs(float(request_document.square_width_mm) - 50.0)
+                <= PAPER_SQUARE_TOLERANCE_MM,
+                abs(float(request_document.square_height_mm) - 50.0)
+                <= PAPER_SQUARE_TOLERANCE_MM,
+                abs(float(request_document.control_line_mm) - 200.0)
+                <= PAPER_CONTROL_LINE_TOLERANCE_MM,
+            )) else "failed"
+        return repository.add_physical_validation(str(generation_id), observation)
+
     @app.post(
         "/api/v1/images", status_code=201,
         response_model=ImageUploadResponse, tags=["garments"],
@@ -438,7 +484,9 @@ def create_app(
                 "DIAGNOSTIC_EXPORT_BLOCKED",
                 "Диагностический экспорт недоступен для отклонённого построения.",
             )
-        svg = render_pattern_svg(result["pattern"])
+        physical = repository.physical_validation_summary(str(generation_id))
+        production_allowed = bool(physical and physical["production_allowed"])
+        svg = render_pattern_svg(result["pattern"], production_allowed=production_allowed)
         return Response(
             content=svg,
             media_type="image/svg+xml",
@@ -446,8 +494,8 @@ def create_app(
                 "Cache-Control": "no-store",
                 "Content-Disposition": f'attachment; filename="kroika-{generation_id}-print.svg"',
                 "X-Content-Type-Options": "nosniff",
-                "X-Kroika-Export-Mode": "diagnostic",
-                "X-Kroika-Production-Ready": "false",
+                "X-Kroika-Export-Mode": "production" if production_allowed else "diagnostic",
+                "X-Kroika-Production-Ready": str(production_allowed).lower(),
             },
         )
 
@@ -461,7 +509,11 @@ def create_app(
                 "Диагностическая печать недоступна для отклонённого построения.",
             )
         try:
-            rendered = render_pattern_pdf(result["pattern"])
+            physical = repository.physical_validation_summary(str(generation_id))
+            production_allowed = bool(physical and physical["production_allowed"])
+            rendered = render_pattern_pdf(
+                result["pattern"], production_allowed=production_allowed
+            )
         except PDFRenderError as error:
             raise AppError(409, "PDF_EXPORT_INVALID", str(error)) from error
         return Response(
@@ -472,8 +524,8 @@ def create_app(
                 "Content-Disposition": f'attachment; filename="kroika-{generation_id}-a4.pdf"',
                 "X-Content-Type-Options": "nosniff",
                 "X-Kroika-Sheet-Count": str(rendered.tile_count),
-                "X-Kroika-Export-Mode": "diagnostic",
-                "X-Kroika-Production-Ready": "false",
+                "X-Kroika-Export-Mode": "production" if production_allowed else "diagnostic",
+                "X-Kroika-Production-Ready": str(production_allowed).lower(),
             },
         )
 
