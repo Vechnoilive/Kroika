@@ -28,6 +28,18 @@ STAGE19_LAYER_MODULES = frozenset({
     'skirt_overlay_layer_v1',
 })
 
+FIXED_ELEMENT_MODULES = frozenset({
+    'bounded_closure',
+    'straight_waistband',
+    'base_dart_shaping',
+    'jacket_princess_seam',
+    'bounded_collar',
+    'bounded_pocket',
+    'jacket_back_vent',
+})
+
+FIXED_LAYER_MODULES = frozenset({'main_fabric_layer', 'jacket_full_lining'})
+
 
 @dataclass(frozen=True, slots=True)
 class SemanticIssue:
@@ -176,6 +188,92 @@ def _stage19_element_matches(item: Mapping[str, Any], spec: Mapping[str, Any]) -
         )
     )
     return cuff or collar or pocket
+
+
+def _fixed_element_module_matches(item: Mapping[str, Any], spec: Mapping[str, Any]) -> bool:
+    module_id = item.get('module_id')
+    garment = spec['garment_type']
+    closure = spec['parameters']['closure']
+    closure_location = (
+        (closure['location'] == 'center_back' and item['location'] == 'bodice_back')
+        or (
+            closure['location'] == 'center_front'
+            and item['location'] in {'bodice_front', 'trouser_front'}
+        )
+        or (closure['location'] == 'side' and item['location'] == 'waist')
+    )
+    if module_id == 'bounded_closure':
+        return (
+            item['type'] == 'closure'
+            and item['variant'] == closure['type']
+            and closure_location
+        )
+    if module_id == 'straight_waistband':
+        return (
+            garment in {'skirt', 'trousers', 'shorts'}
+            and item['type'] == 'waistband'
+            and item['variant'] == 'straight'
+            and item['location'] == 'waist'
+            and item['construction'] == 'separate_piece'
+        )
+    if module_id == 'base_dart_shaping':
+        upper = {'dress', 'sundress', 'top', 'blouse', 'shirt', 'vest'}
+        location_matches = (
+            (garment in upper and item['location'] in {'bodice_front', 'bodice_back'})
+            or (garment == 'skirt' and item['location'] in {'skirt_front', 'skirt_back'})
+            or (
+                garment in {'trousers', 'shorts'}
+                and item['location'] in {'trouser_front', 'trouser_back'}
+            )
+        )
+        return item['type'] == 'dart' and item['variant'] == 'standard' and location_matches
+    if module_id == 'jacket_princess_seam':
+        return (
+            garment == 'jacket'
+            and item['type'] == 'princess_seam'
+            and item['location'] == 'bodice_front'
+        )
+    if module_id == 'bounded_collar':
+        return (
+            item['type'] == 'collar'
+            and item['location'] == 'neckline'
+            and (
+                (garment == 'shirt' and item['variant'] == 'shirt')
+                or (garment == 'jacket' and item['variant'] == 'notched')
+            )
+        )
+    if module_id == 'bounded_pocket':
+        return (
+            item['type'] == 'pocket'
+            and (
+                (
+                    garment == 'jacket'
+                    and item['variant'] == 'patch'
+                    and item['location'] == 'bodice_front'
+                )
+                or (
+                    garment in {'trousers', 'shorts'}
+                    and item['variant'] == 'slash'
+                    and item['location'] == 'trouser_front'
+                )
+            )
+        )
+    if module_id == 'jacket_back_vent':
+        return (
+            garment == 'jacket'
+            and item['type'] == 'vent'
+            and item['variant'] == 'single'
+            and item['location'] == 'bodice_back'
+        )
+    return False
+
+
+def _fixed_layer_module_matches(item: Mapping[str, Any], spec: Mapping[str, Any]) -> bool:
+    if item.get('module_id') == 'main_fabric_layer':
+        return item['role'] == 'main'
+    if item.get('module_id') == 'jacket_full_lining':
+        return spec['garment_type'] == 'jacket' and item['role'] == 'lining'
+    return False
 
 
 def _stage19_layer_matches(item: Mapping[str, Any], spec: Mapping[str, Any]) -> bool:
@@ -377,6 +475,22 @@ def _validate_design_intent(
                         issues, 'DESIGN_COMPOSITE_MODULE_MISMATCH', pointer,
                         'Слой не соответствует роли, покрытию или ограниченному каталогу изделия.',
                     )
+            elif group == 'elements' and module_id in FIXED_ELEMENT_MODULES:
+                if item['support_status'] != 'supported' or not _fixed_element_module_matches(
+                    item, spec
+                ):
+                    _add(
+                        issues, 'DESIGN_COVERAGE_MODULE_MISMATCH', pointer,
+                        'Базовый модуль не соответствует виду, месту или варианту детали.',
+                    )
+            elif group == 'layers' and module_id in FIXED_LAYER_MODULES:
+                if item['support_status'] != 'supported' or not _fixed_layer_module_matches(
+                    item, spec
+                ):
+                    _add(
+                        issues, 'DESIGN_COVERAGE_MODULE_MISMATCH', pointer,
+                        'Базовый модуль слоя не соответствует роли или выбранному изделию.',
+                    )
             elif module_id in STAGE19_ELEMENT_MODULES | STAGE19_LAYER_MODULES:
                 _add(
                     issues, 'DESIGN_COMPOSITE_MODULE_MISMATCH', pointer,
@@ -424,6 +538,19 @@ def _validate_design_intent(
     if proportions['support_status'] == 'excluded':
         _add(issues, 'DESIGN_PROPORTIONS_EXCLUDED', '/garment_spec/design_intent/proportions',
              'Пропорции изделия нельзя исключить из проверки.')
+    if proportions.get('module_id') == 'bounded_visual_proportions':
+        supported_proportions = (
+            proportions['waist_position'] == 'natural'
+            and proportions['volume'] in {'fitted', 'regular'}
+            and proportions['hem_shape'] == 'straight'
+            and proportions['asymmetry'] == 'no'
+        )
+        if proportions['support_status'] != 'supported' or not supported_proportions:
+            _add(
+                issues, 'DESIGN_COVERAGE_MODULE_MISMATCH',
+                '/garment_spec/design_intent/proportions',
+                'Базовый модуль пропорций не соответствует подтверждённому силуэту.',
+            )
     active.append(proportions)
 
     questions = intent['pending_questions']

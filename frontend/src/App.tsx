@@ -6,9 +6,11 @@ import {ConstructionEditor, ProjectHistory, StyleEditor} from './ProjectWorkflow
 import {VisionAnalyzer} from './VisionAnalyzer';
 import {configureGarment, GARMENT_NAMES} from './garments';
 import {buildDesignIntent} from './designIntent';
+import {DesignCoverageSummary} from './DesignCoverage';
 import type {
   BodyMeasurements,
   GarmentAcceptanceStatus,
+  GarmentDesignIntent,
   GarmentType,
   PatternEngineResult,
   PatternLayer,
@@ -140,12 +142,18 @@ export function PatternResultCard({
   onNewVersion,
   busy = false,
   acceptance,
+  analysis,
+  designIntent,
+  onEditDesign,
 }: {
   result: PatternEngineResult;
   onRebuild?: () => void;
   onNewVersion?: () => void;
   busy?: boolean;
   acceptance?: GarmentAcceptanceStatus;
+  analysis?: StyleAnalysis | null;
+  designIntent?: GarmentDesignIntent;
+  onEditDesign?: () => void;
 }) {
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
@@ -235,6 +243,14 @@ export function PatternResultCard({
         <div><dt>Пары швов</dt><dd>{pattern.seam_pairs.length}</dd></div>
         <div><dt>Печать</dt><dd>A4 · 1:1</dd></div>
       </dl>
+      {designIntent && (
+        <DesignCoverageSummary
+          intent={designIntent}
+          analysis={analysis}
+          pattern={pattern}
+          onEditDesign={onEditDesign}
+        />
+      )}
       <div className="notice notice--warning">
         <strong>Печатать можно для проверки — кроить ткань пока нельзя</strong>
         <span>{acceptance?.name_ru ?? 'Изделие'}: expert status — {acceptance?.expert_status ?? 'pending'}, toile status — {acceptance?.toile_status ?? 'pending'}. Проверьте квадрат, бумажную сборку и макет.</span>
@@ -520,7 +536,7 @@ export default function App() {
         </aside>
 
         <section className="content">
-          <div className="stage-badge">AI-анализ деталей · этап 16</div>
+          <div className="stage-badge">Покрытие фасона · этап 20</div>
           {!project ? (
             <>
               <div className="intro"><p className="eyebrow">Начнём спокойно</p><h1>Создадим выкройку<br /><em>последовательно</em></h1><p>Каждый шаг сохраняется. Никакие мерки не угадываются, а результат AI всегда подтверждает человек.</p></div>
@@ -557,7 +573,7 @@ export default function App() {
               {activeStep === 6 && (
                 <section className="generation-card" aria-labelledby="generation-title"><div className="action-card__icon" aria-hidden="true">06</div><div><p className="eyebrow">Все входы подтверждены</p><h2 id="generation-title">Построить выкройку?</h2><p>Формульный движок создаст детали из сохранённых мерок, фасона, ткани и прибавок, затем проверит геометрию.</p><ul><li>{GARMENT_NAMES[project.garment_spec.garment_type]} · {garmentConstruction}</li><li>{garmentLength}</li><li>Стабильная тканая ткань · пробный статус</li><li>Экспертная проверка и макет: ещё не пройдены</li></ul><button className="primary-button" onClick={() => void generatePattern()} disabled={busy}>{busy ? 'Строим и проверяем…' : 'Построить выкройку'} <span aria-hidden="true">→</span></button></div></section>
               )}
-              {activeStep === 7 && project.latest_generation && <PatternResultCard result={project.latest_generation} acceptance={currentAcceptance} onRebuild={() => void generatePattern()} onNewVersion={() => void startNewVersion()} busy={busy} />}
+              {activeStep === 7 && project.latest_generation && <PatternResultCard result={project.latest_generation} acceptance={currentAcceptance} analysis={analysis} designIntent={project.garment_spec.design_intent} onEditDesign={() => navigateToStep(3)} onRebuild={() => void generatePattern()} onNewVersion={() => void startNewVersion()} busy={busy} />}
               <ProjectHistory project={project} onRestored={remember} />
             </>
           )}

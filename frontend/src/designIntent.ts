@@ -129,6 +129,7 @@ function elementSupport(
   if (element.type === 'waistband'
       && ['skirt', 'trousers', 'shorts'].includes(garment)
       && element.variant === 'straight'
+      && element.location === 'waist'
       && element.construction === 'separate_piece') {
     return {status: 'supported', moduleId: 'straight_waistband'};
   }
@@ -144,17 +145,20 @@ function elementSupport(
   }
   if (element.type === 'princess_seam'
       && garment === 'jacket'
-      && ['bodice_front', 'bodice_back'].includes(element.location)) {
+      && element.location === 'bodice_front') {
     return {status: 'supported', moduleId: 'jacket_princess_seam'};
   }
   if (element.type === 'collar'
+      && element.location === 'neckline'
       && ((garment === 'shirt' && element.variant === 'shirt')
         || (garment === 'jacket' && element.variant === 'notched'))) {
     return {status: 'supported', moduleId: 'bounded_collar'};
   }
   if (element.type === 'pocket'
-      && ((garment === 'jacket' && element.variant === 'patch')
-        || (['trousers', 'shorts'].includes(garment) && element.variant === 'slash'))) {
+      && ((garment === 'jacket' && element.variant === 'patch'
+        && element.location === 'bodice_front')
+        || (['trousers', 'shorts'].includes(garment) && element.variant === 'slash'
+          && element.location === 'trouser_front'))) {
     return {status: 'supported', moduleId: 'bounded_pocket'};
   }
   if (element.type === 'vent' && element.variant === 'single'
@@ -263,6 +267,7 @@ export function buildDesignIntent(
   const pendingQuestions = [...new Set(analysis.targeted_questions)];
   return {
     schema_version: '1.0.0',
+    coverage_schema_version: '1.0.0',
     source: 'ai',
     status: 'needs_confirmation',
     review_status: 'proposed',
@@ -281,6 +286,7 @@ export function prepareDesignIntentForReview(
   if (intent.review_status !== undefined) return intent;
   return {
     ...intent,
+    coverage_schema_version: '1.0.0',
     status: 'needs_confirmation',
     review_status: 'proposed',
     reviewed_at: null,
@@ -353,6 +359,7 @@ export function reevaluateDesignIntent(
 ): GarmentDesignIntent {
   const next: GarmentDesignIntent = {
     ...intent,
+    coverage_schema_version: '1.0.0',
     review_status: 'proposed',
     reviewed_at: null,
     elements: intent.elements.map((element) => {

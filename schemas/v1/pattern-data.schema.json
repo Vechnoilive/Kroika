@@ -25,6 +25,7 @@
       "type": "array",
       "items": {"$ref": "#/$defs/composite_operation"}
     },
+    "design_coverage": {"$ref": "#/$defs/design_coverage"},
     "print_layout": {
       "type": "object", "additionalProperties": false,
       "required": ["page_format", "page_width_mm", "page_height_mm", "margin_mm", "overlap_mm", "scale", "control_square_mm"],
@@ -203,6 +204,49 @@
         "parameters_mm": {"type": "object", "additionalProperties": {"type": "number"}},
         "invariant_residual_mm": {"type": "number", "minimum": 0}
       }
+    },
+    "design_coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "modules", "physical_validation_required"],
+      "properties": {
+        "schema_version": {"type": "string", "const": "1.0.0"},
+        "modules": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/design_coverage_module"}
+        },
+        "physical_validation_required": {"type": "boolean", "const": true}
+      }
+    },
+    "design_coverage_module": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["module_id", "source_ids", "evidence"],
+      "properties": {
+        "module_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "source_ids": {
+          "type": "array", "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}
+        },
+        "evidence": {"$ref": "#/$defs/design_coverage_evidence"}
+      }
+    },
+    "design_coverage_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["piece_ids", "seam_pair_ids", "path_ids", "segment_ids", "operation_ids"],
+      "properties": {
+        "piece_ids": {"$ref": "#/$defs/evidence_ids"},
+        "seam_pair_ids": {"$ref": "#/$defs/evidence_ids"},
+        "path_ids": {"$ref": "#/$defs/evidence_ids"},
+        "segment_ids": {"$ref": "#/$defs/evidence_ids"},
+        "operation_ids": {"$ref": "#/$defs/evidence_ids"}
+      }
+    },
+    "evidence_ids": {
+      "type": "array", "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}
     }
   }
 }

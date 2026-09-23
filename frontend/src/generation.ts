@@ -21,6 +21,24 @@ const STAGE19_LAYER_MODULES = new Set([
   'skirt_overlay_layer_v1',
 ]);
 
+function coverageContract(garment: JsonObject): JsonObject | null {
+  const intent = garment.design_intent;
+  if (!intent || intent.coverage_schema_version !== '1.0.0') return null;
+  const modules = new Set<string>();
+  for (const group of ['elements', 'layers']) {
+    for (const item of intent[group] ?? []) {
+      if (item.included !== false
+          && item.support_status === 'supported'
+          && typeof item.module_id === 'string') modules.add(item.module_id);
+    }
+  }
+  if (intent.proportions?.support_status === 'supported'
+      && typeof intent.proportions.module_id === 'string') {
+    modules.add(intent.proportions.module_id);
+  }
+  return {schema_version: '1.0.0', required_module_ids: [...modules].sort()};
+}
+
 function normalized(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(normalized);
   if (value !== null && typeof value === 'object') {
@@ -108,9 +126,13 @@ export function canonicalGenerationPayload(request: JsonObject): JsonObject {
     });
   if (compositeElements.length > 0) garmentSpec.composite_elements = compositeElements;
   if (compositeLayers.length > 0) garmentSpec.composite_layers = compositeLayers;
+  const coverage = coverageContract(garment);
+  if (coverage) garmentSpec.coverage_contract = coverage;
   const hasComposites = compositeElements.length > 0 || compositeLayers.length > 0;
   return {
-    hash_contract_version: hasComposites
+    hash_contract_version: coverage
+      ? '1.3.0'
+      : hasComposites
       ? '1.2.0'
       : modelingElements.length > 0 ? '1.1.0' : '1.0.0',
     pattern_method: {id: method.id, version: method.version},
@@ -163,7 +185,15 @@ export async function buildEngineRequest(project: ProjectDocument): Promise<Json
     input_hash: '0'.repeat(64),
     pattern_method: source.pattern_method,
     body_measurements: project.body_measurements,
-    garment_spec: project.garment_spec,
+    garment_spec: project.garment_spec.design_intent
+      ? {
+          ...project.garment_spec,
+          design_intent: {
+            ...project.garment_spec.design_intent,
+            coverage_schema_version: '1.0.0',
+          },
+        }
+      : project.garment_spec,
     fit_settings: source.fit_settings,
     fabric_properties: source.fabric_properties,
   };

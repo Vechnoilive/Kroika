@@ -100,6 +100,31 @@ def _composite_layers(garment: Mapping[str, Any]) -> list[dict[str, Any]]:
     ))
 
 
+def _coverage_contract(garment: Mapping[str, Any]) -> dict[str, Any] | None:
+    intent = garment.get('design_intent')
+    if not isinstance(intent, Mapping) or intent.get('coverage_schema_version') != '1.0.0':
+        return None
+    modules = {
+        item['module_id']
+        for group in ('elements', 'layers')
+        for item in intent.get(group, [])
+        if item.get('included') is not False
+        and item.get('support_status') == 'supported'
+        and isinstance(item.get('module_id'), str)
+    }
+    proportions = intent.get('proportions')
+    if (
+        isinstance(proportions, Mapping)
+        and proportions.get('support_status') == 'supported'
+        and isinstance(proportions.get('module_id'), str)
+    ):
+        modules.add(proportions['module_id'])
+    return {
+        'schema_version': '1.0.0',
+        'required_module_ids': sorted(modules),
+    }
+
+
 def canonical_generation_payload(request: Mapping[str, Any]) -> dict[str, Any]:
     """Remove IDs, labels, timestamps and provenance from an engine request.
 
@@ -119,16 +144,22 @@ def canonical_generation_payload(request: Mapping[str, Any]) -> dict[str, Any]:
     modeling_elements = _modeling_elements(garment)
     composite_elements = _composite_elements(garment)
     composite_layers = _composite_layers(garment)
+    coverage_contract = _coverage_contract(garment)
     if modeling_elements:
         garment_payload['modeling_elements'] = modeling_elements
     if composite_elements:
         garment_payload['composite_elements'] = composite_elements
     if composite_layers:
         garment_payload['composite_layers'] = composite_layers
+    if coverage_contract is not None:
+        garment_payload['coverage_contract'] = coverage_contract
     has_composites = bool(composite_elements or composite_layers)
     return {
         'hash_contract_version': (
-            '1.2.0' if has_composites else '1.1.0' if modeling_elements else '1.0.0'
+            '1.3.0' if coverage_contract is not None
+            else '1.2.0' if has_composites
+            else '1.1.0' if modeling_elements
+            else '1.0.0'
         ),
         'pattern_method': {'id': method['id'], 'version': method['version']},
         'body_measurements': {

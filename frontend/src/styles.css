@@ -275,6 +275,31 @@ footer { min-height: 56px; display: flex; align-items: center; justify-content: 
 .result-facts div { padding: 14px; border-radius: 13px; background: #faf5f1; }
 .result-facts dt { color: var(--muted); font-size: 10px; text-transform: uppercase; }
 .result-facts dd { margin: 5px 0 0; font-weight: 700; }
+.coverage-summary { display: grid; gap: 16px; margin: 0 0 18px; padding: 20px; border: 1px solid #b8d8ca; border-radius: 18px; background: #f4faf7; }
+.coverage-summary--incomplete { border-color: #e2b6ad; background: #fff5f2; }
+.coverage-summary > header { display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: start; }
+.coverage-summary h3 { margin: 2px 0 7px; font: 22px/1.3 'Prata', Georgia, serif; font-weight: 400; }
+.coverage-summary header p:last-child { max-width: 650px; margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.coverage-summary__score { min-width: 68px; min-height: 56px; display: grid; place-items: center; padding: 8px; border-radius: 14px; background: white; color: var(--green); font: 18px 'Prata', Georgia, serif; }
+.coverage-summary--incomplete .coverage-summary__score { color: var(--peach-dark); }
+.coverage-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 0; }
+.coverage-stats div { padding: 10px 12px; border-radius: 11px; background: rgba(255,255,255,.78); }
+.coverage-stats dt { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .06em; }
+.coverage-stats dd { margin: 4px 0 0; font-size: 14px; font-weight: 700; }
+.coverage-list { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.coverage-entry { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 11px 12px; border-radius: 11px; background: white; }
+.coverage-entry--excluded_by_user { border: 1px dashed #d5cccf; background: #f5f2f3; opacity: .8; }
+.coverage-entry--missing_evidence, .coverage-entry--missing_from_plan { border: 1px solid #e7c3bb; background: #fff9f7; }
+.coverage-entry > div { min-width: 0; display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; align-items: center; }
+.coverage-entry strong { min-width: 0; overflow-wrap: anywhere; font-size: 11px; }
+.coverage-entry small { grid-column: 2; color: var(--muted); font-size: 9px; }
+.coverage-entry__origin { grid-row: 1 / span 2; padding: 4px 7px; border-radius: 99px; background: #eee8f1; color: var(--violet); font-size: 8px; font-weight: 700; white-space: nowrap; }
+.coverage-entry details { max-width: 250px; color: var(--muted); font-size: 9px; }
+.coverage-entry summary { cursor: pointer; font-weight: 700; }
+.coverage-entry code { display: block; max-height: 85px; margin-top: 6px; overflow: auto; white-space: normal; overflow-wrap: anywhere; }
+.coverage-summary__footer { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-top: 3px; }
+.coverage-summary__footer p { max-width: 560px; margin: 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.coverage-summary__footer .secondary-button { flex: 0 0 auto; }
 .notice--warning { border: 1px solid #e5cfa6; background: #fff8e8; color: #70552c; }
 .secondary-link { min-height: 45px; display: inline-flex; align-items: center; justify-content: center; padding: 0 16px; border: 1px solid #d7cbc5; border-radius: 11px; color: var(--ink); font-size: 12px; font-weight: 700; text-decoration: none; }
 .print-guide { margin: 22px 0; padding: 20px; border: 1px solid var(--line); border-radius: 18px; background: #faf7f3; }
@@ -399,6 +424,8 @@ footer { min-height: 56px; display: flex; align-items: center; justify-content: 
   .locked-features { grid-template-columns: repeat(2, 1fr); }
   .number-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .preview-tools { grid-template-columns: 1fr; }
+  .coverage-stats { grid-template-columns: repeat(2, 1fr); }
+  .coverage-summary__footer { align-items: stretch; flex-direction: column; }
 }
 
 @media (max-width: 560px) {
@@ -416,4 +443,6 @@ footer { min-height: 56px; display: flex; align-items: center; justify-content: 
   .design-support { width: fit-content; }
   .history-panel li { align-items: flex-start; flex-direction: column; }
   .export-actions--three { grid-template-columns: 1fr; }
+  .coverage-summary > header, .coverage-entry { grid-template-columns: 1fr; }
+  .coverage-entry details { max-width: none; }
 }

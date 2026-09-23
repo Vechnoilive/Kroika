@@ -8,6 +8,7 @@
   "required": ["schema_version", "source", "status", "elements", "layers", "proportions", "pending_questions"],
   "properties": {
     "schema_version": {"$ref": "common.schema.json#/$defs/schema_version"},
+    "coverage_schema_version": {"type": "string", "const": "1.0.0"},
     "source": {"type": "string", "enum": ["ai", "manual"]},
     "status": {"type": "string", "enum": ["ready", "partial", "needs_confirmation"]},
     "review_status": {"type": "string", "enum": ["proposed", "confirmed"]},
