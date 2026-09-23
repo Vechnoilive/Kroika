@@ -144,6 +144,8 @@ export const api = {
       headers: {'If-Match': String(project.revision)},
       body: JSON.stringify(project),
     }),
+  deleteProject: (projectId: string) =>
+    request<void>(`/api/v1/projects/${encodeURIComponent(projectId)}`, {method: 'DELETE'}),
   projectHistory: (projectId: string) =>
     request<{items: ProjectHistoryEntry[]}>(
       `/api/v1/projects/${encodeURIComponent(projectId)}/history`,

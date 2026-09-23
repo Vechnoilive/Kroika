@@ -1,5 +1,7 @@
-import {useEffect, useMemo, useState} from 'react';
+import {useEffect, useMemo, useRef, useState} from 'react';
 import {api, ApiError} from './api';
+import {AutosaveIndicator} from './AutosaveIndicator';
+import {loadLocalDraft, useDraftAutosave} from './autosave';
 import {GARMENT_NAMES} from './garments';
 import {MeasurementGuide} from './MeasurementGuide';
 import type {
@@ -16,6 +18,7 @@ type DisplayUnit = 'cm' | 'mm';
 interface Props {
   project: ProjectDocument;
   onSaveProject: (profile: BodyMeasurements) => Promise<ProjectDocument>;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 function copyProfile(profile: BodyMeasurements): BodyMeasurements {
@@ -70,11 +73,20 @@ function localIssue(
   return null;
 }
 
-export function MeasurementWizard({project, onSaveProject}: Props) {
+export function MeasurementWizard({project, onSaveProject, onDirtyChange}: Props) {
   const garmentType = project.garment_spec.garment_type;
   const sleeveType = project.garment_spec.parameters.sleeve.type;
+  const draftKey = `kroika:draft:${project.project_id}:measurements`;
+  const loadedDraft = useRef<ReturnType<typeof loadLocalDraft<BodyMeasurements>> | null>(null);
+  if (loadedDraft.current === null) {
+    loadedDraft.current = loadLocalDraft(
+      draftKey,
+      copyProfile(project.body_measurements),
+      project.updated_at,
+    );
+  }
   const [catalog, setCatalog] = useState<MeasurementCatalog | null>(null);
-  const [profile, setProfile] = useState(() => copyProfile(project.body_measurements));
+  const [profile, setProfile] = useState(() => copyProfile(loadedDraft.current!.value));
   const [savedProfiles, setSavedProfiles] = useState<MeasurementProfileSummary[]>([]);
   const [profileRevision, setProfileRevision] = useState<number | null>(null);
   const [selectedProfile, setSelectedProfile] = useState('');
@@ -85,6 +97,19 @@ export function MeasurementWizard({project, onSaveProject}: Props) {
   const [error, setError] = useState<ApiError | null>(null);
   const [serverIssues, setServerIssues] = useState<MeasurementIssue[]>([]);
   const [notice, setNotice] = useState('');
+  const autosave = useDraftAutosave({
+    storageKey: draftKey,
+    initialValue: profile,
+    initiallyDirty: loadedDraft.current.restored,
+    save: async (candidate) => {
+      await onSaveProject({
+        ...candidate,
+        name: candidate.name.trim() || 'Новые мерки',
+        status: 'draft',
+      });
+    },
+    onDirtyChange,
+  });
 
   useEffect(() => {
     let active = true;
@@ -118,6 +143,12 @@ export function MeasurementWizard({project, onSaveProject}: Props) {
   const current = definitions[Math.min(index, Math.max(0, definitions.length - 1))];
   const currentError = current ? localIssue(profile, current, displayUnit) : null;
   const progress = required.length ? Math.round(completed / required.length * 100) : 0;
+  const saving = busy || autosave.state === 'saving';
+
+  function updateProfile(next: BodyMeasurements) {
+    setProfile(next);
+    autosave.markDirty(next);
+  }
 
   function setMeasurement(definition: MeasurementDefinition, raw: string) {
     const next = copyProfile(profile);
@@ -131,7 +162,7 @@ export function MeasurementWizard({project, onSaveProject}: Props) {
       } else {
         delete next.values[definition.id];
       }
-      setProfile(next);
+      updateProfile(next);
       return;
     }
     const parsed = Number(raw.replace(',', '.'));
@@ -153,7 +184,7 @@ export function MeasurementWizard({project, onSaveProject}: Props) {
         original_input: {value: parsed, unit: displayUnit},
       };
     }
-    setProfile(next);
+    updateProfile(next);
   }
 
   async function loadProfile(profileId: string) {
@@ -164,7 +195,9 @@ export function MeasurementWizard({project, onSaveProject}: Props) {
     setBusy(true);
     try {
       const record = await api.getMeasurementProfile(profileId);
-      setProfile(copyProfile(record.profile));
+      const loaded = copyProfile(record.profile);
+      setProfile(loaded);
+      autosave.markDirty(loaded);
       setProfileRevision(record.revision);
       setIndex(0);
     } catch (caught) {
@@ -176,7 +209,9 @@ export function MeasurementWizard({project, onSaveProject}: Props) {
   }
 
   function startBlank() {
-    setProfile(blankProfile());
+    const blank = blankProfile();
+    setProfile(blank);
+    autosave.markDirty(blank);
     setProfileRevision(null);
     setSelectedProfile('');
     setIndex(0);
@@ -186,6 +221,7 @@ export function MeasurementWizard({project, onSaveProject}: Props) {
 
   async function persist(candidate: BodyMeasurements, complete: boolean) {
     let projectSaved = false;
+    autosave.cancelPending();
     setBusy(true);
     setError(null);
     setServerIssues([]);
@@ -196,11 +232,13 @@ export function MeasurementWizard({project, onSaveProject}: Props) {
         if (report.status !== 'ready') {
           setServerIssues(report.issues);
           setNotice('Заполните обязательные мерки и исправьте отмеченные значения.');
+          autosave.retry();
           return;
         }
       }
       await onSaveProject(candidate);
       projectSaved = true;
+      autosave.markSaved(candidate);
       if (saveReusable) {
         const record = profileRevision === null
           ? await api.createMeasurementProfile(candidate)
@@ -232,6 +270,7 @@ export function MeasurementWizard({project, onSaveProject}: Props) {
           )
         : original;
       if (projectSaved) setProfile(copyProfile(candidate));
+      else autosave.markDirty(candidate);
       setError(apiError);
       setServerIssues(apiError.issues ?? []);
     } finally {
@@ -284,24 +323,25 @@ export function MeasurementWizard({project, onSaveProject}: Props) {
         </div>
       </header>
       <div className="progress-track" aria-hidden="true"><span style={{width: `${progress}%`}} /></div>
+      <AutosaveIndicator state={autosave.state} savedAt={autosave.savedAt} error={autosave.error} onRetry={autosave.retry} />
 
       <div className="profile-tools">
         <label>
           <span>Название профиля</span>
           <input value={profile.name} maxLength={120} onChange={(event) => {
-            setProfile({...profile, name: event.target.value, status: 'draft'});
+            updateProfile({...profile, name: event.target.value, status: 'draft'});
           }} onBlur={() => {
-            if (!profile.name.trim()) setProfile({...profile, name: 'Новые мерки'});
+            if (!profile.name.trim()) updateProfile({...profile, name: 'Новые мерки'});
           }} />
         </label>
         <label>
           <span>Открыть сохранённый профиль</span>
-          <select value={selectedProfile} onChange={(event) => void loadProfile(event.target.value)} disabled={busy}>
+          <select value={selectedProfile} onChange={(event) => void loadProfile(event.target.value)} disabled={saving}>
             <option value="" disabled>Выберите профиль</option>
             {savedProfiles.map((item) => <option key={item.profile_id} value={item.profile_id}>{item.name}</option>)}
           </select>
         </label>
-        <button type="button" className="secondary-button" onClick={startBlank} disabled={busy}>Новый пустой профиль</button>
+        <button type="button" className="secondary-button" onClick={startBlank} disabled={saving}>Новый пустой профиль</button>
       </div>
 
       <div className="measurement-card">
@@ -371,9 +411,9 @@ export function MeasurementWizard({project, onSaveProject}: Props) {
           <span><strong>Сохранить отдельный профиль на этом компьютере</strong>Чтобы использовать эти мерки в другом проекте. По умолчанию они остаются только в текущем проекте.</span>
         </label>
         <div>
-          <button type="button" className="secondary-button" onClick={() => void saveDraft()} disabled={busy}>Сохранить черновик</button>
-          <button type="button" className="primary-button" onClick={() => void finish()} disabled={busy || completed !== required.length}>
-            {busy ? 'Сохраняем…' : 'Проверить и завершить'} <span aria-hidden="true">→</span>
+          <button type="button" className="secondary-button" onClick={() => void saveDraft()} disabled={saving}>Сохранить сейчас</button>
+          <button type="button" className="primary-button" onClick={() => void finish()} disabled={saving || completed !== required.length}>
+            {saving ? 'Сохраняем…' : 'Проверить и завершить'} <span aria-hidden="true">→</span>
           </button>
         </div>
       </div>

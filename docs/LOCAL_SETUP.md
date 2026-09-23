@@ -52,9 +52,9 @@ docker compose down
 
 ## Проверка текущего этапа
 
-Для проверки только текущего этапа выполните `.venv/bin/python scripts/verify_stage23.py` на macOS/Linux или `.venv\Scripts\python.exe scripts\verify_stage23.py` в Windows PowerShell. Исторические проверки этой командой не запускаются.
+Для проверки только текущего этапа выполните `.venv/bin/python scripts/verify_stage24.py` на macOS/Linux или `.venv\Scripts\python.exe scripts\verify_stage24.py` в Windows PowerShell. Исторические проверки этой командой не запускаются.
 
-Команда проверяет только очередь и подписи изображений, приватность AI-запроса, text-only диагностику провайдера, повтор после ошибки и отмену этапа 23, затем выполняет TypeScript-проверку и production-сборку. Общая историческая регрессия доступна отдельно через `scripts/verify_all.py`.
+Команда проверяет только автосохранение и восстановление черновиков, управление проектами и каскадное удаление этапа 24, затем выполняет TypeScript-проверку и production-сборку. Общая историческая регрессия доступна отдельно через `scripts/verify_all.py`.
 
 ## Частые проблемы
 

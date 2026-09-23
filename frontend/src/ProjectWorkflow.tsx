@@ -1,5 +1,7 @@
-import {FormEvent, useEffect, useState} from 'react';
+import {FormEvent, useEffect, useRef, useState} from 'react';
 import {api, ApiError} from './api';
+import {AutosaveIndicator} from './AutosaveIndicator';
+import {loadLocalDraft, useDraftAutosave} from './autosave';
 import {configureGarment, easeForGarment, GARMENT_OPTIONS, methodForGarment, presetForGarment} from './garments';
 import {DesignIntentEditor} from './DesignIntentEditor';
 import {buildDesignIntent, prepareDesignIntentForReview, reevaluateDesignIntent} from './designIntent';
@@ -64,21 +66,43 @@ export function StyleEditor({
   providerName,
   acceptance,
   onSave,
+  onDirtyChange,
 }: {
   project: ProjectDocument;
   analysis: StyleAnalysis;
   providerName: string;
   acceptance?: GarmentAcceptanceStatus;
   onSave: SaveProject;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
-  const [spec, setSpec] = useState<GarmentSpec>(() => {
+  const draftKey = `kroika:draft:${project.project_id}:style`;
+  const loadedDraft = useRef<ReturnType<typeof loadLocalDraft<GarmentSpec>> | null>(null);
+  if (loadedDraft.current === null) {
     const initial = structuredClone(project.garment_spec);
-    return initial.design_intent
+    const prepared = initial.design_intent
       ? {...initial, design_intent: prepareDesignIntentForReview(initial.design_intent)}
       : initial;
-  });
+    loadedDraft.current = loadLocalDraft(draftKey, prepared, project.updated_at);
+  }
+  const [spec, setSpec] = useState<GarmentSpec>(() => structuredClone(loadedDraft.current!.value));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const autosave = useDraftAutosave({
+    storageKey: draftKey,
+    initialValue: spec,
+    initiallyDirty: loadedDraft.current.restored,
+    save: async (candidate) => {
+      await onSave({
+        ...project,
+        status: 'draft',
+        garment_spec: {...candidate, selection_status: 'proposed', confirmed_at: null},
+        fit_settings: {...project.fit_settings, status: 'draft', confirmed_at: null},
+        fabric_properties: {...project.fabric_properties, status: 'draft', confirmed_at: null},
+        latest_generation: null,
+      });
+    },
+    onDirtyChange,
+  });
 
   const suggestedUnsupported = [
     analysis.neckline.front !== 'round' ? `горловина «${analysis.neckline.front}»` : '',
@@ -86,22 +110,28 @@ export function StyleEditor({
     analysis.lower_part.type !== 'a_line' ? `юбка «${analysis.lower_part.type}»` : '',
   ].filter(Boolean);
 
+  function updateSpec(next: GarmentSpec) {
+    setSpec(next);
+    autosave.markDirty(next);
+  }
+
   function updateParameters(next: Partial<GarmentSpec['parameters']>) {
     const updated: GarmentSpec = {...spec, selection_status: 'proposed', confirmed_at: null, parameters: {
       ...spec.parameters,
       ...next,
     }};
-    setSpec(updated.design_intent
+    updateSpec(updated.design_intent
       ? {...updated, design_intent: reevaluateDesignIntent(updated.design_intent, updated, analysis)}
       : updated);
   }
 
   function selectGarment(garmentType: GarmentType) {
     const configured = configureGarment(spec, garmentType);
-    setSpec({...configured, design_intent: buildDesignIntent(analysis, configured)});
+    updateSpec({...configured, design_intent: buildDesignIntent(analysis, configured)});
   }
 
   async function saveDesignReview(designIntent: NonNullable<GarmentSpec['design_intent']>) {
+    autosave.cancelPending();
     setBusy(true);
     setError('');
     try {
@@ -119,7 +149,9 @@ export function StyleEditor({
         latest_generation: null,
       });
       setSpec(structuredClone(saved.garment_spec));
+      autosave.markSaved(saved.garment_spec);
     } catch (caught) {
+      autosave.markDirty({...spec, design_intent: designIntent});
       throw new Error(caught instanceof ApiError ? caught.message : 'Не удалось сохранить проверку деталей.');
     } finally {
       setBusy(false);
@@ -173,6 +205,7 @@ export function StyleEditor({
     }
     setBusy(true);
     setError('');
+    autosave.cancelPending();
     const now = new Date().toISOString();
     const confirmed: GarmentSpec = {
       ...spec,
@@ -203,7 +236,9 @@ export function StyleEditor({
           confirmed_at: null,
         },
       });
+      autosave.markSaved(confirmed);
     } catch (caught) {
+      autosave.markDirty(spec);
       setError(caught instanceof ApiError ? caught.message : 'Не удалось сохранить фасон.');
     } finally {
       setBusy(false);
@@ -238,6 +273,7 @@ export function StyleEditor({
           <p>Модель только подсказала признаки. Выкройка получит именно значения ниже после вашего подтверждения.</p>
         </div>
       </header>
+      <AutosaveIndicator state={autosave.state} savedAt={autosave.savedAt} error={autosave.error} onRetry={autosave.retry} />
 
       {suggestedUnsupported.length > 0 && (
         <div className="notice notice--warning">
@@ -270,8 +306,8 @@ export function StyleEditor({
         intent={spec.design_intent}
         spec={spec}
         analysis={analysis}
-        busy={busy}
-        onChange={(designIntent) => setSpec({...spec, selection_status: 'proposed', confirmed_at: null, design_intent: designIntent})}
+        busy={busy || autosave.state === 'saving'}
+        onChange={(designIntent) => updateSpec({...spec, selection_status: 'proposed', confirmed_at: null, design_intent: designIntent})}
         onSave={saveDesignReview}
       />}
 
@@ -303,8 +339,8 @@ export function StyleEditor({
         </div>
       )}
       {error && <div className="inline-error" role="alert">{error}</div>}
-      <button className="primary-button" disabled={busy}>
-        {busy ? 'Сохраняем…' : 'Подтвердить фасон'} <span aria-hidden="true">→</span>
+      <button className="primary-button" disabled={busy || autosave.state === 'saving'}>
+        {busy || autosave.state === 'saving' ? 'Сохраняем…' : 'Подтвердить фасон'} <span aria-hidden="true">→</span>
       </button>
     </form>
   );
@@ -325,11 +361,46 @@ const ALLOWANCE_FIELDS: Array<{key: keyof FitSettings['seam_allowances_mm']; lab
   {key: 'hem', label: 'Низ изделия', min: 0, max: 6},
 ];
 
-export function ConstructionEditor({project, onSave}: {project: ProjectDocument; onSave: SaveProject}) {
-  const [fit, setFit] = useState<FitSettings>(() => structuredClone(project.fit_settings));
-  const [fabric, setFabric] = useState<FabricProperties>(() => structuredClone(project.fabric_properties));
+interface ConstructionDraft {
+  fit: FitSettings;
+  fabric: FabricProperties;
+}
+
+export function ConstructionEditor({
+  project,
+  onSave,
+  onDirtyChange,
+}: {
+  project: ProjectDocument;
+  onSave: SaveProject;
+  onDirtyChange?: (dirty: boolean) => void;
+}) {
+  const draftKey = `kroika:draft:${project.project_id}:construction`;
+  const loadedDraft = useRef<ReturnType<typeof loadLocalDraft<ConstructionDraft>> | null>(null);
+  if (loadedDraft.current === null) {
+    loadedDraft.current = loadLocalDraft(draftKey, {
+      fit: structuredClone(project.fit_settings),
+      fabric: structuredClone(project.fabric_properties),
+    }, project.updated_at);
+  }
+  const [fit, setFit] = useState<FitSettings>(() => structuredClone(loadedDraft.current!.value.fit));
+  const [fabric, setFabric] = useState<FabricProperties>(() => structuredClone(loadedDraft.current!.value.fabric));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const autosave = useDraftAutosave({
+    storageKey: draftKey,
+    initialValue: {fit, fabric},
+    initiallyDirty: loadedDraft.current.restored,
+    save: async (candidate) => {
+      await onSave({
+        ...project,
+        status: 'draft',
+        fit_settings: {...candidate.fit, status: 'draft', confirmed_at: null},
+        fabric_properties: {...candidate.fabric, status: 'draft', confirmed_at: null},
+      });
+    },
+    onDirtyChange,
+  });
   const easeFields = EASE_FIELDS.filter(({key}) => {
     if (['skirt', 'trousers', 'shorts'].includes(project.garment_spec.garment_type)) return key === 'waist' || key === 'hips';
     if (['blouse', 'shirt', 'jacket'].includes(project.garment_spec.garment_type)) return true;
@@ -341,14 +412,24 @@ export function ConstructionEditor({project, onSave}: {project: ProjectDocument;
     return {...field, min: base + layer};
   });
 
+  function updateFit(next: FitSettings) {
+    setFit(next);
+    autosave.markDirty({fit: next, fabric});
+  }
+
+  function updateFabric(next: FabricProperties) {
+    setFabric(next);
+    autosave.markDirty({fit, fabric: next});
+  }
+
   function setEase(key: keyof FitSettings['wearing_ease_mm'], valueCm: number) {
-    setFit({...fit, status: 'draft', confirmed_at: null, wearing_ease_mm: {
+    updateFit({...fit, status: 'draft', confirmed_at: null, wearing_ease_mm: {
       ...fit.wearing_ease_mm, [key]: valueCm * 10,
     }});
   }
 
   function setAllowance(key: keyof FitSettings['seam_allowances_mm'], valueCm: number) {
-    setFit({...fit, status: 'draft', confirmed_at: null, seam_allowance_mode: 'by_edge', seam_allowances_mm: {
+    updateFit({...fit, status: 'draft', confirmed_at: null, seam_allowance_mode: 'by_edge', seam_allowances_mm: {
       ...fit.seam_allowances_mm, [key]: valueCm * 10,
     }});
   }
@@ -362,23 +443,28 @@ export function ConstructionEditor({project, onSave}: {project: ProjectDocument;
       return;
     }
     const now = new Date().toISOString();
+    const confirmedFit: FitSettings = {...fit, status: 'confirmed', confirmed_at: now};
+    const confirmedFabric: FabricProperties = {
+      ...fabric,
+      name: fabric.name.trim(),
+      status: 'confirmed',
+      structure: 'woven',
+      stability: 'stable',
+      confirmed_at: now,
+    };
     setBusy(true);
     setError('');
+    autosave.cancelPending();
     try {
       await onSave({
         ...project,
         status: 'inputs_confirmed',
-        fit_settings: {...fit, status: 'confirmed', confirmed_at: now},
-        fabric_properties: {
-          ...fabric,
-          name: fabric.name.trim(),
-          status: 'confirmed',
-          structure: 'woven',
-          stability: 'stable',
-          confirmed_at: now,
-        },
+        fit_settings: confirmedFit,
+        fabric_properties: confirmedFabric,
       });
+      autosave.markSaved({fit: confirmedFit, fabric: confirmedFabric});
     } catch (caught) {
+      autosave.markDirty({fit, fabric});
       setError(caught instanceof ApiError ? caught.message : 'Не удалось сохранить настройки.');
     } finally {
       setBusy(false);
@@ -395,16 +481,17 @@ export function ConstructionEditor({project, onSave}: {project: ProjectDocument;
           <p>Прибавка даёт свободу телу, припуск остаётся за линией шва для стачивания. Эти величины не смешиваются.</p>
         </div>
       </header>
+      <AutosaveIndicator state={autosave.state} savedAt={autosave.savedAt} error={autosave.error} onRetry={autosave.retry} />
 
       <section className="editor-section" aria-labelledby="fabric-title">
         <h3 id="fabric-title">1. Пробная ткань</h3>
         <div className="form-grid">
-          <label><span>Название ткани</span><input value={fabric.name} maxLength={120} onChange={(event) => setFabric({...fabric, name: event.target.value, status: 'draft', confirmed_at: null})} /></label>
-          <label><span>Плотность</span><select value={fabric.weight} onChange={(event) => setFabric({...fabric, weight: event.target.value as FabricProperties['weight']})}><option value="light">Лёгкая</option><option value="medium">Средняя</option><option value="heavy">Плотная</option></select></label>
-          <label><span>Драпируемость</span><select value={fabric.drape} onChange={(event) => setFabric({...fabric, drape: event.target.value as FabricProperties['drape']})}><option value="crisp">Держит форму</option><option value="medium">Средняя</option><option value="fluid">Струящаяся</option></select></label>
-          <NumberField id="fabric-stretch" label="Растяжимость по утку" value={fabric.stretch_percent.weft} min={0} max={5} unit="%" onChange={(value) => setFabric({...fabric, stretch_percent: {...fabric.stretch_percent, weft: value}})} />
+          <label><span>Название ткани</span><input value={fabric.name} maxLength={120} onChange={(event) => updateFabric({...fabric, name: event.target.value, status: 'draft', confirmed_at: null})} /></label>
+          <label><span>Плотность</span><select value={fabric.weight} onChange={(event) => updateFabric({...fabric, weight: event.target.value as FabricProperties['weight']})}><option value="light">Лёгкая</option><option value="medium">Средняя</option><option value="heavy">Плотная</option></select></label>
+          <label><span>Драпируемость</span><select value={fabric.drape} onChange={(event) => updateFabric({...fabric, drape: event.target.value as FabricProperties['drape']})}><option value="crisp">Держит форму</option><option value="medium">Средняя</option><option value="fluid">Струящаяся</option></select></label>
+          <NumberField id="fabric-stretch" label="Растяжимость по утку" value={fabric.stretch_percent.weft} min={0} max={5} unit="%" onChange={(value) => updateFabric({...fabric, stretch_percent: {...fabric.stretch_percent, weft: value}})} />
         </div>
-        <label className="consent-row"><input type="checkbox" checked={fabric.prewashed} onChange={(event) => setFabric({...fabric, prewashed: event.target.checked})} /><span>Ткань декатирована или предварительно постирана.</span></label>
+        <label className="consent-row"><input type="checkbox" checked={fabric.prewashed} onChange={(event) => updateFabric({...fabric, prewashed: event.target.checked})} /><span>Ткань декатирована или предварительно постирана.</span></label>
         <p className="scope-note">Для проверенной основы сейчас нужна стабильная тканая ткань с растяжимостью до 5%. Трикотаж будет отдельным модулем.</p>
       </section>
 
@@ -424,8 +511,8 @@ export function ConstructionEditor({project, onSave}: {project: ProjectDocument;
       </section>
 
       {error && <div className="inline-error" role="alert">{error}</div>}
-      <button className="primary-button" disabled={busy}>
-        {busy ? 'Сохраняем…' : 'Подтвердить ткань и настройки'} <span aria-hidden="true">→</span>
+      <button className="primary-button" disabled={busy || autosave.state === 'saving'}>
+        {busy || autosave.state === 'saving' ? 'Сохраняем…' : 'Подтвердить ткань и настройки'} <span aria-hidden="true">→</span>
       </button>
     </form>
   );

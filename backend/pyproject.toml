@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kroika-backend"
-version = "0.23.0"
-description = "FastAPI sewing workflow with physical validation journal"
+version = "0.24.0"
+description = "FastAPI sewing workflow with local project persistence"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.141,<0.142",

@@ -8,6 +8,8 @@ import {configureGarment, GARMENT_NAMES} from './garments';
 import {buildDesignIntent} from './designIntent';
 import {DesignCoverageSummary} from './DesignCoverage';
 import {PhysicalValidationJournal} from './PhysicalValidationJournal';
+import {ProjectHub} from './ProjectHub';
+import {duplicateProjectDocument, projectSummary, uniqueCopyName} from './projectManagement';
 import type {
   BodyMeasurements,
   GarmentAcceptanceStatus,
@@ -323,21 +325,23 @@ export default function App() {
   const [error, setError] = useState<ApiError | null>(null);
   const [garmentCatalogue, setGarmentCatalogue] = useState<GarmentAcceptanceStatus[]>([]);
   const [repairStep, setRepairStep] = useState<RevisitableWorkflowStep | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   function remember(updated: ProjectDocument) {
     setProject(updated);
     setRepairStep(null);
     localStorage.setItem(LAST_PROJECT_KEY, updated.project_id);
     setProjects((items) => {
-      const summary: ProjectSummary = {
-        project_id: updated.project_id,
-        name: updated.name,
-        revision: updated.revision,
-        status: updated.status,
-        updated_at: updated.updated_at,
-      };
+      const summary = projectSummary(updated);
       return [summary, ...items.filter((item) => item.project_id !== updated.project_id)];
     });
+  }
+
+  function updateProjectSummary(updated: ProjectDocument) {
+    setProjects((items) => [
+      projectSummary(updated),
+      ...items.filter((item) => item.project_id !== updated.project_id),
+    ]);
   }
 
   useEffect(() => {
@@ -367,6 +371,16 @@ export default function App() {
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    function warnBeforeUnload(event: BeforeUnloadEvent) {
+      if (!hasUnsavedChanges) return;
+      event.preventDefault();
+      event.returnValue = '';
+    }
+    window.addEventListener('beforeunload', warnBeforeUnload);
+    return () => window.removeEventListener('beforeunload', warnBeforeUnload);
+  }, [hasUnsavedChanges]);
+
   async function createProject(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
@@ -392,7 +406,17 @@ export default function App() {
     }
   }
 
-  function startAnother() {
+  function allowNavigation(): boolean {
+    if (!hasUnsavedChanges) return true;
+    const allowed = window.confirm(
+      'Изменения ещё не успели сохраниться. Перейти сейчас? Локальный черновик останется в браузере.',
+    );
+    if (allowed) setHasUnsavedChanges(false);
+    return allowed;
+  }
+
+  function startAnother(skipGuard = false) {
+    if (!skipGuard && !allowNavigation()) return;
     setProject(null);
     setError(null);
     setRepairStep(null);
@@ -400,8 +424,29 @@ export default function App() {
   }
 
   function navigateToIssue(target: ErrorNavigationTarget) {
+    if (!allowNavigation()) return;
     setError(null);
     setRepairStep(target.step);
+  }
+
+  async function renameProject(projectId: string, name: string) {
+    const current = await api.getProject(projectId);
+    const updated = await api.replaceProject({...current, name});
+    updateProjectSummary(updated);
+  }
+
+  async function duplicateProject(projectId: string) {
+    const source = await api.getProject(projectId);
+    const copy = duplicateProjectDocument(source, uniqueCopyName(source.name, projects));
+    updateProjectSummary(await api.createProject(copy));
+  }
+
+  async function deleteProject(projectId: string) {
+    await api.deleteProject(projectId);
+    setProjects((items) => items.filter((item) => item.project_id !== projectId));
+    if (localStorage.getItem(LAST_PROJECT_KEY) === projectId) {
+      localStorage.removeItem(LAST_PROJECT_KEY);
+    }
   }
 
   async function saveProject(candidate: ProjectDocument): Promise<ProjectDocument> {
@@ -498,9 +543,10 @@ export default function App() {
   const activeStep = repairStep ?? naturalStep;
 
   function navigateToStep(step: WorkflowStep) {
+    if (!allowNavigation()) return;
     setError(null);
     if (step === 1) {
-      startAnother();
+      startAnother(true);
       return;
     }
     setRepairStep(step === naturalStep ? null : step);
@@ -548,7 +594,7 @@ export default function App() {
         </aside>
 
         <section className="content">
-          <div className="stage-badge">Физическая приёмка · этап 22</div>
+          <div className="stage-badge">Автосохранение и проекты · этап 24</div>
           {!project ? (
             <>
               <div className="intro"><p className="eyebrow">Начнём спокойно</p><h1>Создадим выкройку<br /><em>последовательно</em></h1><p>Каждый шаг сохраняется. Никакие мерки не угадываются, а результат AI всегда подтверждает человек.</p></div>
@@ -558,11 +604,20 @@ export default function App() {
                 <div className="action-card__icon" aria-hidden="true">01</div>
                 <div className="action-card__body"><h2>Как назовём проект?</h2><p>Название поможет найти работу позже.</p><label htmlFor="project-name">Название проекта</label><input id="project-name" value={projectName} onChange={(event) => setProjectName(event.target.value)} maxLength={120} autoComplete="off" disabled={busy || connection !== 'ready'} /><button className="primary-button" disabled={busy || connection !== 'ready'}>{busy ? 'Создаём…' : 'Создать проект'} <span aria-hidden="true">→</span></button><p className="demo-warning"><strong>Без автозаполнения мерок:</strong> все размеры вводит человек.</p></div>
               </form>
-              {projects.length > 0 && <div className="recent-projects"><h2>Недавние проекты</h2><div className="project-list">{projects.slice(0, 4).map((item) => <button key={item.project_id} onClick={() => void openProject(item.project_id)} disabled={busy}><span><strong>{item.name}</strong><small>{STATUS_NAMES[item.status] ?? item.status} · версия {item.revision}</small></span><span aria-hidden="true">→</span></button>)}</div></div>}
+              {projects.length > 0 && (
+                <ProjectHub
+                  projects={projects}
+                  disabled={busy}
+                  onOpen={openProject}
+                  onRename={renameProject}
+                  onDuplicate={duplicateProject}
+                  onDelete={deleteProject}
+                />
+              )}
             </>
           ) : (
             <>
-              <div className="project-heading"><div><p className="eyebrow">{STATUS_NAMES[project.status]} · версия {project.revision}</p><h1>{project.name}</h1><p>Черновик сохраняется на каждом завершённом шаге.</p></div><button className="text-button" onClick={startAnother}>Другой проект</button></div>
+              <div className="project-heading"><div><p className="eyebrow">{STATUS_NAMES[project.status]} · версия {project.revision}</p><h1>{project.name}</h1><p>Мерки и параметры сохраняются автоматически после короткой паузы.</p></div><button className="text-button" onClick={() => startAnother()}>Другой проект</button></div>
               {error && <FriendlyError error={error} onNavigate={navigateToIssue} />}
 
               {activeStep > 1 && (
@@ -579,9 +634,9 @@ export default function App() {
               )}
 
               {activeStep === 2 && <VisionAnalyzer projectId={project.project_id} onComplete={saveAnalysis} />}
-              {activeStep === 3 && analysis && <StyleEditor project={project} analysis={analysis as StyleAnalysis} providerName={analysisProvider} acceptance={currentAcceptance} onSave={saveProject} />}
-              {activeStep === 4 && <MeasurementWizard key={`${project.project_id}-${project.garment_spec.confirmed_at}`} project={project} onSaveProject={saveMeasurements} />}
-              {activeStep === 5 && <ConstructionEditor project={project} onSave={saveProject} />}
+              {activeStep === 3 && analysis && <StyleEditor project={project} analysis={analysis as StyleAnalysis} providerName={analysisProvider} acceptance={currentAcceptance} onSave={saveProject} onDirtyChange={setHasUnsavedChanges} />}
+              {activeStep === 4 && <MeasurementWizard key={`${project.project_id}-${project.garment_spec.confirmed_at}`} project={project} onSaveProject={saveMeasurements} onDirtyChange={setHasUnsavedChanges} />}
+              {activeStep === 5 && <ConstructionEditor project={project} onSave={saveProject} onDirtyChange={setHasUnsavedChanges} />}
               {activeStep === 6 && (
                 <section className="generation-card" aria-labelledby="generation-title"><div className="action-card__icon" aria-hidden="true">06</div><div><p className="eyebrow">Все входы подтверждены</p><h2 id="generation-title">Построить выкройку?</h2><p>Формульный движок создаст детали из сохранённых мерок, фасона, ткани и прибавок, затем проверит геометрию.</p><ul><li>{GARMENT_NAMES[project.garment_spec.garment_type]} · {garmentConstruction}</li><li>{garmentLength}</li><li>Стабильная тканая ткань · пробный статус</li><li>Экспертная проверка и макет: ещё не пройдены</li></ul><button className="primary-button" onClick={() => void generatePattern()} disabled={busy}>{busy ? 'Строим и проверяем…' : 'Построить выкройку'} <span aria-hidden="true">→</span></button></div></section>
               )}
