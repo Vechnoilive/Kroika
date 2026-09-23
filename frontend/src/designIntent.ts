@@ -110,6 +110,38 @@ function elementSupport(
       && onlyDimensions({width: [80, 220], depth: [80, 260]})) {
     return {status: 'supported', moduleId: 'paired_patch_pocket_v1'};
   }
+  if (element.type === 'yoke'
+      && skirtBased
+      && element.variant === 'straight'
+      && element.location === 'waist'
+      && element.construction === 'separate_piece'
+      && element.count === 2
+      && element.symmetry === 'symmetric'
+      && onlyDimensions({depth: [60, 300]})) {
+    return {status: 'supported', moduleId: 'paired_straight_skirt_yoke_v1'};
+  }
+  if (element.type === 'panel'
+      && skirtBased
+      && element.variant === 'straight'
+      && element.location === 'full_garment'
+      && element.construction === 'separate_piece'
+      && typeof element.count === 'number'
+      && Number.isInteger(element.count)
+      && element.count >= 2 && element.count <= 6
+      && element.symmetry === 'symmetric'
+      && onlyDimensions({})) {
+    return {status: 'supported', moduleId: 'paired_equal_skirt_panels_v1'};
+  }
+  if (element.type === 'dart'
+      && ['dress', 'sundress', 'top', 'blouse', 'shirt', 'vest'].includes(garment)
+      && element.variant === 'shaped'
+      && element.location === 'bodice_front'
+      && element.construction === 'integrated'
+      && element.count === 2
+      && element.symmetry === 'symmetric'
+      && onlyDimensions({width: [1, 30]})) {
+    return {status: 'supported', moduleId: 'front_waist_to_side_dart_v1'};
+  }
   if (Object.values(dimensions).some((value) => value !== null)) {
     return {status: 'planned', moduleId: null};
   }
@@ -402,6 +434,30 @@ export function finalizeDesignIntent(
   const evaluated = reevaluateDesignIntent(intent, spec, analysis);
   const includedLayers = evaluated.layers.filter((item) => item.included !== false);
   const includedElements = evaluated.elements.filter((item) => item.included !== false);
+  const activeModules = new Set(
+    includedElements.map((item) => item.module_id).filter((item): item is string => item !== null),
+  );
+  const hasSkirtTopology = activeModules.has('paired_straight_skirt_yoke_v1')
+    || activeModules.has('paired_equal_skirt_panels_v1');
+  if (activeModules.has('paired_straight_skirt_yoke_v1')
+      && activeModules.has('paired_equal_skirt_panels_v1')) {
+    throw new Error('Для одной юбки выберите либо кокетку, либо панельное членение.');
+  }
+  const incompatibleTopologyModules = [
+    'center_pleat_v1', 'waist_gather_allowance_v1', 'circular_hem_flounce_v1',
+    'paired_patch_pocket_v1',
+  ];
+  const hasIncompatibleLayer = includedLayers.some((item) => (
+    ['skirt_full_lining_v1', 'skirt_overlay_layer_v1'].includes(item.module_id ?? '')
+  ));
+  if (hasSkirtTopology
+      && (incompatibleTopologyModules.some((moduleId) => activeModules.has(moduleId))
+        || hasIncompatibleLayer)) {
+    throw new Error(
+      'Кокетки и панели пока нельзя совмещать со складкой, сборкой, воланом, '
+      + 'накладными карманами или дополнительным слоем юбки.',
+    );
+  }
   if (includedLayers.filter((item) => item.role === 'main').length !== 1) {
     throw new Error('Оставьте ровно один основной слой изделия.');
   }

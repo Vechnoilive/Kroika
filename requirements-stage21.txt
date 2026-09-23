@@ -1,0 +1,3 @@
+-r requirements-stage20.txt
+
+# Stage 21 adds deterministic topology and UI only; no new dependency.

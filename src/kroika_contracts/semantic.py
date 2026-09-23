@@ -28,6 +28,12 @@ STAGE19_LAYER_MODULES = frozenset({
     'skirt_overlay_layer_v1',
 })
 
+STAGE21_TOPOLOGY_MODULES = frozenset({
+    'paired_straight_skirt_yoke_v1',
+    'paired_equal_skirt_panels_v1',
+    'front_waist_to_side_dart_v1',
+})
+
 FIXED_ELEMENT_MODULES = frozenset({
     'bounded_closure',
     'straight_waistband',
@@ -188,6 +194,48 @@ def _stage19_element_matches(item: Mapping[str, Any], spec: Mapping[str, Any]) -
         )
     )
     return cuff or collar or pocket
+
+
+def _stage21_module_matches(item: Mapping[str, Any], spec: Mapping[str, Any]) -> bool:
+    module_id = item.get('module_id')
+    garment = spec['garment_type']
+    skirt_based = garment in {'dress', 'sundress', 'skirt'}
+    yoke = (
+        module_id == 'paired_straight_skirt_yoke_v1'
+        and skirt_based
+        and item['type'] == 'yoke'
+        and item['variant'] == 'straight'
+        and item['location'] == 'waist'
+        and item['construction'] == 'separate_piece'
+        and item['count'] == 2
+        and item['symmetry'] == 'symmetric'
+        and _modeling_dimensions_match(item, {'depth': (60.0, 300.0)})
+    )
+    panels = (
+        module_id == 'paired_equal_skirt_panels_v1'
+        and skirt_based
+        and item['type'] == 'panel'
+        and item['variant'] == 'straight'
+        and item['location'] == 'full_garment'
+        and item['construction'] == 'separate_piece'
+        and isinstance(item['count'], int)
+        and not isinstance(item['count'], bool)
+        and 2 <= item['count'] <= 6
+        and item['symmetry'] == 'symmetric'
+        and _modeling_dimensions_match(item, {})
+    )
+    dart = (
+        module_id == 'front_waist_to_side_dart_v1'
+        and garment in {'dress', 'sundress', 'top', 'blouse', 'shirt', 'vest'}
+        and item['type'] == 'dart'
+        and item['variant'] == 'shaped'
+        and item['location'] == 'bodice_front'
+        and item['construction'] == 'integrated'
+        and item['count'] == 2
+        and item['symmetry'] == 'symmetric'
+        and _modeling_dimensions_match(item, {'width': (1.0, 30.0)})
+    )
+    return yoke or panels or dart
 
 
 def _fixed_element_module_matches(item: Mapping[str, Any], spec: Mapping[str, Any]) -> bool:
@@ -463,6 +511,12 @@ def _validate_design_intent(
                         issues, 'DESIGN_MODEL_MODULE_MISMATCH', pointer,
                         'Модельная операция не соответствует типу, расположению или диапазону размеров.',
                     )
+            elif group == 'elements' and module_id in STAGE21_TOPOLOGY_MODULES:
+                if item['support_status'] != 'supported' or not _stage21_module_matches(item, spec):
+                    _add(
+                        issues, 'DESIGN_TOPOLOGY_MODULE_MISMATCH', pointer,
+                        'Топологическая операция не соответствует типу, месту, количеству или размерам.',
+                    )
             elif group == 'elements' and module_id in STAGE19_ELEMENT_MODULES:
                 if item['support_status'] != 'supported' or not _stage19_element_matches(item, spec):
                     _add(
@@ -491,7 +545,9 @@ def _validate_design_intent(
                         issues, 'DESIGN_COVERAGE_MODULE_MISMATCH', pointer,
                         'Базовый модуль слоя не соответствует роли или выбранному изделию.',
                     )
-            elif module_id in STAGE19_ELEMENT_MODULES | STAGE19_LAYER_MODULES:
+            elif module_id in (
+                STAGE19_ELEMENT_MODULES | STAGE19_LAYER_MODULES | STAGE21_TOPOLOGY_MODULES
+            ):
                 _add(
                     issues, 'DESIGN_COMPOSITE_MODULE_MISMATCH', pointer,
                     'Модуль составной детали назначен элементу неверного вида.',
@@ -524,6 +580,53 @@ def _validate_design_intent(
             issues, 'DESIGN_COMPOSITE_LAYER_CONFLICT',
             '/garment_spec/design_intent/layers',
             'Для одной роли можно оставить только один геометрический слой.',
+        )
+
+    topology_modules = {
+        item.get('module_id')
+        for item in active
+        if item.get('module_id') in STAGE21_TOPOLOGY_MODULES
+    }
+    topology_module_list = [
+        item.get('module_id')
+        for item in active
+        if item.get('module_id') in STAGE21_TOPOLOGY_MODULES
+    ]
+    if len(topology_module_list) != len(set(topology_module_list)):
+        _add(
+            issues, 'DESIGN_TOPOLOGY_TARGET_CONFLICT',
+            '/garment_spec/design_intent/elements',
+            'Одну топологическую операцию нельзя назначить одному участку дважды.',
+        )
+    skirt_topology = topology_modules & {
+        'paired_straight_skirt_yoke_v1', 'paired_equal_skirt_panels_v1',
+    }
+    if len(skirt_topology) > 1:
+        _add(
+            issues, 'DESIGN_TOPOLOGY_TARGET_CONFLICT',
+            '/garment_spec/design_intent/elements',
+            'Для одной юбки выберите либо кокетку, либо панельное членение.',
+        )
+    incompatible_skirt_modules = {
+        item.get('module_id')
+        for item in active
+        if item.get('module_id') in {
+            'center_pleat_v1', 'waist_gather_allowance_v1',
+            'circular_hem_flounce_v1', 'paired_patch_pocket_v1',
+        }
+    }
+    incompatible_layers = {
+        item.get('module_id')
+        for item in intent['layers']
+        if item.get('included') is not False
+        and item.get('module_id') in {'skirt_full_lining_v1', 'skirt_overlay_layer_v1'}
+    }
+    if skirt_topology and (incompatible_skirt_modules or incompatible_layers):
+        _add(
+            issues, 'DESIGN_TOPOLOGY_PIPELINE_CONFLICT',
+            '/garment_spec/design_intent',
+            'Кокетки и панели пока нельзя совмещать со складкой, сборкой, воланом, '
+            'накладными карманами или дополнительным слоем юбки.',
         )
 
     included_main = [

@@ -21,6 +21,10 @@
       "type": "array",
       "items": {"$ref": "#/$defs/modeling_operation"}
     },
+    "topology_operations": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/topology_operation"}
+    },
     "composite_operations": {
       "type": "array",
       "items": {"$ref": "#/$defs/composite_operation"}
@@ -201,6 +205,21 @@
         "target_piece_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}},
         "added_piece_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}},
         "interface_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}},
+        "parameters_mm": {"type": "object", "additionalProperties": {"type": "number"}},
+        "invariant_residual_mm": {"type": "number", "minimum": 0}
+      }
+    },
+    "topology_operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation_id", "source_element_id", "kind", "module_id", "formula_id", "target_piece_ids", "parameters_mm", "invariant_residual_mm"],
+      "properties": {
+        "operation_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "source_element_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "kind": {"type": "string", "enum": ["yoke", "panels", "dart_transfer"]},
+        "module_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "formula_id": {"type": "string", "pattern": "^M21-[A-Z][0-9]{2}$"},
+        "target_piece_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}},
         "parameters_mm": {"type": "object", "additionalProperties": {"type": "number"}},
         "invariant_residual_mm": {"type": "number", "minimum": 0}
       }

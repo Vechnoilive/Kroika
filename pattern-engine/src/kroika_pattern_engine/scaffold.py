@@ -23,6 +23,7 @@ from .coverage import compile_design_coverage
 from .garment_catalogue import garment_acceptance
 from .geometry import run_core_diagnostics
 from .modeling import apply_modeling_transformations
+from .topology import apply_topology_transformations
 
 
 def _utc_now() -> datetime:
@@ -33,7 +34,7 @@ class GeometryPatternEngine:
     """Build a bounded experimental garment and return an auditable report."""
 
     engine_id = "kroika-geometry"
-    engine_version = "0.11.0"
+    engine_version = "0.12.0"
 
     def __init__(self, clock: Callable[[], datetime] = _utc_now):
         self._clock = clock
@@ -74,7 +75,8 @@ class GeometryPatternEngine:
                 blocks = build_base_blocks(request)
             assembly = assemble_garment(request, blocks)
             modeling = apply_modeling_transformations(assembly.pattern, request)
-            composite = apply_composite_transformations(modeling.pattern, request)
+            topology = apply_topology_transformations(modeling.pattern, request)
+            composite = apply_composite_transformations(topology.pattern, request)
             coverage = compile_design_coverage(composite.pattern, request)
             printable_pattern = apply_seam_allowances(coverage.pattern, request)
         except BlockConstructionError as error:
@@ -244,6 +246,30 @@ class GeometryPatternEngine:
                     "measured_value": composite.applied_count,
                     "limit_value": composite.applied_count,
                     "unit": "1",
+                },
+                {
+                    "id": "engine.topology.modules",
+                    "status": "passed" if topology.applied_count else "not_run",
+                    "message_ru": (
+                        "Кокетки, панели и переносы вытачек созданы как реальная геометрия."
+                        if topology.applied_count
+                        else "Подтверждённых топологических модулей этапа 21 нет."
+                    ),
+                    "measured_value": topology.applied_count,
+                    "limit_value": topology.applied_count,
+                    "unit": "1",
+                },
+                {
+                    "id": "engine.topology.interfaces",
+                    "status": "passed" if topology.applied_count else "not_run",
+                    "message_ru": (
+                        "Новые топологические швы и перенесённые растворы остаются в допуске."
+                        if topology.applied_count
+                        else "Топология базовых деталей не изменялась."
+                    ),
+                    "measured_value": topology.maximum_invariant_residual_mm,
+                    "limit_value": 1.0,
+                    "unit": "mm",
                 },
                 {
                     "id": "engine.composites.interfaces",
