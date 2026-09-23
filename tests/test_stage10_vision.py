@@ -58,6 +58,22 @@ def configured_provider(cls, tmp_path: Path, transport, *, attempts: int = 2):
     return provider, provider_request(asset.image_ref)
 
 
+def configured_openrouter_qwen(tmp_path: Path, transport):
+    store = LocalImageStore(tmp_path / "images")
+    asset = store.save_base64(base64.b64encode(dataset_png()).decode(), "image/png")
+    provider = QwenProvider(
+        image_store=store,
+        api_key="server-only-secret",
+        base_url="https://openrouter.ai/api/v1",
+        model="qwen/qwen3.8-27b:free",
+        timeout_seconds=3,
+        max_attempts=2,
+        transport=transport,
+        retry_pause=lambda _: asyncio.sleep(0),
+    )
+    return provider, provider_request(asset.image_ref)
+
+
 def test_qwen_payload_uses_official_multimodal_shape_and_leaks_no_project_data(tmp_path: Path):
     captured = []
 
@@ -75,6 +91,9 @@ def test_qwen_payload_uses_official_multimodal_shape_and_leaks_no_project_data(t
     assert headers["Authorization"] == "Bearer server-only-secret"
     assert timeout == 3
     assert payload["messages"][1]["content"][1]["type"] == "image_url"
+    assert payload["response_format"]["type"] == "json_schema"
+    assert payload["response_format"]["json_schema"]["strict"] is True
+    assert payload["response_format"]["json_schema"]["schema"]["additionalProperties"] is False
     serialized = json.dumps(payload, ensure_ascii=False)
     assert request["project_id"] not in serialized
     assert request["request_id"] not in serialized
@@ -82,7 +101,24 @@ def test_qwen_payload_uses_official_multimodal_shape_and_leaks_no_project_data(t
     assert "data:image/png;base64," in serialized
 
 
-def test_gemini_payload_uses_inline_image_and_structured_output(tmp_path: Path):
+def test_openrouter_qwen_requires_structured_output_and_disables_reasoning(tmp_path: Path):
+    captured = []
+
+    async def transport(url, headers, payload, timeout):
+        captured.append(payload)
+        return HTTPResult(200, {
+            "choices": [{"message": {"content": json.dumps(example("example-ai-response.json"))}}]
+        })
+
+    provider, request = configured_openrouter_qwen(tmp_path, transport)
+    result = asyncio.run(provider.analyze_style(request))
+
+    assert result["status"] == "needs_confirmation"
+    assert captured[0]["provider"] == {"require_parameters": True}
+    assert captured[0]["reasoning"] == {"enabled": False}
+
+
+def test_gemini_payload_uses_inline_image_and_bounded_json_mode(tmp_path: Path):
     captured = []
 
     async def transport(url, headers, payload, timeout):
@@ -99,11 +135,30 @@ def test_gemini_payload_uses_inline_image_and_structured_output(tmp_path: Path):
     assert headers["x-goog-api-key"] == "server-only-secret"
     assert payload["input"][1]["type"] == "image"
     assert payload["input"][1]["mime_type"] == "image/png"
-    assert payload["response_format"]["mime_type"] == "application/json"
-    assert payload["response_format"]["schema"]["additionalProperties"] is False
+    assert payload["response_format"] == {
+        "type": "text", "mime_type": "application/json",
+    }
+    assert "Ответ обязан соответствовать этой JSON Schema" in payload["input"][0]["text"]
+    assert '"schema_version"' in payload["input"][0]["text"]
     assert payload["store"] is False
     assert "мерки" in payload["system_instruction"]
     assert request["project_id"] not in json.dumps(payload)
+
+
+def test_gemini_json_mode_still_rejects_incomplete_local_contract(tmp_path: Path):
+    async def transport(url, headers, payload, timeout):
+        return HTTPResult(200, {"steps": [{
+            "type": "model_output",
+            "content": [{
+                "type": "text", "text": '{"garment_category":"dress"}',
+            }],
+        }]})
+
+    provider, request = configured_provider(GeminiProvider, tmp_path, transport)
+    with pytest.raises(AIProviderError) as failure:
+        asyncio.run(provider.analyze_style(request))
+
+    assert failure.value.code is ProviderErrorCode.INVALID_SCHEMA
 
 
 def test_retry_is_bounded_and_invalid_model_output_is_rejected(tmp_path: Path):
@@ -127,6 +182,53 @@ def test_retry_is_bounded_and_invalid_model_output_is_rejected(tmp_path: Path):
     with pytest.raises(AIProviderError) as failure:
         asyncio.run(provider.analyze_style(request))
     assert failure.value.code is ProviderErrorCode.INVALID_SCHEMA
+
+
+def test_qwen_reports_insufficient_openrouter_credit_without_retry(tmp_path: Path):
+    calls = 0
+
+    async def payment_required(url, headers, payload, timeout):
+        nonlocal calls
+        calls += 1
+        return HTTPResult(402, {"error": {"message": "Insufficient credits"}})
+
+    provider, request = configured_openrouter_qwen(tmp_path, payment_required)
+    with pytest.raises(AIProviderError) as failure:
+        asyncio.run(provider.analyze_style(request))
+
+    assert failure.value.code is ProviderErrorCode.PAYMENT_REQUIRED
+    assert failure.value.retryable is False
+    assert calls == 1
+
+
+def test_api_preserves_payment_required_status(tmp_path: Path):
+    class PaymentRequiredProvider:
+        provider_id = "qwen"
+
+        async def analyze_style(self, request):
+            raise AIProviderError(
+                ProviderErrorCode.PAYMENT_REQUIRED,
+                "На ключе сервиса анализа недостаточно средств.",
+                False,
+            )
+
+    settings = Settings(
+        database_path=tmp_path / "payment.db",
+        image_storage_path=tmp_path / "images",
+        ai_provider="qwen",
+        log_level="CRITICAL",
+    )
+    with TestClient(
+        create_app(settings, ai_provider=PaymentRequiredProvider()),
+        raise_server_exceptions=False,
+    ) as client:
+        response = client.post(
+            "/api/v1/garments/analyze-image?provider=qwen",
+            json=example("example-ai-request.json"),
+        )
+
+    assert response.status_code == 402
+    assert response.json()["code"] == "PAYMENT_REQUIRED"
 
 
 def test_image_store_rejects_false_types_oversize_and_unknown_refs(tmp_path: Path):

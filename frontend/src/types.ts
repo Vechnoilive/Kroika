@@ -95,8 +95,91 @@ export interface GarmentSpec {
       fly_front?: boolean;
     };
   };
+  design_intent?: GarmentDesignIntent;
   unsupported_features: string[];
   confirmed_at: string | null;
+}
+
+export type DesignElementType =
+  | 'waistband' | 'belt' | 'sash' | 'pleat' | 'tuck' | 'gather' | 'ruffle'
+  | 'flounce' | 'peplum' | 'yoke' | 'panel' | 'overlay' | 'drape' | 'pocket'
+  | 'closure' | 'slit' | 'vent' | 'hood' | 'collar' | 'cuff' | 'strap' | 'dart'
+  | 'princess_seam' | 'decorative_seam' | 'other';
+
+export type DesignLocation =
+  | 'bodice_front' | 'bodice_back' | 'neckline' | 'shoulder' | 'waist'
+  | 'skirt_front' | 'skirt_back' | 'trouser_front' | 'trouser_back' | 'sleeve'
+  | 'hem' | 'full_garment' | 'unknown';
+
+export interface VisualDesignElement {
+  element_id: string;
+  type: DesignElementType;
+  variant: 'standard' | 'straight' | 'shaped' | 'elastic' | 'tie' | 'knife' | 'box'
+    | 'inverted' | 'accordion' | 'soft' | 'circular' | 'gathered' | 'patch' | 'slash'
+    | 'welt' | 'zipper' | 'buttons' | 'hooks' | 'concealed' | 'single' | 'double'
+    | 'shirt' | 'notched' | 'shawl' | 'stand' | 'other' | 'unknown';
+  description_ru: string;
+  location: DesignLocation;
+  construction: 'integrated' | 'separate_piece' | 'applied' | 'layered' | 'unknown';
+  count: number | null;
+  symmetry: 'symmetric' | 'asymmetric' | 'single' | 'unknown';
+  confidence: number;
+  evidence_ru: string;
+  requires_confirmation: boolean;
+}
+
+export interface VisualDesignLayer {
+  layer_id: string;
+  role: 'main' | 'lining' | 'interfacing' | 'overlay';
+  coverage: 'full' | 'bodice' | 'skirt' | 'sleeves' | 'detail' | 'unknown';
+  material_hint_ru: string;
+  opacity: 'opaque' | 'semi_transparent' | 'transparent' | 'unknown';
+  drape: 'crisp' | 'medium' | 'fluid' | 'unknown';
+  confidence: number;
+  requires_confirmation: boolean;
+}
+
+export interface VisualProportions {
+  waist_position: 'low' | 'natural' | 'high' | 'unknown';
+  volume: 'fitted' | 'regular' | 'relaxed' | 'voluminous' | 'unknown';
+  hem_shape: 'straight' | 'curved' | 'asymmetric' | 'tiered' | 'unknown';
+  asymmetry: 'yes' | 'no' | 'unknown';
+  confidence: number;
+}
+
+export interface GarmentDesignIntent {
+  schema_version: '1.0.0';
+  source: 'ai' | 'manual';
+  status: 'ready' | 'partial' | 'needs_confirmation';
+  review_status?: 'proposed' | 'confirmed';
+  reviewed_at?: string | null;
+  elements: Array<Omit<VisualDesignElement, 'element_id'> & {
+    source_element_id: string;
+    included?: boolean;
+    confirmed_by_user?: boolean;
+    dimensions_mm?: {
+      width: number | null;
+      length: number | null;
+      depth: number | null;
+      spacing: number | null;
+    };
+    support_status: 'supported' | 'planned' | 'needs_confirmation' | 'excluded';
+    module_id: string | null;
+  }>;
+  layers: Array<Omit<VisualDesignLayer, 'layer_id'> & {
+    source_layer_id: string;
+    included?: boolean;
+    confirmed_by_user?: boolean;
+    support_status: 'supported' | 'planned' | 'needs_confirmation' | 'excluded';
+    module_id: string | null;
+  }>;
+  proportions: VisualProportions & {
+    confirmed_by_user?: boolean;
+    support_status: 'supported' | 'planned' | 'needs_confirmation' | 'excluded';
+    module_id: string | null;
+  };
+  pending_questions: string[];
+  question_answers?: Array<{question: string; answer_ru: string}>;
 }
 
 export type GarmentType =
@@ -243,9 +326,16 @@ export interface StyleAnalysis {
   status: 'ok' | 'needs_confirmation' | 'insufficient_input';
   garment_category: string;
   silhouette: {fit: string; confidence: number};
-  neckline: {front: string; confidence: number};
+  neckline: {front: string; collar?: string; confidence: number};
   sleeves: {present: boolean; length: string; confidence: number};
   lower_part: {type: string; length_category: string; confidence: number};
+  trousers?: {waistband?: string; [key: string]: unknown};
+  closure?: {type: string; location: string; confidence: number};
+  design_features?: {
+    elements: VisualDesignElement[];
+    layers: VisualDesignLayer[];
+    proportions: VisualProportions;
+  };
   uncertainties: string[];
   targeted_questions: string[];
   unsupported_features?: string[];

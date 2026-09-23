@@ -7,6 +7,7 @@ import base64
 from dataclasses import dataclass
 import json
 from typing import Any, Awaitable, Callable, Mapping, Protocol
+from urllib.parse import urlparse
 
 import httpx2 as httpx
 
@@ -66,6 +67,12 @@ def _provider_error(status_code: int) -> AIProviderError:
         return AIProviderError(
             ProviderErrorCode.AUTH,
             "Ключ сервиса анализа не принят. Проверьте настройки на сервере.",
+            False,
+        )
+    if status_code == 402:
+        return AIProviderError(
+            ProviderErrorCode.PAYMENT_REQUIRED,
+            "На ключе сервиса анализа недостаточно средств. Пополните баланс или выберите бесплатную модель.",
             False,
         )
     if status_code == 429:
@@ -205,15 +212,30 @@ class QwenProvider(ExternalVisionProvider):
                 "url": f"data:{image.media_type};base64,{base64.b64encode(image.data).decode('ascii')}"
             },
         } for image in images)
-        return {
+        payload: dict[str, Any] = {
             "model": self.model,
             "messages": [
                 {"role": "system", "content": COMMON_SYSTEM_PROMPT},
                 {"role": "user", "content": content},
             ],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "kroika_style_analysis",
+                    "strict": True,
+                    "schema": provider_analysis_schema(),
+                },
+            },
             "temperature": 0.1,
             "stream": False,
         }
+        hostname = urlparse(self.base_url).hostname if self.base_url else None
+        if hostname == "openrouter.ai" or (hostname and hostname.endswith(".openrouter.ai")):
+            # Structured output and free Qwen endpoints can otherwise be routed to
+            # a backend that ignores response_format or emits reasoning around JSON.
+            payload["provider"] = {"require_parameters": True}
+            payload["reasoning"] = {"enabled": False}
+        return payload
 
     def _extract_text(self, response: dict[str, Any]) -> str:
         return response["choices"][0]["message"]["content"]
@@ -243,8 +265,12 @@ class GeminiProvider(ExternalVisionProvider):
             "store": False,
             "generation_config": {"temperature": 0.1},
             "response_format": {
+                # The canonical contract is already included once in the instruction.
+                # Repeating that large, deeply nested schema here makes Gemini compile
+                # it as Structured Output and can end in upstream 503/timeout errors.
+                # JSON mode keeps the response machine-readable; the strict contract
+                # and semantic checks in analyze_style remain the trust boundary.
                 "type": "text", "mime_type": "application/json",
-                "schema": provider_analysis_schema(),
             },
         }
 

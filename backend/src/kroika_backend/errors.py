@@ -103,6 +103,7 @@ def install_exception_handlers(app: FastAPI) -> None:
         status = {
             ProviderErrorCode.INVALID_IMAGE: 422,
             ProviderErrorCode.INVALID_SCHEMA: 422,
+            ProviderErrorCode.PAYMENT_REQUIRED: 402,
             ProviderErrorCode.RATE_LIMIT: 429,
             ProviderErrorCode.TIMEOUT: 504,
         }.get(exc.code, 503)

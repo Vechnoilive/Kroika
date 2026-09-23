@@ -11,6 +11,7 @@ JsonObject = dict[str, Any]
 class ProviderErrorCode(StrEnum):
     TIMEOUT = 'timeout'
     AUTH = 'auth'
+    PAYMENT_REQUIRED = 'payment_required'
     RATE_LIMIT = 'rate_limit'
     INVALID_SCHEMA = 'invalid_schema'
     INVALID_IMAGE = 'invalid_image'

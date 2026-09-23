@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kroika-backend"
-version = "0.15.0"
+version = "0.17.0"
 description = "FastAPI application with versioned sewing workflow and deterministic pattern generation"
 requires-python = ">=3.12"
 dependencies = [

@@ -1,6 +1,8 @@
 import {FormEvent, useEffect, useState} from 'react';
 import {api, ApiError} from './api';
 import {configureGarment, easeForGarment, GARMENT_OPTIONS, methodForGarment, presetForGarment} from './garments';
+import {DesignIntentEditor} from './DesignIntentEditor';
+import {buildDesignIntent, prepareDesignIntentForReview, reevaluateDesignIntent} from './designIntent';
 import type {
   FabricProperties,
   FitSettings,
@@ -69,7 +71,12 @@ export function StyleEditor({
   acceptance?: GarmentAcceptanceStatus;
   onSave: SaveProject;
 }) {
-  const [spec, setSpec] = useState<GarmentSpec>(() => structuredClone(project.garment_spec));
+  const [spec, setSpec] = useState<GarmentSpec>(() => {
+    const initial = structuredClone(project.garment_spec);
+    return initial.design_intent
+      ? {...initial, design_intent: prepareDesignIntentForReview(initial.design_intent)}
+      : initial;
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -80,14 +87,63 @@ export function StyleEditor({
   ].filter(Boolean);
 
   function updateParameters(next: Partial<GarmentSpec['parameters']>) {
-    setSpec({...spec, selection_status: 'proposed', confirmed_at: null, parameters: {
+    const updated: GarmentSpec = {...spec, selection_status: 'proposed', confirmed_at: null, parameters: {
       ...spec.parameters,
       ...next,
-    }});
+    }};
+    setSpec(updated.design_intent
+      ? {...updated, design_intent: reevaluateDesignIntent(updated.design_intent, updated, analysis)}
+      : updated);
+  }
+
+  function selectGarment(garmentType: GarmentType) {
+    const configured = configureGarment(spec, garmentType);
+    setSpec({...configured, design_intent: buildDesignIntent(analysis, configured)});
+  }
+
+  async function saveDesignReview(designIntent: NonNullable<GarmentSpec['design_intent']>) {
+    setBusy(true);
+    setError('');
+    try {
+      const saved = await onSave({
+        ...project,
+        status: 'draft',
+        garment_spec: {
+          ...spec,
+          selection_status: 'proposed',
+          confirmed_at: null,
+          design_intent: designIntent,
+        },
+        fit_settings: {...project.fit_settings, status: 'draft', confirmed_at: null},
+        fabric_properties: {...project.fabric_properties, status: 'draft', confirmed_at: null},
+        latest_generation: null,
+      });
+      setSpec(structuredClone(saved.garment_spec));
+    } catch (caught) {
+      throw new Error(caught instanceof ApiError ? caught.message : 'Не удалось сохранить проверку деталей.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (spec.design_intent?.review_status !== undefined
+        && spec.design_intent.review_status !== 'confirmed') {
+      setError('Сначала проверьте детали, слои и пропорции, затем нажмите «Сохранить проверку деталей».');
+      return;
+    }
+    if (spec.design_intent && spec.design_intent.status !== 'ready') {
+      const unresolved = [
+        ...spec.design_intent.elements.filter((item) => item.included !== false),
+        ...spec.design_intent.layers.filter((item) => item.included !== false),
+        spec.design_intent.proportions,
+      ].filter((item) => item.support_status !== 'supported');
+      setError(
+        `Нельзя подтвердить точный фасон: ${unresolved.length} ${unresolved.length === 1 ? 'деталь ещё не перенесена' : 'детали ещё не перенесены'} в математический движок. Проверьте список выше.`,
+      );
+      return;
+    }
     const {neckline, skirt, upper, sleeve, closure, trousers} = spec.parameters;
     const skirtBased = ['dress', 'sundress', 'skirt'].includes(spec.garment_type);
     const upperOnly = ['top', 'blouse', 'shirt', 'vest', 'jacket'].includes(spec.garment_type);
@@ -194,7 +250,7 @@ export function StyleEditor({
         <legend>Что строим?</legend>
         {GARMENT_OPTIONS.map((item) => (
           <label key={item.id}>
-            <input type="radio" checked={spec.garment_type === item.id} onChange={() => setSpec(configureGarment(spec, item.id))} />
+            <input type="radio" checked={spec.garment_type === item.id} onChange={() => selectGarment(item.id)} />
             <span><strong>{item.name}</strong><small>{item.short}</small></span>
           </label>
         ))}
@@ -209,6 +265,15 @@ export function StyleEditor({
       <div className="locked-features" aria-label="Зафиксированные поддержанные элементы">
         {features[spec.garment_type].map(([title, detail]) => <div key={title}><strong>{title}</strong><span>{detail}</span></div>)}
       </div>
+
+      {spec.design_intent && <DesignIntentEditor
+        intent={spec.design_intent}
+        spec={spec}
+        analysis={analysis}
+        busy={busy}
+        onChange={(designIntent) => setSpec({...spec, selection_status: 'proposed', confirmed_at: null, design_intent: designIntent})}
+        onSave={saveDesignReview}
+      />}
 
       <div className="notice notice--warning">
         <strong>{selectedAcceptance?.name_ru ?? GARMENT_OPTIONS.find((item) => item.id === spec.garment_type)?.name}: пробный статус</strong>
@@ -231,7 +296,7 @@ export function StyleEditor({
         {parameters.closure.type !== 'none' && <NumberField id="closure-length" label={parameters.closure.type === 'buttons' ? 'Длина застёжки' : 'Рабочая длина молнии'} value={(parameters.closure.length_mm ?? 550) / 10} min={lowerOnly ? 12 : 30} max={lowerOnly ? 24 : 90} onChange={(value) => updateParameters({closure: {...parameters.closure, length_mm: value * 10}, ...(parameters.trousers ? {trousers: {...parameters.trousers, fly_length_mm: value * 10}} : {})})} />}
       </div>
 
-      {analysis.targeted_questions.length > 0 && (
+      {!spec.design_intent && analysis.targeted_questions.length > 0 && (
         <div className="questions">
           <strong>Что стоит проверить по исходному изделию</strong>
           <ul>{analysis.targeted_questions.map((item) => <li key={item}>{item}</li>)}</ul>

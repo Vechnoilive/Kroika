@@ -5,6 +5,7 @@ import {MeasurementWizard} from './MeasurementWizard';
 import {ConstructionEditor, ProjectHistory, StyleEditor} from './ProjectWorkflow';
 import {VisionAnalyzer} from './VisionAnalyzer';
 import {configureGarment, GARMENT_NAMES} from './garments';
+import {buildDesignIntent} from './designIntent';
 import type {
   BodyMeasurements,
   GarmentAcceptanceStatus,
@@ -44,28 +45,89 @@ const LAYERS: Array<{id: PatternLayer; label: string}> = [
   {id: 'dimensions', label: 'Размеры деталей'},
 ];
 
+type WorkflowStep = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+type ErrorWorkflowStep = 2 | 3 | 4 | 5;
+type RevisitableWorkflowStep = 2 | 3 | 4 | 5 | 6 | 7;
+
+const WORKFLOW_TITLES = [
+  'Создать проект', 'Добавить эскиз', 'Подтвердить фасон', 'Ввести мерки',
+  'Ткань и прибавки', 'Построить', 'Проверить и скачать',
+] as const;
+
+export interface ErrorNavigationTarget {
+  step: ErrorWorkflowStep;
+  label: string;
+}
+
+export function errorNavigationTarget(error: ApiError): ErrorNavigationTarget | null {
+  for (const {json_pointer: pointer} of error.issues ?? []) {
+    if (pointer.startsWith('/body_measurements')) {
+      return {step: 4, label: 'Перейти к меркам'};
+    }
+    if (pointer.startsWith('/garment_spec') || pointer.startsWith('/pattern_method')) {
+      return {step: 3, label: 'Исправить фасон и размеры изделия'};
+    }
+    if (pointer.startsWith('/fit_settings') || pointer.startsWith('/fabric_properties')) {
+      return {step: 5, label: 'Исправить ткань и прибавки'};
+    }
+    if (pointer.startsWith('/style_analysis')
+        || pointer.startsWith('/image_refs')
+        || pointer.startsWith('/privacy')) {
+      return {step: 2, label: 'Вернуться к эскизу'};
+    }
+  }
+  return null;
+}
+
 function Logo() {
   return <div className="brand-mark" aria-hidden="true"><span>K</span></div>;
 }
 
-function Step({number, title, state}: {number: number; title: string; state: 'done' | 'active' | 'locked'}) {
+export function Step({
+  number,
+  title,
+  state,
+  onSelect,
+}: {
+  number: WorkflowStep;
+  title: string;
+  state: 'done' | 'active' | 'locked';
+  onSelect?: () => void;
+}) {
+  const content = <><span className="step__number">{state === 'done' ? '✓' : number}</span><span>{title}</span></>;
   return (
     <li className={`step step--${state}`} aria-current={state === 'active' ? 'step' : undefined}>
-      <span className="step__number">{state === 'done' ? '✓' : number}</span>
-      <span>{title}</span>
+      {onSelect
+        ? <button type="button" onClick={onSelect} aria-label={`Перейти к шагу ${number}: ${title}`}>{content}</button>
+        : <span className="step__content">{content}</span>}
     </li>
   );
 }
 
-function FriendlyError({error}: {error: ApiError}) {
+export function FriendlyError({
+  error,
+  onNavigate,
+}: {
+  error: ApiError;
+  onNavigate?: (target: ErrorNavigationTarget) => void;
+}) {
+  const target = errorNavigationTarget(error);
+  const additionalIssues = (error.issues ?? [])
+    .filter((item) => item.message_ru !== error.message)
+    .slice(0, 5);
   return (
     <div className="notice notice--error" role="alert">
       <strong>Не получилось выполнить действие</strong>
       <span>{error.message}</span>
-      {error.issues && error.issues.length > 0 && (
-        <ul>{error.issues.slice(0, 5).map((item) => (
+      {additionalIssues.length > 0 && (
+        <ul>{additionalIssues.map((item) => (
           <li key={`${item.code}-${item.json_pointer}`}>{item.message_ru}</li>
         ))}</ul>
+      )}
+      {target && onNavigate && (
+        <button className="notice__action" type="button" onClick={() => onNavigate(target)}>
+          {target.label} <span aria-hidden="true">→</span>
+        </button>
       )}
       {error.requestId && <small>Код обращения: {error.requestId.slice(0, 8)}</small>}
     </div>
@@ -210,7 +272,7 @@ function proposalFromAnalysis(project: ProjectDocument, analysis: StyleAnalysis)
     ? analysis.garment_category as GarmentType
     : 'dress';
   const bodiceFit = analysis.silhouette.fit === 'fitted' ? 'fitted' : 'semi_fitted';
-  return configureGarment({
+  const configured = configureGarment({
     ...current,
     parameters: {
       ...current.parameters,
@@ -218,6 +280,10 @@ function proposalFromAnalysis(project: ProjectDocument, analysis: StyleAnalysis)
     },
     unsupported_features: [],
   }, garmentType);
+  return {
+    ...configured,
+    design_intent: buildDesignIntent(analysis, configured),
+  };
 }
 
 export default function App() {
@@ -228,9 +294,11 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const [garmentCatalogue, setGarmentCatalogue] = useState<GarmentAcceptanceStatus[]>([]);
+  const [repairStep, setRepairStep] = useState<RevisitableWorkflowStep | null>(null);
 
   function remember(updated: ProjectDocument) {
     setProject(updated);
+    setRepairStep(null);
     localStorage.setItem(LAST_PROJECT_KEY, updated.project_id);
     setProjects((items) => {
       const summary: ProjectSummary = {
@@ -299,7 +367,13 @@ export default function App() {
   function startAnother() {
     setProject(null);
     setError(null);
+    setRepairStep(null);
     localStorage.removeItem(LAST_PROJECT_KEY);
+  }
+
+  function navigateToIssue(target: ErrorNavigationTarget) {
+    setError(null);
+    setRepairStep(target.step);
   }
 
   async function saveProject(candidate: ProjectDocument): Promise<ProjectDocument> {
@@ -386,13 +460,23 @@ export default function App() {
   const currentAcceptance = project
     ? garmentCatalogue.find((item) => item.garment_type === project.garment_spec.garment_type)
     : undefined;
-  const activeStep = !project ? 1
+  const naturalStep = !project ? 1
     : !analysis ? 2
     : project.garment_spec.selection_status !== 'confirmed' ? 3
     : project.body_measurements.status !== 'ready' ? 4
     : project.fit_settings.status !== 'confirmed' || project.fabric_properties.status !== 'confirmed' ? 5
     : project.latest_generation?.status === 'succeeded' ? 7
     : 6;
+  const activeStep = repairStep ?? naturalStep;
+
+  function navigateToStep(step: WorkflowStep) {
+    setError(null);
+    if (step === 1) {
+      startAnother();
+      return;
+    }
+    setRepairStep(step === naturalStep ? null : step);
+  }
   const isLowerGarment = project
     ? ['trousers', 'shorts'].includes(project.garment_spec.garment_type)
     : false;
@@ -425,16 +509,18 @@ export default function App() {
           <p className="eyebrow">Ваш путь</p>
           <h2>Семь понятных шагов</h2>
           <ol>
-            {['Создать проект', 'Добавить эскиз', 'Подтвердить фасон', 'Ввести мерки', 'Ткань и прибавки', 'Построить', 'Проверить и скачать'].map((title, index) => {
-              const number = index + 1;
-              return <Step key={title} number={number} title={title} state={activeStep > number ? 'done' : activeStep === number ? 'active' : 'locked'} />;
+            {WORKFLOW_TITLES.map((title, index) => {
+              const number = (index + 1) as WorkflowStep;
+              const state = activeStep === number ? 'active' : number <= naturalStep ? 'done' : 'locked';
+              const canNavigate = Boolean(project) && number <= naturalStep && number !== activeStep;
+              return <Step key={title} number={number} title={title} state={state} onSelect={canNavigate ? () => navigateToStep(number) : undefined} />;
             })}
           </ol>
           <div className="privacy-note"><span aria-hidden="true">⌂</span><p><strong>Мерки остаются на компьютере</strong>Фото отправляется Qwen только после отдельного согласия.</p></div>
         </aside>
 
         <section className="content">
-          <div className="stage-badge">Qwen · 10 типов изделий · этап 15 из 15</div>
+          <div className="stage-badge">AI-анализ деталей · этап 16</div>
           {!project ? (
             <>
               <div className="intro"><p className="eyebrow">Начнём спокойно</p><h1>Создадим выкройку<br /><em>последовательно</em></h1><p>Каждый шаг сохраняется. Никакие мерки не угадываются, а результат AI всегда подтверждает человек.</p></div>
@@ -449,7 +535,20 @@ export default function App() {
           ) : (
             <>
               <div className="project-heading"><div><p className="eyebrow">{STATUS_NAMES[project.status]} · версия {project.revision}</p><h1>{project.name}</h1><p>Черновик сохраняется на каждом завершённом шаге.</p></div><button className="text-button" onClick={startAnother}>Другой проект</button></div>
-              {error && <FriendlyError error={error} />}
+              {error && <FriendlyError error={error} onNavigate={navigateToIssue} />}
+
+              {activeStep > 2 && (
+                <nav className="workflow-navigation" aria-label="Навигация по шагам">
+                  <button type="button" onClick={() => navigateToStep((activeStep - 1) as WorkflowStep)}>
+                    <span aria-hidden="true">←</span> Назад: {WORKFLOW_TITLES[activeStep - 2]}
+                  </button>
+                  {repairStep && activeStep !== naturalStep && (
+                    <button type="button" onClick={() => navigateToStep(naturalStep as WorkflowStep)}>
+                      Вернуться к текущему шагу <span aria-hidden="true">→</span>
+                    </button>
+                  )}
+                </nav>
+              )}
 
               {activeStep === 2 && <VisionAnalyzer projectId={project.project_id} onComplete={saveAnalysis} />}
               {activeStep === 3 && analysis && <StyleEditor project={project} analysis={analysis as StyleAnalysis} providerName={analysisProvider} acceptance={currentAcceptance} onSave={saveProject} />}
