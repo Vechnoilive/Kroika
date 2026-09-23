@@ -38,6 +38,18 @@ function manualId(prefix: string) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function modelingHint(item: Element): string | null {
+  if (item.type === 'pleat') return 'Для центральной складки: глубина обязательна, длина контрольных линий — по желанию.';
+  if (item.type === 'gather') return 'Для сборки: ширина — сколько добавить к срезу, длина контрольной линии — по желанию.';
+  if (item.type === 'flounce') return 'Для кругового волана по низу заполните глубину.';
+  if (item.type === 'waistband') return 'Для отдельного прямого пояса заполните ширину готового пояса.';
+  if (item.type === 'belt') return 'Для отдельного прямого ремня заполните ширину и полную длину.';
+  if (['yoke', 'panel', 'dart'].includes(item.type)) {
+    return 'Формула сохранится в плане, но эта топология пока не меняет сопрягаемые детали и останется заблокированной.';
+  }
+  return null;
+}
+
 export function DesignIntentEditor({
   intent,
   spec,
@@ -189,7 +201,8 @@ export function DesignIntentEditor({
                 <label><span>Количество</span><input aria-label={`Количество детали ${index + 1}`} disabled={!included} type="number" min="1" max="32" value={item.count ?? ''} onChange={(event) => updateElement(item.source_element_id, {count: event.target.value === '' ? null : Number(event.target.value), confirmed_by_user: false})} /></label>
               </div>
               <fieldset className="dimension-fields" disabled={!included}>
-                <legend>Размеры готовой детали, см — заполняйте только известные</legend>
+                <legend>Параметры построения, см — заполняйте только известные</legend>
+                {modelingHint(item) && <p className="field-hint">{modelingHint(item)}</p>}
                 {([
                   ['width', 'Ширина'], ['length', 'Длина'], ['depth', 'Глубина'], ['spacing', 'Расстояние'],
                 ] as Array<[Dimension, string]>).map(([key, label]) => (

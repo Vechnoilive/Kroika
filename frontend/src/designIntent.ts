@@ -9,14 +9,80 @@ import type {
 } from './types';
 
 type Support = {status: 'supported'; moduleId: string} | {status: 'planned'; moduleId: null};
+type IntentElement = GarmentDesignIntent['elements'][number];
 
 const EMPTY_DIMENSIONS = {width: null, length: null, depth: null, spacing: null};
 
 function elementSupport(
-  element: VisualDesignElement,
+  element: VisualDesignElement | IntentElement,
   spec: GarmentSpec,
 ): Support {
   const garment = spec.garment_type;
+  const dimensions = 'dimensions_mm' in element
+    ? element.dimensions_mm ?? EMPTY_DIMENSIONS
+    : EMPTY_DIMENSIONS;
+  const onlyDimensions = (
+    required: Partial<Record<keyof typeof EMPTY_DIMENSIONS, [number, number]>>,
+    optional: Partial<Record<keyof typeof EMPTY_DIMENSIONS, [number, number]>> = {},
+  ) => Object.entries(dimensions).every(([key, value]) => {
+    const bounds = required[key as keyof typeof EMPTY_DIMENSIONS];
+    if (bounds) return typeof value === 'number' && Number.isFinite(value)
+      && value >= bounds[0] && value <= bounds[1];
+    const optionalBounds = optional[key as keyof typeof EMPTY_DIMENSIONS];
+    return optionalBounds
+      ? value === null || (typeof value === 'number' && Number.isFinite(value)
+        && value >= optionalBounds[0] && value <= optionalBounds[1])
+      : value === null;
+  });
+  const skirtBased = ['dress', 'sundress', 'skirt'].includes(garment);
+  const markerMax = spec.parameters.skirt.length_from_waist_mm - 20;
+
+  if (element.type === 'pleat'
+      && skirtBased
+      && ['knife', 'box', 'inverted'].includes(element.variant)
+      && element.location === 'skirt_front'
+      && element.construction === 'integrated'
+      && element.count === 1
+      && onlyDimensions({depth: [5, 80]}, {length: [30, markerMax]})) {
+    return {status: 'supported', moduleId: 'center_pleat_v1'};
+  }
+  if (element.type === 'gather'
+      && skirtBased
+      && ['gathered', 'soft'].includes(element.variant)
+      && element.location === 'skirt_front'
+      && element.construction === 'integrated'
+      && element.count === 1
+      && onlyDimensions({width: [20, 600]}, {length: [30, markerMax]})) {
+    return {status: 'supported', moduleId: 'waist_gather_allowance_v1'};
+  }
+  if (element.type === 'flounce'
+      && skirtBased
+      && element.variant === 'circular'
+      && element.location === 'hem'
+      && element.construction === 'separate_piece'
+      && element.count === 1
+      && onlyDimensions({depth: [30, 400]})) {
+    return {status: 'supported', moduleId: 'circular_hem_flounce_v1'};
+  }
+  if (element.type === 'waistband'
+      && ['skirt', 'trousers', 'shorts'].includes(garment)
+      && element.variant === 'straight'
+      && element.location === 'waist'
+      && element.construction === 'separate_piece'
+      && onlyDimensions({width: [25, 100]})) {
+    return {status: 'supported', moduleId: 'adjustable_straight_waistband_v1'};
+  }
+  if (element.type === 'belt'
+      && element.variant === 'straight'
+      && element.location === 'waist'
+      && element.construction === 'separate_piece'
+      && element.count === 1
+      && onlyDimensions({width: [15, 150], length: [300, 2500]})) {
+    return {status: 'supported', moduleId: 'straight_belt_v1'};
+  }
+  if (Object.values(dimensions).some((value) => value !== null)) {
+    return {status: 'planned', moduleId: null};
+  }
   if (element.type === 'closure') {
     const configured = spec.parameters.closure;
     const locationMatches = (
@@ -195,24 +261,6 @@ export function prepareDesignIntentForReview(
   };
 }
 
-function asVisualElement(
-  element: GarmentDesignIntent['elements'][number],
-): VisualDesignElement {
-  return {
-    element_id: element.source_element_id,
-    type: element.type,
-    variant: element.variant,
-    description_ru: element.description_ru,
-    location: element.location,
-    construction: element.construction,
-    count: element.count,
-    symmetry: element.symmetry,
-    confidence: element.confidence,
-    evidence_ru: element.evidence_ru,
-    requires_confirmation: element.requires_confirmation,
-  };
-}
-
 function asVisualLayer(layer: GarmentDesignIntent['layers'][number]): VisualDesignLayer {
   return {
     layer_id: layer.source_layer_id,
@@ -266,10 +314,7 @@ export function reevaluateDesignIntent(
       if (element.confirmed_by_user !== true) {
         return {...element, included: true, support_status: 'needs_confirmation' as const, module_id: null};
       }
-      if (Object.values(element.dimensions_mm ?? {}).some((value) => value !== null)) {
-        return {...element, included: true, support_status: 'planned' as const, module_id: null};
-      }
-      const support = elementSupport(asVisualElement(element), spec);
+      const support = elementSupport(element, spec);
       return {...element, included: true, support_status: support.status, module_id: support.moduleId};
     }),
     layers: intent.layers.map((layer) => {

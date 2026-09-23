@@ -47,7 +47,7 @@
           "properties": {
             "type": {"type": "string", "enum": ["straight", "a_line"]},
             "length_from_waist_mm": {"$ref": "common.schema.json#/$defs/positive_millimetres"},
-            "hem_expansion_each_side_mm": {"$ref": "common.schema.json#/$defs/millimetres"}
+            "hem_expansion_each_side_mm": {"type": "number", "minimum": -100, "maximum": 250}
           }
         },
         "upper": {

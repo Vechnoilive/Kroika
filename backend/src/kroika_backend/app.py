@@ -1,4 +1,4 @@
-"""FastAPI composition root for the stage-16 design-aware workflow."""
+"""FastAPI composition root for the stage-18 modeling-aware workflow."""
 
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ from .models import (
 from .repository import SQLiteRepository
 from .vision_providers import ProviderRegistry, build_provider_registry
 
-APP_VERSION = "0.17.0"
+APP_VERSION = "0.18.0"
 
 
 def _project_or_404(repository: SQLiteRepository, project_id: str) -> dict[str, Any]:

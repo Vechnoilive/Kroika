@@ -157,7 +157,7 @@ def test_trousers_and_shorts_build_complete_balanced_sets(tmp_path: Path):
             assert response.status_code == 200, response.text
             result = response.json()
         assert result["status"] == "succeeded"
-        assert result["engine_version"] == "0.8.1"
+        assert result["engine_version"] == "0.9.0"
         assert [piece["id"] for piece in result["pattern"]["pieces"]] == reference["piece_ids"]
         assert len(result["pattern"]["seam_pairs"]) == reference["seam_pair_count"]
         assert all(piece["cutting_contour"] for piece in result["pattern"]["pieces"])

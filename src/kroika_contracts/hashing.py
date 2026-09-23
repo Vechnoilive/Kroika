@@ -7,6 +7,40 @@ import json
 from typing import Any, Mapping
 
 
+STAGE18_MODELING_MODULES = frozenset({
+    'adjustable_straight_waistband_v1',
+    'center_pleat_v1',
+    'waist_gather_allowance_v1',
+    'circular_hem_flounce_v1',
+    'straight_belt_v1',
+})
+
+
+def _modeling_elements(garment: Mapping[str, Any]) -> list[dict[str, Any]]:
+    intent = garment.get('design_intent')
+    if not isinstance(intent, Mapping):
+        return []
+    elements = [
+        {
+            'source_element_id': element['source_element_id'],
+            'type': element['type'],
+            'variant': element['variant'],
+            'location': element['location'],
+            'construction': element['construction'],
+            'count': element['count'],
+            'dimensions_mm': element.get('dimensions_mm'),
+            'module_id': element['module_id'],
+        }
+        for element in intent.get('elements', [])
+        if element.get('included') is not False
+        and element.get('support_status') == 'supported'
+        and element.get('module_id') in STAGE18_MODELING_MODULES
+    ]
+    return sorted(elements, key=lambda element: (
+        element['module_id'], element['source_element_id'],
+    ))
+
+
 def canonical_generation_payload(request: Mapping[str, Any]) -> dict[str, Any]:
     """Remove IDs, labels, timestamps and provenance from an engine request.
 
@@ -18,8 +52,16 @@ def canonical_generation_payload(request: Mapping[str, Any]) -> dict[str, Any]:
     fit = request['fit_settings']
     fabric = request['fabric_properties']
     method = request['pattern_method']
+    garment_payload: dict[str, Any] = {
+        'schema_version': garment['schema_version'],
+        'garment_type': garment['garment_type'],
+        'parameters': garment['parameters'],
+    }
+    modeling_elements = _modeling_elements(garment)
+    if modeling_elements:
+        garment_payload['modeling_elements'] = modeling_elements
     return {
-        'hash_contract_version': '1.0.0',
+        'hash_contract_version': '1.1.0' if modeling_elements else '1.0.0',
         'pattern_method': {'id': method['id'], 'version': method['version']},
         'body_measurements': {
             'schema_version': measurements['schema_version'],
@@ -27,11 +69,7 @@ def canonical_generation_payload(request: Mapping[str, Any]) -> dict[str, Any]:
             'values': {key: value['value'] for key, value in measurements['values'].items()},
             'angles_deg': measurements.get('angles_deg', {}),
         },
-        'garment_spec': {
-            'schema_version': garment['schema_version'],
-            'garment_type': garment['garment_type'],
-            'parameters': garment['parameters'],
-        },
+        'garment_spec': garment_payload,
         'fit_settings': {
             'schema_version': fit['schema_version'],
             'wearing_ease_mm': fit['wearing_ease_mm'],

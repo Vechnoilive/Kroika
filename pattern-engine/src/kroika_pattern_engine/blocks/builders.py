@@ -463,6 +463,12 @@ def _skirt_piece(
             "Длина юбки должна быть минимум на 50 мм ниже линии бёдер.",
             "/garment_spec/parameters/skirt/length_from_waist_mm",
         )
+    if hip_width + expansion < 30.0:
+        raise BlockConstructionError(
+            "BLOCK_SKIRT_HEM_TOO_NARROW",
+            "После заужения половина низа должна быть не уже 30 мм.",
+            "/garment_spec/parameters/skirt/hem_expansion_each_side_mm",
+        )
     center_waist = Point(0.0, 0.0)
     center_hem = Point(0.0, -length)
     side_hem = Point(hip_width + expansion, -length)
@@ -566,10 +572,10 @@ def build_base_blocks(request: Mapping[str, Any]) -> BaseBlockSet:
     back_depth = _style_number(neckline, "back_depth_mm", "/garment_spec/parameters/neckline/back_depth_mm")
     skirt_length = _style_number(skirt, "length_from_waist_mm", "/garment_spec/parameters/skirt/length_from_waist_mm")
     expansion = _style_number(skirt, "hem_expansion_each_side_mm", "/garment_spec/parameters/skirt/hem_expansion_each_side_mm")
-    if min(front_depth, back_depth) <= 0.0 or expansion < 0.0:
+    if min(front_depth, back_depth) <= 0.0 or not -100.0 <= expansion <= 250.0:
         raise BlockConstructionError(
             "BLOCK_STYLE_PARAMETER_INVALID",
-            "Глубины горловины должны быть положительными, расширение низа — неотрицательным.",
+            "Глубины горловины должны быть положительными, изменение низа — от −100 до 250 мм.",
             "/garment_spec/parameters",
         )
 
@@ -691,10 +697,10 @@ def build_skirt_blocks(request: Mapping[str, Any]) -> SkirtBlockSet:
         "hem_expansion_each_side_mm",
         "/garment_spec/parameters/skirt/hem_expansion_each_side_mm",
     )
-    if expansion < 0.0:
+    if not -100.0 <= expansion <= 250.0:
         raise BlockConstructionError(
             "BLOCK_STYLE_PARAMETER_INVALID",
-            "Расширение низа юбки не может быть отрицательным.",
+            "Изменение низа юбки должно быть от −100 до 250 мм.",
             "/garment_spec/parameters/skirt/hem_expansion_each_side_mm",
         )
 

@@ -17,6 +17,10 @@
       "type": "array",
       "items": {"$ref": "#/$defs/seam_pair"}
     },
+    "modeling_operations": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/modeling_operation"}
+    },
     "print_layout": {
       "type": "object", "additionalProperties": false,
       "required": ["page_format", "page_width_mm", "page_height_mm", "margin_mm", "overlap_mm", "scale", "control_square_mm"],
@@ -161,6 +165,21 @@
         "second_length_reduction_mm": {"$ref": "common.schema.json#/$defs/millimetres"},
         "allowed_ease_mm": {"$ref": "common.schema.json#/$defs/millimetres"},
         "tolerance_mm": {"$ref": "common.schema.json#/$defs/millimetres"}
+      }
+    },
+    "modeling_operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation_id", "source_element_id", "kind", "module_id", "formula_id", "target_piece_ids", "parameters_mm", "invariant_residual_mm"],
+      "properties": {
+        "operation_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "source_element_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "kind": {"type": "string", "enum": ["pleat", "gather", "flounce", "waistband", "belt", "hem_adjustment"]},
+        "module_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "formula_id": {"type": "string", "pattern": "^M18-[A-Z][0-9]{2}$"},
+        "target_piece_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}},
+        "parameters_mm": {"type": "object", "additionalProperties": {"type": "number"}},
+        "invariant_residual_mm": {"type": "number", "minimum": 0}
       }
     }
   }

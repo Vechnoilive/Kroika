@@ -153,7 +153,7 @@ export function StyleEditor({
         && (!bounded(neckline.front_depth_mm, 50, 250) || !bounded(neckline.back_depth_mm, 10, 120)))
       || (skirtBased
         && (!bounded(skirt.length_from_waist_mm, 350, 1200)
-          || !bounded(skirt.hem_expansion_each_side_mm, 0, 250)))
+          || !bounded(skirt.hem_expansion_each_side_mm, -100, 250)))
       || (upperOnly && !bounded(upper?.length_below_waist_mm ?? NaN, 40, 300))
       || (lowerOnly && (
         !bounded(trousers?.length_mm ?? NaN, spec.garment_type === 'trousers' ? 700 : 380, spec.garment_type === 'trousers' ? 1250 : 700)
@@ -284,7 +284,7 @@ export function StyleEditor({
         {!['skirt', 'jacket', 'trousers', 'shorts'].includes(spec.garment_type) && <NumberField id="front-neck-depth" label="Глубина горловины спереди" value={parameters.neckline.front_depth_mm / 10} min={5} max={25} onChange={(value) => updateParameters({neckline: {...parameters.neckline, type: 'round', front_depth_mm: value * 10}})} />}
         {!['skirt', 'jacket', 'trousers', 'shorts'].includes(spec.garment_type) && <NumberField id="back-neck-depth" label="Глубина горловины сзади" value={parameters.neckline.back_depth_mm / 10} min={1} max={12} onChange={(value) => updateParameters({neckline: {...parameters.neckline, type: 'round', back_depth_mm: value * 10}})} />}
         {skirtBased && <NumberField id="skirt-length" label="Длина юбки от талии" value={parameters.skirt.length_from_waist_mm / 10} min={35} max={120} onChange={(value) => updateParameters({skirt: {...parameters.skirt, type: 'a_line', length_from_waist_mm: value * 10}})} />}
-        {skirtBased && <NumberField id="hem-expansion" label="Расширение низа с каждой стороны" value={parameters.skirt.hem_expansion_each_side_mm / 10} min={0} max={25} onChange={(value) => updateParameters({skirt: {...parameters.skirt, type: 'a_line', hem_expansion_each_side_mm: value * 10}})} />}
+        {skirtBased && <NumberField id="hem-expansion" label="Изменение низа с каждой стороны (+ шире, − уже)" value={parameters.skirt.hem_expansion_each_side_mm / 10} min={-10} max={25} onChange={(value) => updateParameters({skirt: {...parameters.skirt, type: 'a_line', hem_expansion_each_side_mm: value * 10}})} />}
         {upperOnly && <NumberField id="upper-length" label="Длина ниже талии" value={(parameters.upper?.length_below_waist_mm ?? 100) / 10} min={4} max={30} onChange={(value) => updateParameters({upper: {length_below_waist_mm: value * 10}})} />}
         {sleeved && <NumberField id="sleeve-length" label="Длина рукава" value={(parameters.sleeve.length_mm ?? 580) / 10} min={25} max={90} onChange={(value) => updateParameters({sleeve: {...parameters.sleeve, type: 'long', length_mm: value * 10}})} />}
         {parameters.jacket && <NumberField id="jacket-lapel" label="Ширина лацкана" value={parameters.jacket.lapel_width_mm / 10} min={4.5} max={10} onChange={(value) => updateParameters({jacket: {...parameters.jacket!, lapel_width_mm: value * 10}})} />}

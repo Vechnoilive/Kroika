@@ -20,6 +20,7 @@ from .blocks import (
 )
 from .garment_catalogue import garment_acceptance
 from .geometry import run_core_diagnostics
+from .modeling import apply_modeling_transformations
 
 
 def _utc_now() -> datetime:
@@ -30,7 +31,7 @@ class GeometryPatternEngine:
     """Build a bounded experimental garment and return an auditable report."""
 
     engine_id = "kroika-geometry"
-    engine_version = "0.8.1"
+    engine_version = "0.9.0"
 
     def __init__(self, clock: Callable[[], datetime] = _utc_now):
         self._clock = clock
@@ -70,7 +71,8 @@ class GeometryPatternEngine:
             else:
                 blocks = build_base_blocks(request)
             assembly = assemble_garment(request, blocks)
-            printable_pattern = apply_seam_allowances(assembly.pattern, request)
+            modeling = apply_modeling_transformations(assembly.pattern, request)
+            printable_pattern = apply_seam_allowances(modeling.pattern, request)
         except BlockConstructionError as error:
             checks.append({
                 "id": "engine.garment_assembly",
@@ -195,6 +197,31 @@ class GeometryPatternEngine:
                     "unit": "mm",
                 },
                 {
+                    "id": "engine.modeling.transformations",
+                    "status": "passed" if modeling.applied_count else "not_run",
+                    "message_ru": (
+                        "Подтверждённые модельные операции применены к геометрии "
+                        "и записаны в аудиторский журнал."
+                        if modeling.applied_count
+                        else "Подтверждённых модельных операций этапа 18 нет."
+                    ),
+                    "measured_value": modeling.applied_count,
+                    "limit_value": modeling.applied_count,
+                    "unit": "1",
+                },
+                {
+                    "id": "engine.modeling.interfaces",
+                    "status": "passed" if modeling.applied_count else "not_run",
+                    "message_ru": (
+                        "После моделирования длины всех парных срезов остаются в допуске."
+                        if modeling.applied_count
+                        else "Новые модельные сопряжения не создавались."
+                    ),
+                    "measured_value": modeling.maximum_invariant_residual_mm,
+                    "limit_value": 1.0,
+                    "unit": "mm",
+                },
+                {
                     "id": "engine.jacket.interfaces",
                     "status": "passed" if garment_type == "jacket" else "not_run",
                     "message_ru": (
@@ -230,8 +257,8 @@ class GeometryPatternEngine:
                     "message_ru": (
                         "Для каждой детали построена линия среза из припусков по типам участков."
                     ),
-                    "measured_value": assembly.controls["piece_count"],
-                    "limit_value": assembly.controls["piece_count"],
+                    "measured_value": len(printable_pattern["pieces"]),
+                    "limit_value": len(printable_pattern["pieces"]),
                     "unit": "1",
                 },
                 {

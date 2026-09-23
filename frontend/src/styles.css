@@ -356,6 +356,7 @@ footer { min-height: 56px; display: flex; align-items: center; justify-content: 
 .design-review-grid :disabled, .dimension-fields:disabled { color: #8f898d; cursor: not-allowed; }
 .dimension-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; padding: 12px; border: 1px solid var(--line); border-radius: 11px; }
 .dimension-fields legend { padding: 0 5px; color: var(--muted); font-size: 9px; }
+.dimension-fields .field-hint { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 9px; }
 .review-add { width: fit-content; }
 .review-save { width: 100%; border-color: var(--violet); color: var(--violet); }
 .review-questions { display: grid; gap: 11px; padding: 16px; border-radius: 14px; background: #f5f0f7; }

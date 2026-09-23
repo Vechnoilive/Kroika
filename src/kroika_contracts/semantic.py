@@ -9,6 +9,15 @@ from .contract_io import validate_document
 from .hashing import compute_input_hash
 
 
+STAGE18_MODELING_MODULES = frozenset({
+    'adjustable_straight_waistband_v1',
+    'center_pleat_v1',
+    'waist_gather_allowance_v1',
+    'circular_hem_flounce_v1',
+    'straight_belt_v1',
+})
+
+
 @dataclass(frozen=True, slots=True)
 class SemanticIssue:
     code: str
@@ -25,6 +34,96 @@ class SemanticContractError(ValueError):
 
 def _add(issues: list[SemanticIssue], code: str, pointer: str, message: str) -> None:
     issues.append(SemanticIssue(code, pointer, message))
+
+
+def _modeling_dimensions_match(
+    item: Mapping[str, Any],
+    required: Mapping[str, tuple[float, float]],
+    optional: Mapping[str, tuple[float, float]] | None = None,
+) -> bool:
+    dimensions = item.get('dimensions_mm')
+    if not isinstance(dimensions, Mapping):
+        return False
+    optional = optional or {}
+    for key in ('width', 'length', 'depth', 'spacing'):
+        value = dimensions.get(key)
+        bounds = required.get(key)
+        if bounds is not None:
+            if (isinstance(value, bool) or not isinstance(value, (int, float))
+                    or not bounds[0] <= float(value) <= bounds[1]):
+                return False
+        elif key in optional:
+            optional_bounds = optional[key]
+            if value is not None and (
+                isinstance(value, bool) or not isinstance(value, (int, float))
+                or not optional_bounds[0] <= float(value) <= optional_bounds[1]
+            ):
+                return False
+        elif value is not None:
+            return False
+    return True
+
+
+def _stage18_module_matches(item: Mapping[str, Any], spec: Mapping[str, Any]) -> bool:
+    module_id = item.get('module_id')
+    garment = spec['garment_type']
+    skirt_based = garment in {'dress', 'sundress', 'skirt'}
+    marker_max = float(spec['parameters']['skirt']['length_from_waist_mm']) - 20.0
+    common = (
+        module_id == 'center_pleat_v1'
+        and skirt_based
+        and item['type'] == 'pleat'
+        and item['variant'] in {'knife', 'box', 'inverted'}
+        and item['location'] == 'skirt_front'
+        and item['construction'] == 'integrated'
+        and item['count'] == 1
+        and _modeling_dimensions_match(
+            item, {'depth': (5.0, 80.0)}, {'length': (30.0, marker_max)}
+        )
+    )
+    gather = (
+        module_id == 'waist_gather_allowance_v1'
+        and skirt_based
+        and item['type'] == 'gather'
+        and item['variant'] in {'gathered', 'soft'}
+        and item['location'] == 'skirt_front'
+        and item['construction'] == 'integrated'
+        and item['count'] == 1
+        and _modeling_dimensions_match(
+            item, {'width': (20.0, 600.0)}, {'length': (30.0, marker_max)}
+        )
+    )
+    flounce = (
+        module_id == 'circular_hem_flounce_v1'
+        and skirt_based
+        and item['type'] == 'flounce'
+        and item['variant'] == 'circular'
+        and item['location'] == 'hem'
+        and item['construction'] == 'separate_piece'
+        and item['count'] == 1
+        and _modeling_dimensions_match(item, {'depth': (30.0, 400.0)})
+    )
+    waistband = (
+        module_id == 'adjustable_straight_waistband_v1'
+        and garment in {'skirt', 'trousers', 'shorts'}
+        and item['type'] == 'waistband'
+        and item['variant'] == 'straight'
+        and item['location'] == 'waist'
+        and item['construction'] == 'separate_piece'
+        and _modeling_dimensions_match(item, {'width': (25.0, 100.0)})
+    )
+    belt = (
+        module_id == 'straight_belt_v1'
+        and item['type'] == 'belt'
+        and item['variant'] == 'straight'
+        and item['location'] == 'waist'
+        and item['construction'] == 'separate_piece'
+        and item['count'] == 1
+        and _modeling_dimensions_match(
+            item, {'width': (15.0, 150.0), 'length': (300.0, 2500.0)}
+        )
+    )
+    return common or gather or flounce or waistband or belt
 
 
 def _measurement_issues(
@@ -116,6 +215,13 @@ def _validate_design_intent(
     intent = spec.get('design_intent')
     if not isinstance(intent, Mapping):
         return
+    for group, identity in (('elements', 'source_element_id'), ('layers', 'source_layer_id')):
+        identities = [item[identity] for item in intent[group]]
+        if len(identities) != len(set(identities)):
+            _add(
+                issues, 'DESIGN_SOURCE_ID_DUPLICATE', f'/garment_spec/design_intent/{group}',
+                'Каждая деталь и каждый слой должны иметь отдельный исходный идентификатор.',
+            )
     review_aware = 'review_status' in intent
     has_review_fields = (
         any(key in intent for key in ('reviewed_at', 'question_answers'))
@@ -173,9 +279,15 @@ def _validate_design_intent(
                 _add(issues, 'DESIGN_EXCLUSION_MISMATCH', pointer,
                      'Включённая деталь не может иметь статус excluded.')
             dimensions = item.get('dimensions_mm') if group == 'elements' else None
-            if (isinstance(dimensions, Mapping)
-                    and any(value is not None for value in dimensions.values())
-                    and item['support_status'] == 'supported'):
+            if group == 'elements' and item.get('module_id') in STAGE18_MODELING_MODULES:
+                if item['support_status'] != 'supported' or not _stage18_module_matches(item, spec):
+                    _add(
+                        issues, 'DESIGN_MODEL_MODULE_MISMATCH', pointer,
+                        'Модельная операция не соответствует типу, расположению или диапазону размеров.',
+                    )
+            elif (isinstance(dimensions, Mapping)
+                  and any(value is not None for value in dimensions.values())
+                  and item['support_status'] == 'supported'):
                 _add(issues, 'DESIGN_DIMENSION_NOT_COMPILED', f'{pointer}/dimensions_mm',
                      'Ручной размер нельзя пометить поддержанным, пока модуль его не применяет.')
             active.append(item)
