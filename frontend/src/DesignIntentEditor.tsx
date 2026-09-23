@@ -44,6 +44,9 @@ function modelingHint(item: Element): string | null {
   if (item.type === 'flounce') return 'Для кругового волана по низу заполните глубину.';
   if (item.type === 'waistband') return 'Для отдельного прямого пояса заполните ширину готового пояса.';
   if (item.type === 'belt') return 'Для отдельного прямого ремня заполните ширину и полную длину.';
+  if (item.type === 'cuff') return 'Для прямой манжеты укажите готовую ширину; длина соединения берётся со среза рукава.';
+  if (item.type === 'collar') return 'Для стойки укажите готовую высоту; длина строится точно по горловине.';
+  if (item.type === 'pocket') return 'Для парных накладных карманов укажите ширину и глубину.';
   if (['yoke', 'panel', 'dart'].includes(item.type)) {
     return 'Формула сохранится в плане, но эта топология пока не меняет сопрягаемые детали и останется заблокированной.';
   }
@@ -230,6 +233,8 @@ export function DesignIntentEditor({
                 <label><span>Прозрачность</span><select disabled={!included} value={item.opacity} onChange={(event) => updateLayer(item.source_layer_id, {opacity: event.target.value as Layer['opacity'], confirmed_by_user: false})}><option value="opaque">Непрозрачный</option><option value="semi_transparent">Полупрозрачный</option><option value="transparent">Прозрачный</option><option value="unknown">Не знаю</option></select></label>
                 <label><span>Пластика</span><select disabled={!included} value={item.drape} onChange={(event) => updateLayer(item.source_layer_id, {drape: event.target.value as Layer['drape'], confirmed_by_user: false})}><option value="crisp">Держит форму</option><option value="medium">Средняя</option><option value="fluid">Струящаяся</option><option value="unknown">Не знаю</option></select></label>
               </div>
+              {included && item.role === 'lining' && <p className="field-hint">Сейчас отдельные лекала подкладки строятся для юбочной части; другие покрытия останутся заблокированы.</p>}
+              {included && item.role === 'overlay' && <p className="field-hint">Верхний юбочный слой получит собственные детали и соединения по талии и боковым швам.</p>}
               {included && <label className="review-check review-check--confirm"><input type="checkbox" checked={item.confirmed_by_user === true} onChange={(event) => updateLayer(item.source_layer_id, {confirmed_by_user: event.target.checked})} /><span>Я проверил(а) этот слой</span></label>}
             </article>
           );

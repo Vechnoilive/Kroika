@@ -80,6 +80,36 @@ function elementSupport(
       && onlyDimensions({width: [15, 150], length: [300, 2500]})) {
     return {status: 'supported', moduleId: 'straight_belt_v1'};
   }
+  if (element.type === 'cuff'
+      && ['blouse', 'shirt'].includes(garment)
+      && element.variant === 'straight'
+      && element.location === 'sleeve'
+      && element.construction === 'separate_piece'
+      && element.count === 2
+      && element.symmetry === 'symmetric'
+      && onlyDimensions({width: [25, 120]})) {
+    return {status: 'supported', moduleId: 'sleeve_cuff_band_v1'};
+  }
+  if (element.type === 'collar'
+      && ['dress', 'sundress', 'top', 'blouse', 'vest'].includes(garment)
+      && element.variant === 'stand'
+      && element.location === 'neckline'
+      && element.construction === 'separate_piece'
+      && element.count === 1
+      && element.symmetry === 'symmetric'
+      && onlyDimensions({width: [20, 80]})) {
+    return {status: 'supported', moduleId: 'stand_collar_v1'};
+  }
+  if (element.type === 'pocket'
+      && skirtBased
+      && element.variant === 'patch'
+      && element.location === 'skirt_front'
+      && element.construction === 'applied'
+      && element.count === 2
+      && element.symmetry === 'symmetric'
+      && onlyDimensions({width: [80, 220], depth: [80, 260]})) {
+    return {status: 'supported', moduleId: 'paired_patch_pocket_v1'};
+  }
   if (Object.values(dimensions).some((value) => value !== null)) {
     return {status: 'planned', moduleId: null};
   }
@@ -138,6 +168,24 @@ function layerSupport(layer: VisualDesignLayer, spec: GarmentSpec): Support {
   if (layer.role === 'main') return {status: 'supported', moduleId: 'main_fabric_layer'};
   if (layer.role === 'lining' && spec.garment_type === 'jacket') {
     return {status: 'supported', moduleId: 'jacket_full_lining'};
+  }
+  const skirtBased = ['dress', 'sundress', 'skirt'].includes(spec.garment_type);
+  const liningCoverage = spec.garment_type === 'skirt'
+    ? ['full', 'skirt'].includes(layer.coverage)
+    : layer.coverage === 'skirt';
+  if (layer.role === 'lining'
+      && skirtBased
+      && liningCoverage
+      && layer.opacity === 'opaque'
+      && ['crisp', 'medium', 'fluid'].includes(layer.drape)) {
+    return {status: 'supported', moduleId: 'skirt_full_lining_v1'};
+  }
+  if (layer.role === 'overlay'
+      && skirtBased
+      && layer.coverage === 'skirt'
+      && layer.opacity !== 'unknown'
+      && layer.drape !== 'unknown') {
+    return {status: 'supported', moduleId: 'skirt_overlay_layer_v1'};
   }
   return {status: 'planned', moduleId: null};
 }

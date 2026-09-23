@@ -17,6 +17,17 @@ STAGE18_MODELING_MODULES = frozenset({
     'straight_belt_v1',
 })
 
+STAGE19_ELEMENT_MODULES = frozenset({
+    'sleeve_cuff_band_v1',
+    'stand_collar_v1',
+    'paired_patch_pocket_v1',
+})
+
+STAGE19_LAYER_MODULES = frozenset({
+    'skirt_full_lining_v1',
+    'skirt_overlay_layer_v1',
+})
+
 
 @dataclass(frozen=True, slots=True)
 class SemanticIssue:
@@ -124,6 +135,74 @@ def _stage18_module_matches(item: Mapping[str, Any], spec: Mapping[str, Any]) ->
         )
     )
     return common or gather or flounce or waistband or belt
+
+
+def _stage19_element_matches(item: Mapping[str, Any], spec: Mapping[str, Any]) -> bool:
+    module_id = item.get('module_id')
+    garment = spec['garment_type']
+    cuff = (
+        module_id == 'sleeve_cuff_band_v1'
+        and garment in {'blouse', 'shirt'}
+        and item['type'] == 'cuff'
+        and item['variant'] == 'straight'
+        and item['location'] == 'sleeve'
+        and item['construction'] == 'separate_piece'
+        and item['count'] == 2
+        and item['symmetry'] == 'symmetric'
+        and _modeling_dimensions_match(item, {'width': (25.0, 120.0)})
+    )
+    collar = (
+        module_id == 'stand_collar_v1'
+        and garment in {'dress', 'sundress', 'top', 'blouse', 'vest'}
+        and item['type'] == 'collar'
+        and item['variant'] == 'stand'
+        and item['location'] == 'neckline'
+        and item['construction'] == 'separate_piece'
+        and item['count'] == 1
+        and item['symmetry'] == 'symmetric'
+        and _modeling_dimensions_match(item, {'width': (20.0, 80.0)})
+    )
+    pocket = (
+        module_id == 'paired_patch_pocket_v1'
+        and garment in {'dress', 'sundress', 'skirt'}
+        and item['type'] == 'pocket'
+        and item['variant'] == 'patch'
+        and item['location'] == 'skirt_front'
+        and item['construction'] == 'applied'
+        and item['count'] == 2
+        and item['symmetry'] == 'symmetric'
+        and _modeling_dimensions_match(
+            item, {'width': (80.0, 220.0), 'depth': (80.0, 260.0)}
+        )
+    )
+    return cuff or collar or pocket
+
+
+def _stage19_layer_matches(item: Mapping[str, Any], spec: Mapping[str, Any]) -> bool:
+    module_id = item.get('module_id')
+    garment = spec['garment_type']
+    lining_coverage = (
+        item['coverage'] in {'full', 'skirt'}
+        if garment == 'skirt'
+        else item['coverage'] == 'skirt'
+    )
+    lining = (
+        module_id == 'skirt_full_lining_v1'
+        and garment in {'dress', 'sundress', 'skirt'}
+        and item['role'] == 'lining'
+        and lining_coverage
+        and item['opacity'] == 'opaque'
+        and item['drape'] in {'crisp', 'medium', 'fluid'}
+    )
+    overlay = (
+        module_id == 'skirt_overlay_layer_v1'
+        and garment in {'dress', 'sundress', 'skirt'}
+        and item['role'] == 'overlay'
+        and item['coverage'] == 'skirt'
+        and item['opacity'] in {'opaque', 'semi_transparent', 'transparent'}
+        and item['drape'] in {'crisp', 'medium', 'fluid'}
+    )
+    return lining or overlay
 
 
 def _measurement_issues(
@@ -279,18 +358,59 @@ def _validate_design_intent(
                 _add(issues, 'DESIGN_EXCLUSION_MISMATCH', pointer,
                      'Включённая деталь не может иметь статус excluded.')
             dimensions = item.get('dimensions_mm') if group == 'elements' else None
-            if group == 'elements' and item.get('module_id') in STAGE18_MODELING_MODULES:
+            module_id = item.get('module_id')
+            if group == 'elements' and module_id in STAGE18_MODELING_MODULES:
                 if item['support_status'] != 'supported' or not _stage18_module_matches(item, spec):
                     _add(
                         issues, 'DESIGN_MODEL_MODULE_MISMATCH', pointer,
                         'Модельная операция не соответствует типу, расположению или диапазону размеров.',
                     )
+            elif group == 'elements' and module_id in STAGE19_ELEMENT_MODULES:
+                if item['support_status'] != 'supported' or not _stage19_element_matches(item, spec):
+                    _add(
+                        issues, 'DESIGN_COMPOSITE_MODULE_MISMATCH', pointer,
+                        'Составная деталь не соответствует типу, расположению или диапазону размеров.',
+                    )
+            elif group == 'layers' and module_id in STAGE19_LAYER_MODULES:
+                if item['support_status'] != 'supported' or not _stage19_layer_matches(item, spec):
+                    _add(
+                        issues, 'DESIGN_COMPOSITE_MODULE_MISMATCH', pointer,
+                        'Слой не соответствует роли, покрытию или ограниченному каталогу изделия.',
+                    )
+            elif module_id in STAGE19_ELEMENT_MODULES | STAGE19_LAYER_MODULES:
+                _add(
+                    issues, 'DESIGN_COMPOSITE_MODULE_MISMATCH', pointer,
+                    'Модуль составной детали назначен элементу неверного вида.',
+                )
             elif (isinstance(dimensions, Mapping)
                   and any(value is not None for value in dimensions.values())
                   and item['support_status'] == 'supported'):
                 _add(issues, 'DESIGN_DIMENSION_NOT_COMPILED', f'{pointer}/dimensions_mm',
                      'Ручной размер нельзя пометить поддержанным, пока модуль его не применяет.')
             active.append(item)
+
+    composite_targets = [
+        item.get('module_id')
+        for item in active
+        if item.get('module_id') in STAGE19_ELEMENT_MODULES
+    ]
+    if len(composite_targets) != len(set(composite_targets)):
+        _add(
+            issues, 'DESIGN_COMPOSITE_TARGET_CONFLICT',
+            '/garment_spec/design_intent/elements',
+            'На один конструктивный участок нельзя назначить две одинаковые составные детали.',
+        )
+    composite_roles = [
+        item['role']
+        for item in intent['layers']
+        if item.get('included') is not False and item.get('module_id') in STAGE19_LAYER_MODULES
+    ]
+    if len(composite_roles) != len(set(composite_roles)):
+        _add(
+            issues, 'DESIGN_COMPOSITE_LAYER_CONFLICT',
+            '/garment_spec/design_intent/layers',
+            'Для одной роли можно оставить только один геометрический слой.',
+        )
 
     included_main = [
         item for item in intent['layers']

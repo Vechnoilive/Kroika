@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0.0",
+  "stage": 19,
+  "unit": "mm",
+  "references": {
+    "cuff_join_length": 210.0,
+    "cuff_finished_depth": 55.0,
+    "collar_front_join": 105.0,
+    "collar_back_join": 75.0,
+    "collar_finished_height": 40.0,
+    "patch_pocket_width": 140.0,
+    "patch_pocket_depth": 170.0,
+    "maximum_interface_residual": 0.000001
+  },
+  "notes_ru": "Численные эталоны ограниченного каталога этапа 19; не подтверждают посадку или технологию обработки."
+}
