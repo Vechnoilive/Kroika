@@ -31,13 +31,13 @@ PRINT_LAYOUT_SPEC = {
 def edge_type_for_segment(piece: Mapping[str, Any], segment_id: str) -> str:
     """Classify a stable drafting segment into its sewing edge category."""
 
-    if "sleeve_hem" in segment_id:
+    if segment_id.endswith("sleeve_hem"):
         return "sleeve_hem"
-    if "neckline" in segment_id:
+    if segment_id.endswith("neckline"):
         return "neckline"
-    if "armhole" in segment_id:
+    if segment_id.endswith("armhole"):
         return "armhole"
-    if "_hem" in segment_id:
+    if segment_id.endswith("_hem"):
         return "hem"
     if segment_id.endswith("_center"):
         return "fold" if piece["cut_on_fold"] else "zipper"

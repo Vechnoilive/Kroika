@@ -2,6 +2,14 @@ import type {ProjectDocument} from './types';
 
 type JsonObject = Record<string, any>;
 
+const STAGE18_MODELING_MODULES = new Set([
+  'adjustable_straight_waistband_v1',
+  'center_pleat_v1',
+  'waist_gather_allowance_v1',
+  'circular_hem_flounce_v1',
+  'straight_belt_v1',
+]);
+
 function normalized(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(normalized);
   if (value !== null && typeof value === 'object') {
@@ -26,8 +34,33 @@ export function canonicalGenerationPayload(request: JsonObject): JsonObject {
   const fit = request.fit_settings;
   const fabric = request.fabric_properties;
   const method = request.pattern_method;
+  const garmentSpec: JsonObject = {
+    schema_version: garment.schema_version,
+    garment_type: garment.garment_type,
+    parameters: garment.parameters,
+  };
+  const modelingElements = (garment.design_intent?.elements ?? [])
+    .filter((element: JsonObject) => element.included !== false
+      && element.support_status === 'supported'
+      && STAGE18_MODELING_MODULES.has(element.module_id))
+    .map((element: JsonObject) => ({
+      source_element_id: element.source_element_id,
+      type: element.type,
+      variant: element.variant,
+      location: element.location,
+      construction: element.construction,
+      count: element.count,
+      dimensions_mm: element.dimensions_mm ?? null,
+      module_id: element.module_id,
+    }))
+    .sort((left: JsonObject, right: JsonObject) => {
+      const leftKey = `${left.module_id}\u0000${left.source_element_id}`;
+      const rightKey = `${right.module_id}\u0000${right.source_element_id}`;
+      return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
+    });
+  if (modelingElements.length > 0) garmentSpec.modeling_elements = modelingElements;
   return {
-    hash_contract_version: '1.0.0',
+    hash_contract_version: modelingElements.length > 0 ? '1.1.0' : '1.0.0',
     pattern_method: {id: method.id, version: method.version},
     body_measurements: {
       schema_version: measurements.schema_version,
@@ -38,11 +71,7 @@ export function canonicalGenerationPayload(request: JsonObject): JsonObject {
       ),
       angles_deg: measurements.angles_deg ?? {},
     },
-    garment_spec: {
-      schema_version: garment.schema_version,
-      garment_type: garment.garment_type,
-      parameters: garment.parameters,
-    },
+    garment_spec: garmentSpec,
     fit_settings: {
       schema_version: fit.schema_version,
       wearing_ease_mm: fit.wearing_ease_mm,

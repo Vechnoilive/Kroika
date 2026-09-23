@@ -1,0 +1,3 @@
+-r requirements-stage17.txt
+
+# Stage 18 adds deterministic geometry and UI only; no new third-party runtime dependency.

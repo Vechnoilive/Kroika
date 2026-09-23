@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0.0",
+  "unit": "mm",
+  "references": {
+    "knife_pleat_allowance": 40,
+    "box_pleat_allowance": 80,
+    "gathered_cut_length": 520,
+    "flounce_inner_radius": 100,
+    "flounce_outer_radius": 180,
+    "yoke_depth": 120,
+    "yoke_remainder": 480,
+    "panel_boundaries": [100, 200, 300],
+    "transferred_dart_intake": 18,
+    "retained_dart_intake": 6,
+    "adjusted_hem_half_width": 130
+  },
+  "compiled_modules": [
+    "adjustable_straight_waistband_v1",
+    "center_pleat_v1",
+    "waist_gather_allowance_v1",
+    "circular_hem_flounce_v1",
+    "straight_belt_v1"
+  ],
+  "formula_only_fail_closed": [
+    "yoke_split",
+    "equal_panels",
+    "dart_transfer"
+  ]
+}
