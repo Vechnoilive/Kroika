@@ -15,6 +15,17 @@ STAGE18_MODELING_MODULES = frozenset({
     'straight_belt_v1',
 })
 
+STAGE19_ELEMENT_MODULES = frozenset({
+    'sleeve_cuff_band_v1',
+    'stand_collar_v1',
+    'paired_patch_pocket_v1',
+})
+
+STAGE19_LAYER_MODULES = frozenset({
+    'skirt_full_lining_v1',
+    'skirt_overlay_layer_v1',
+})
+
 
 def _modeling_elements(garment: Mapping[str, Any]) -> list[dict[str, Any]]:
     intent = garment.get('design_intent')
@@ -41,6 +52,54 @@ def _modeling_elements(garment: Mapping[str, Any]) -> list[dict[str, Any]]:
     ))
 
 
+def _composite_elements(garment: Mapping[str, Any]) -> list[dict[str, Any]]:
+    intent = garment.get('design_intent')
+    if not isinstance(intent, Mapping):
+        return []
+    elements = [
+        {
+            'source_element_id': element['source_element_id'],
+            'type': element['type'],
+            'variant': element['variant'],
+            'location': element['location'],
+            'construction': element['construction'],
+            'count': element['count'],
+            'dimensions_mm': element.get('dimensions_mm'),
+            'module_id': element['module_id'],
+        }
+        for element in intent.get('elements', [])
+        if element.get('included') is not False
+        and element.get('support_status') == 'supported'
+        and element.get('module_id') in STAGE19_ELEMENT_MODULES
+    ]
+    return sorted(elements, key=lambda element: (
+        element['module_id'], element['source_element_id'],
+    ))
+
+
+def _composite_layers(garment: Mapping[str, Any]) -> list[dict[str, Any]]:
+    intent = garment.get('design_intent')
+    if not isinstance(intent, Mapping):
+        return []
+    layers = [
+        {
+            'source_layer_id': layer['source_layer_id'],
+            'role': layer['role'],
+            'coverage': layer['coverage'],
+            'opacity': layer['opacity'],
+            'drape': layer['drape'],
+            'module_id': layer['module_id'],
+        }
+        for layer in intent.get('layers', [])
+        if layer.get('included') is not False
+        and layer.get('support_status') == 'supported'
+        and layer.get('module_id') in STAGE19_LAYER_MODULES
+    ]
+    return sorted(layers, key=lambda layer: (
+        layer['module_id'], layer['source_layer_id'],
+    ))
+
+
 def canonical_generation_payload(request: Mapping[str, Any]) -> dict[str, Any]:
     """Remove IDs, labels, timestamps and provenance from an engine request.
 
@@ -58,10 +117,19 @@ def canonical_generation_payload(request: Mapping[str, Any]) -> dict[str, Any]:
         'parameters': garment['parameters'],
     }
     modeling_elements = _modeling_elements(garment)
+    composite_elements = _composite_elements(garment)
+    composite_layers = _composite_layers(garment)
     if modeling_elements:
         garment_payload['modeling_elements'] = modeling_elements
+    if composite_elements:
+        garment_payload['composite_elements'] = composite_elements
+    if composite_layers:
+        garment_payload['composite_layers'] = composite_layers
+    has_composites = bool(composite_elements or composite_layers)
     return {
-        'hash_contract_version': '1.1.0' if modeling_elements else '1.0.0',
+        'hash_contract_version': (
+            '1.2.0' if has_composites else '1.1.0' if modeling_elements else '1.0.0'
+        ),
         'pattern_method': {'id': method['id'], 'version': method['version']},
         'body_measurements': {
             'schema_version': measurements['schema_version'],

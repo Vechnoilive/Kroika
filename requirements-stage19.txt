@@ -1,0 +1,3 @@
+-r requirements-stage18.txt
+
+# Stage 19 adds deterministic component/layer geometry and UI only; no new dependency.

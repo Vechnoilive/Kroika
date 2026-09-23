@@ -18,6 +18,7 @@ from .blocks import (
     build_skirt_blocks,
     build_trouser_blocks,
 )
+from .composites import apply_composite_transformations
 from .garment_catalogue import garment_acceptance
 from .geometry import run_core_diagnostics
 from .modeling import apply_modeling_transformations
@@ -31,7 +32,7 @@ class GeometryPatternEngine:
     """Build a bounded experimental garment and return an auditable report."""
 
     engine_id = "kroika-geometry"
-    engine_version = "0.9.0"
+    engine_version = "0.10.0"
 
     def __init__(self, clock: Callable[[], datetime] = _utc_now):
         self._clock = clock
@@ -72,7 +73,8 @@ class GeometryPatternEngine:
                 blocks = build_base_blocks(request)
             assembly = assemble_garment(request, blocks)
             modeling = apply_modeling_transformations(assembly.pattern, request)
-            printable_pattern = apply_seam_allowances(modeling.pattern, request)
+            composite = apply_composite_transformations(modeling.pattern, request)
+            printable_pattern = apply_seam_allowances(composite.pattern, request)
         except BlockConstructionError as error:
             checks.append({
                 "id": "engine.garment_assembly",
@@ -218,6 +220,30 @@ class GeometryPatternEngine:
                         else "Новые модельные сопряжения не создавались."
                     ),
                     "measured_value": modeling.maximum_invariant_residual_mm,
+                    "limit_value": 1.0,
+                    "unit": "mm",
+                },
+                {
+                    "id": "engine.composites.modules",
+                    "status": "passed" if composite.applied_count else "not_run",
+                    "message_ru": (
+                        "Подтверждённые составные детали и слои построены как реальные лекала."
+                        if composite.applied_count
+                        else "Подтверждённых составных модулей этапа 19 нет."
+                    ),
+                    "measured_value": composite.applied_count,
+                    "limit_value": composite.applied_count,
+                    "unit": "1",
+                },
+                {
+                    "id": "engine.composites.interfaces",
+                    "status": "passed" if composite.applied_count else "not_run",
+                    "message_ru": (
+                        "Соединения составных деталей и слоёв явно заданы и остаются в допуске."
+                        if composite.applied_count
+                        else "Новые интерфейсы составных деталей не создавались."
+                    ),
+                    "measured_value": composite.maximum_invariant_residual_mm,
                     "limit_value": 1.0,
                     "unit": "mm",
                 },

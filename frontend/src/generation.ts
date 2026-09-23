@@ -10,6 +10,17 @@ const STAGE18_MODELING_MODULES = new Set([
   'straight_belt_v1',
 ]);
 
+const STAGE19_ELEMENT_MODULES = new Set([
+  'sleeve_cuff_band_v1',
+  'stand_collar_v1',
+  'paired_patch_pocket_v1',
+]);
+
+const STAGE19_LAYER_MODULES = new Set([
+  'skirt_full_lining_v1',
+  'skirt_overlay_layer_v1',
+]);
+
 function normalized(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(normalized);
   if (value !== null && typeof value === 'object') {
@@ -59,8 +70,49 @@ export function canonicalGenerationPayload(request: JsonObject): JsonObject {
       return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
     });
   if (modelingElements.length > 0) garmentSpec.modeling_elements = modelingElements;
+  const compositeElements = (garment.design_intent?.elements ?? [])
+    .filter((element: JsonObject) => element.included !== false
+      && element.support_status === 'supported'
+      && STAGE19_ELEMENT_MODULES.has(element.module_id))
+    .map((element: JsonObject) => ({
+      source_element_id: element.source_element_id,
+      type: element.type,
+      variant: element.variant,
+      location: element.location,
+      construction: element.construction,
+      count: element.count,
+      dimensions_mm: element.dimensions_mm ?? null,
+      module_id: element.module_id,
+    }))
+    .sort((left: JsonObject, right: JsonObject) => {
+      const leftKey = `${left.module_id}\u0000${left.source_element_id}`;
+      const rightKey = `${right.module_id}\u0000${right.source_element_id}`;
+      return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
+    });
+  const compositeLayers = (garment.design_intent?.layers ?? [])
+    .filter((layer: JsonObject) => layer.included !== false
+      && layer.support_status === 'supported'
+      && STAGE19_LAYER_MODULES.has(layer.module_id))
+    .map((layer: JsonObject) => ({
+      source_layer_id: layer.source_layer_id,
+      role: layer.role,
+      coverage: layer.coverage,
+      opacity: layer.opacity,
+      drape: layer.drape,
+      module_id: layer.module_id,
+    }))
+    .sort((left: JsonObject, right: JsonObject) => {
+      const leftKey = `${left.module_id}\u0000${left.source_layer_id}`;
+      const rightKey = `${right.module_id}\u0000${right.source_layer_id}`;
+      return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
+    });
+  if (compositeElements.length > 0) garmentSpec.composite_elements = compositeElements;
+  if (compositeLayers.length > 0) garmentSpec.composite_layers = compositeLayers;
+  const hasComposites = compositeElements.length > 0 || compositeLayers.length > 0;
   return {
-    hash_contract_version: modelingElements.length > 0 ? '1.1.0' : '1.0.0',
+    hash_contract_version: hasComposites
+      ? '1.2.0'
+      : modelingElements.length > 0 ? '1.1.0' : '1.0.0',
     pattern_method: {id: method.id, version: method.version},
     body_measurements: {
       schema_version: measurements.schema_version,
