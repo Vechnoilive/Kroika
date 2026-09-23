@@ -1,4 +1,4 @@
-"""FastAPI composition root for the stage-23 photo and pattern workflow."""
+"""FastAPI composition root for the local project and pattern workflow."""
 
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ from .models import (
 from .repository import SQLiteRepository
 from .vision_providers import ProviderRegistry, build_provider_registry
 
-APP_VERSION = "0.23.0"
+APP_VERSION = "0.24.0"
 
 PAPER_SQUARE_TOLERANCE_MM = 1.0
 PAPER_CONTROL_LINE_TOLERANCE_MM = 1.0
