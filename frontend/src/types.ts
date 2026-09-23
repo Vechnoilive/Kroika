@@ -373,6 +373,7 @@ export interface StyleAnalysis {
   schema_version?: '1.0.0';
   status: 'ok' | 'needs_confirmation' | 'insufficient_input';
   garment_category: string;
+  source_image_views?: ImageViewRole[];
   silhouette: {fit: string; confidence: number};
   neckline: {front: string; collar?: string; confidence: number};
   sleeves: {present: boolean; length: string; confidence: number};
@@ -391,6 +392,7 @@ export interface StyleAnalysis {
 }
 
 export type VisionProviderId = 'mock' | 'qwen' | 'gemini';
+export type ImageViewRole = 'front' | 'back' | 'side' | 'detail' | 'flat_sketch' | 'unknown';
 
 export interface VisionProviderStatus {
   provider_id: VisionProviderId;
@@ -406,6 +408,14 @@ export interface VisionProviderStatus {
 export interface VisionProviderList {
   default_provider: VisionProviderId;
   items: VisionProviderStatus[];
+}
+
+export interface VisionProviderCheck {
+  provider_id: VisionProviderId;
+  model: string;
+  status: 'ready';
+  latency_ms: number;
+  message_ru: string;
 }
 
 export interface ImageUploadResult {

@@ -90,11 +90,15 @@ _DEMO_ANALYSIS: dict[str, Any] = {
 
 class MockVisionProvider:
     provider_id = "mock"
+    model = "offline fixture"
 
     async def analyze_style(self, request: Mapping[str, Any]) -> dict[str, Any]:
         # Deliberately read only fields permitted by AIAnalysisRequest.
         _ = tuple(request["image_refs"])
         return deepcopy(_DEMO_ANALYSIS)
+
+    async def check_connection(self) -> None:
+        """The local fixture is always available and performs no network call."""
 
 
 # Backwards-compatible name for integrations created before stage 10.

@@ -17,6 +17,8 @@ import type {
   StyleAnalysis,
   VisionProviderId,
   VisionProviderList,
+  VisionProviderCheck,
+  ImageViewRole,
   ImageUploadResult,
 } from './types';
 import {buildEngineRequest} from './generation';
@@ -33,6 +35,13 @@ export class ApiError extends Error {
   }
 }
 
+function isAbortError(caught: unknown): boolean {
+  return typeof caught === 'object'
+    && caught !== null
+    && 'name' in caught
+    && caught.name === 'AbortError';
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
@@ -40,7 +49,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init,
       headers: {'Content-Type': 'application/json', ...init?.headers},
     });
-  } catch {
+  } catch (caught) {
+    if (isAbortError(caught)) {
+      throw new ApiError('Запрос отменён. Загруженные изображения сохранены для повтора.', 0, 'REQUEST_CANCELLED');
+    }
     throw new ApiError(
       'Не удалось связаться с приложением. Проверьте, что оно запущено.',
       0,
@@ -63,6 +75,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       body.issues ?? [],
     );
   }
+  if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }
 
@@ -192,27 +205,41 @@ export const api = {
     ),
   visionProviders: () => request<VisionProviderList>('/api/v1/ai/providers'),
   garmentCatalogue: () => request<GarmentCatalogue>('/api/v1/garments/catalog'),
-  uploadImage: async (file: File) => request<ImageUploadResult>('/api/v1/images', {
+  uploadImage: async (file: File, signal?: AbortSignal) => request<ImageUploadResult>('/api/v1/images', {
     method: 'POST',
+    signal,
     body: JSON.stringify({
       file_name: file.name,
       media_type: file.type,
       data_base64: await fileBase64(file),
     }),
   }),
+  deleteImage: (imageRef: string) => request<void>(
+    `/api/v1/images/${encodeURIComponent(imageRef)}`,
+    {method: 'DELETE'},
+  ),
+  checkVisionProvider: (provider: VisionProviderId, signal?: AbortSignal) =>
+    request<VisionProviderCheck>(
+      `/api/v1/ai/providers/${encodeURIComponent(provider)}/check`,
+      {method: 'POST', signal},
+    ),
   analyzeImages: (
     projectId: string,
     imageRefs: string[],
+    imageViews: ImageViewRole[],
     provider: VisionProviderId,
+    signal?: AbortSignal,
   ) =>
     request<StyleAnalysis>(`/api/v1/garments/analyze-image?provider=${provider}`, {
       method: 'POST',
+      signal,
       body: JSON.stringify({
         schema_version: '1.0.0',
         request_id: crypto.randomUUID(),
         project_id: projectId,
         locale: 'ru-RU',
         image_refs: imageRefs,
+        image_views: imageViews,
         supported_garment_categories: [
           'dress', 'sundress', 'skirt', 'top', 'blouse', 'shirt', 'vest', 'jacket',
           'trousers', 'shorts',
@@ -234,6 +261,6 @@ export const api = {
       }),
     }),
   analyzeDemo: (projectId: string) => api.analyzeImages(
-    projectId, ['img_demo_front_12345678'], 'mock',
+    projectId, ['img_demo_front_12345678'], ['front'], 'mock',
   ),
 };

@@ -15,6 +15,11 @@
       "type": "array", "minItems": 1, "maxItems": 4, "uniqueItems": true,
       "items": {"type": "string", "pattern": "^img_[a-zA-Z0-9_-]{8,80}$"}
     },
+    "image_views": {
+      "description": "Подписанные пользователем виды в том же порядке, что image_refs.",
+      "type": "array", "minItems": 1, "maxItems": 4,
+      "items": {"type": "string", "enum": ["front", "back", "side", "detail", "flat_sketch", "unknown"]}
+    },
     "supported_garment_categories": {
       "type": "array", "minItems": 1, "uniqueItems": true,
       "items": {"type": "string", "enum": ["dress", "sundress", "skirt", "top", "blouse", "shirt", "vest", "blazer", "jacket", "trousers", "shorts", "jumpsuit", "light_coat"]}
