@@ -1,4 +1,4 @@
-"""FastAPI composition root for the stage-22 physically validated workflow."""
+"""FastAPI composition root for the stage-23 photo and pattern workflow."""
 
 from __future__ import annotations
 
@@ -34,6 +34,7 @@ from .logging_config import configure_logging
 from .image_store import LocalImageStore
 from .models import (
     AIProviderListResponse,
+    AIProviderCheckResponse,
     GarmentCatalogueResponse,
     HealthResponse,
     ImageUploadRequest,
@@ -52,7 +53,7 @@ from .models import (
 from .repository import SQLiteRepository
 from .vision_providers import ProviderRegistry, build_provider_registry
 
-APP_VERSION = "0.22.0"
+APP_VERSION = "0.23.0"
 
 PAPER_SQUARE_TOLERANCE_MM = 1.0
 PAPER_CONTROL_LINE_TOLERANCE_MM = 1.0
@@ -319,6 +320,37 @@ def create_app(
             "items": provider_registry.statuses(),
         }
 
+    @app.post(
+        "/api/v1/ai/providers/{provider_id}/check",
+        response_model=AIProviderCheckResponse,
+        tags=["garments"],
+    )
+    async def check_ai_provider(
+        provider_id: Literal["mock", "qwen", "gemini"],
+    ) -> dict[str, Any]:
+        selected_provider = provider_registry.get(provider_id)
+        check = getattr(selected_provider, "check_connection", None)
+        if check is None:
+            raise AppError(
+                503,
+                "PROVIDER_CHECK_UNAVAILABLE",
+                "Этот адаптер не поддерживает безопасную проверку соединения.",
+            )
+        started = perf_counter()
+        await check()
+        latency_ms = max(0, round((perf_counter() - started) * 1000))
+        return {
+            "provider_id": provider_id,
+            "model": getattr(selected_provider, "model", "offline fixture"),
+            "status": "ready",
+            "latency_ms": latency_ms,
+            "message_ru": (
+                "Локальный демо-режим готов. Сетевой запрос не выполнялся."
+                if provider_id == "mock" else
+                "Соединение и ключ работают. Изображения не отправлялись."
+            ),
+        }
+
     @app.get(
         "/api/v1/garments/catalog",
         response_model=GarmentCatalogueResponse,
@@ -408,6 +440,19 @@ def create_app(
         provider: Literal["mock", "qwen", "gemini"] | None = None,
     ) -> dict[str, Any]:
         validate_document("ai-analysis-request", request_document)
+        image_views = request_document.get("image_views")
+        if image_views is not None and len(image_views) != len(request_document["image_refs"]):
+            raise AppError(
+                422,
+                "IMAGE_VIEW_COUNT_MISMATCH",
+                "Укажите вид для каждого выбранного изображения.",
+                [{
+                    "code": "IMAGE_VIEW_COUNT_MISMATCH",
+                    "severity": "blocking_error",
+                    "message_ru": "Количество подписей должно совпадать с количеством изображений.",
+                    "json_pointer": "/image_views",
+                }],
+            )
         selected_provider = provider_registry.get(provider)
         result = await selected_provider.analyze_style(request_document)
         validate_ai_analysis(result)

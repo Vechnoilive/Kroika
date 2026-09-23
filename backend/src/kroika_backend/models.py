@@ -57,6 +57,16 @@ class AIProviderListResponse(BaseModel):
     items: list[AIProviderStatus]
 
 
+class AIProviderCheckResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    provider_id: Literal["mock", "qwen", "gemini"]
+    model: str
+    status: Literal["ready"] = "ready"
+    latency_ms: int = Field(ge=0)
+    message_ru: str
+
+
 class GarmentAcceptanceStatus(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

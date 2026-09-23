@@ -36,6 +36,10 @@ class AIProvider(Protocol):
         """Return an object matching ai-style-analysis.schema.json."""
         ...
 
+    async def check_connection(self) -> None:
+        """Perform a minimal explicit connectivity check without sending images."""
+        ...
+
 
 class PatternEngineError(RuntimeError):
     """Engine failures are explicit; callers must not turn them into success."""

@@ -57,18 +57,35 @@ def provider_analysis_schema() -> dict[str, Any]:
     return provider_schema
 
 
-def analysis_instruction(supported_categories: list[str], supported_features: dict[str, list[str]]) -> str:
+def analysis_instruction(
+    supported_categories: list[str],
+    supported_features: dict[str, list[str]],
+    image_views: list[str] | None = None,
+) -> str:
     allowed = json.dumps(
         {"supported_garment_categories": supported_categories, "supported_features": supported_features},
         ensure_ascii=False,
         separators=(",", ":"),
     )
+    view_hint = ""
+    if image_views:
+        ordered_views = [
+            {"image_number": index, "view": view}
+            for index, view in enumerate(image_views, start=1)
+        ]
+        view_hint = (
+            " Пользователь подписал изображения в порядке передачи: "
+            + json.dumps(ordered_views, ensure_ascii=False, separators=(",", ":"))
+            + ". Используй подписи как контекст, но не выдумывай невидимые детали."
+        )
     return (
         "Определи фасон и полный набор видимых деталей по изображениям. "
         "design_features обязателен: elements содержит каждую отдельную деталь, layers — "
         "основной, накладные и остальные дополнительные слои, proportions — только "
         "визуальные категории без сантиметров. "
-        "Не объединяй несколько разных деталей в один element. Допустимый словарь: " + allowed
+        "Не объединяй несколько разных деталей в один element."
+        + view_hint
+        + " Допустимый словарь: " + allowed
         + "\nОтвет обязан соответствовать этой JSON Schema: "
         + json.dumps(provider_analysis_schema(), ensure_ascii=False, separators=(",", ":"))
     )

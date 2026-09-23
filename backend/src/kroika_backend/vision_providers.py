@@ -146,6 +146,7 @@ class ExternalVisionProvider:
         instruction = analysis_instruction(
             list(request["supported_garment_categories"]),
             {key: list(values) for key, values in request["supported_features"].items()},
+            list(request.get("image_views", [])),
         )
         response = await self._send_with_retry(images, instruction)
         try:
@@ -161,12 +162,39 @@ class ExternalVisionProvider:
             ) from exc
         return document
 
+    async def check_connection(self) -> None:
+        """Send a tiny text-only request only after the user explicitly asks for it."""
+        if not self.configured:
+            raise AIProviderError(
+                ProviderErrorCode.PROVIDER_UNAVAILABLE,
+                f"{self.provider_id.capitalize()} ещё не настроен. Проверьте ключ и адрес сервиса.",
+                False,
+            )
+        response = await self._request_with_retry(self._probe_payload())
+        try:
+            text = self._extract_text(response).strip()
+        except (KeyError, IndexError, TypeError, ValueError) as exc:
+            raise AIProviderError(
+                ProviderErrorCode.INVALID_SCHEMA,
+                "Сервис доступен, но вернул неожиданный ответ на проверочный запрос.",
+                False,
+            ) from exc
+        if not text:
+            raise AIProviderError(
+                ProviderErrorCode.INVALID_SCHEMA,
+                "Сервис доступен, но вернул пустой ответ на проверочный запрос.",
+                False,
+            )
+
     async def _send_with_retry(self, images: list[ImageAsset], instruction: str) -> dict[str, Any]:
+        return await self._request_with_retry(self._payload(images, instruction))
+
+    async def _request_with_retry(self, payload: dict[str, Any]) -> dict[str, Any]:
         last_error: AIProviderError | None = None
         for attempt in range(self.max_attempts):
             try:
                 result = await self.transport(
-                    self._url(), self._headers(), self._payload(images, instruction),
+                    self._url(), self._headers(), payload,
                     self.timeout_seconds,
                 )
                 if result.status_code < 400:
@@ -188,6 +216,9 @@ class ExternalVisionProvider:
         raise NotImplementedError
 
     def _payload(self, images: list[ImageAsset], instruction: str) -> dict[str, Any]:
+        raise NotImplementedError
+
+    def _probe_payload(self) -> dict[str, Any]:
         raise NotImplementedError
 
     def _extract_text(self, response: dict[str, Any]) -> str:
@@ -240,6 +271,19 @@ class QwenProvider(ExternalVisionProvider):
     def _extract_text(self, response: dict[str, Any]) -> str:
         return response["choices"][0]["message"]["content"]
 
+    def _probe_payload(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": "Ответь только словом OK."}],
+            "max_tokens": 8,
+            "temperature": 0,
+            "stream": False,
+        }
+        hostname = urlparse(self.base_url).hostname if self.base_url else None
+        if hostname == "openrouter.ai" or (hostname and hostname.endswith(".openrouter.ai")):
+            payload["reasoning"] = {"enabled": False}
+        return payload
+
 
 class GeminiProvider(ExternalVisionProvider):
     provider_id = "gemini"
@@ -282,6 +326,14 @@ class GeminiProvider(ExternalVisionProvider):
             if texts:
                 return "".join(texts)
         raise TypeError("missing model output text")
+
+    def _probe_payload(self) -> dict[str, Any]:
+        return {
+            "model": self.model,
+            "input": "Ответь только словом OK.",
+            "store": False,
+            "generation_config": {"temperature": 0, "max_output_tokens": 8},
+        }
 
 
 @dataclass(frozen=True, slots=True)

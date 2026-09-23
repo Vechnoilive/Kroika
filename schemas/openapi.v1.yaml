@@ -3,8 +3,8 @@ info:
   title: Kroika API contracts
   version: 1.0.0
   description: >-
-    Контракт API этапа 22. Журнал физических проверок привязан к точной версии
-    генерации; допуск выводится из последних записей печати, конструктора и макета.
+    Контракт API этапа 23. Подписанные виды изображений передаются модели в заданном
+    порядке, а соединение с провайдером проверяется отдельным запросом без фотографий.
 servers:
   - url: http://127.0.0.1:8000
     description: Локальный сервер
@@ -141,6 +141,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AIProviderList'
+  /api/v1/ai/providers/{provider_id}/check:
+    parameters:
+      - name: provider_id
+        in: path
+        required: true
+        schema: {type: string, enum: [mock, qwen, gemini]}
+    post:
+      operationId: checkAIProvider
+      summary: Явно проверить ключ и соединение коротким запросом без фотографий
+      responses:
+        '200':
+          description: Провайдер ответил на минимальный текстовый запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIProviderCheck'
+        '402':
+          $ref: '#/components/responses/ProviderUnavailable'
+        '429':
+          $ref: '#/components/responses/ProviderUnavailable'
+        '503':
+          $ref: '#/components/responses/ProviderUnavailable'
+        '504':
+          $ref: '#/components/responses/ProviderUnavailable'
   /api/v1/images:
     post:
       operationId: uploadGarmentImage
@@ -640,6 +664,16 @@ components:
           maxItems: 3
           items:
             $ref: '#/components/schemas/AIProviderStatus'
+    AIProviderCheck:
+      type: object
+      additionalProperties: false
+      required: [provider_id, model, status, latency_ms, message_ru]
+      properties:
+        provider_id: {type: string, enum: [mock, qwen, gemini]}
+        model: {type: string, minLength: 1}
+        status: {type: string, const: ready}
+        latency_ms: {type: integer, minimum: 0}
+        message_ru: {type: string, minLength: 1}
     GarmentAcceptanceStatus:
       type: object
       additionalProperties: false
