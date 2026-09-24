@@ -1,7 +1,7 @@
 {
   "name": "kroika-frontend",
   "private": true,
-  "version": "0.26.0",
+  "version": "0.27.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -24,6 +24,7 @@
     "test:stage24": "vitest run src/Stage24ProjectSafety.test.tsx",
     "test:stage25": "vitest run src/Stage25PrintAcceptance.test.tsx",
     "test:stage26": "vitest run src/Stage26GenerationComparison.test.tsx",
+    "test:stage27": "vitest run src/Stage27PatternGeometryEditor.test.tsx",
     "e2e": "playwright test --grep-invert @qwen-live",
     "e2e:stage12": "playwright test e2e/stage12-garments.spec.ts",
     "e2e:stage13": "playwright test e2e/stage13-jacket.spec.ts",

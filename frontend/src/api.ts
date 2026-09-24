@@ -8,6 +8,7 @@ import type {
   MeasurementProfileRecord,
   MeasurementProfileSummary,
   MeasurementValidation,
+  ManualPointEditRequest,
   ProjectDocument,
   ProjectList,
   PatternEngineResult,
@@ -166,6 +167,19 @@ export const api = {
     request<GenerationComparisonResult>(
       `/api/v1/projects/${encodeURIComponent(projectId)}/generations/compare?base_generation_id=${encodeURIComponent(baseGenerationId)}&target_generation_id=${encodeURIComponent(targetGenerationId)}`,
     ),
+  editPatternGeometry: (
+    generationId: string,
+    projectRevision: number,
+    edits: ManualPointEditRequest[],
+    note: string,
+  ) => request<PatternEngineResult>(
+    `/api/v1/patterns/${encodeURIComponent(generationId)}/manual-edit`,
+    {
+      method: 'POST',
+      headers: {'If-Match': String(projectRevision)},
+      body: JSON.stringify({edits, note}),
+    },
+  ),
   measurementCatalog: (garmentType: string, sleeveType: string) =>
     request<MeasurementCatalog>(
       `/api/v1/measurements/catalog?garment_type=${encodeURIComponent(garmentType)}&sleeve_type=${encodeURIComponent(sleeveType)}`,

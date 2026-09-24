@@ -5,6 +5,7 @@ from .assembly import GarmentAssembly, assemble_garment
 from .coverage import DesignCoverageResult, compile_design_coverage
 from .topology import TopologyResult, apply_topology_transformations
 from .garment_catalogue import garment_acceptance, garment_catalogue, release_gate
+from .manual_edit import ManualEditError, ManualEditResult, apply_manual_edits
 from .pdf import (
     PDFRenderError,
     PDFRenderResult,
@@ -20,6 +21,8 @@ __all__ = [
     "GarmentAssembly",
     "DesignCoverageResult",
     "GeometryPatternEngine",
+    "ManualEditError",
+    "ManualEditResult",
     "PDFRenderError",
     "PDFRenderResult",
     "PrintPlanSummary",
@@ -34,6 +37,7 @@ __all__ = [
     "geometry",
     "garment_acceptance",
     "garment_catalogue",
+    "apply_manual_edits",
     "release_gate",
     "inspect_pattern_print_plan",
     "render_pattern_svg",

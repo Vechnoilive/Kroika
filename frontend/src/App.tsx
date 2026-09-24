@@ -9,6 +9,7 @@ import {buildDesignIntent} from './designIntent';
 import {DesignCoverageSummary} from './DesignCoverage';
 import {GenerationComparison} from './GenerationComparison';
 import {PhysicalValidationJournal} from './PhysicalValidationJournal';
+import {PatternGeometryEditor} from './PatternGeometryEditor';
 import {ProjectHub} from './ProjectHub';
 import {duplicateProjectDocument, projectSummary, uniqueCopyName} from './projectManagement';
 import type {
@@ -152,6 +153,8 @@ export function PatternResultCard({
   designIntent,
   onEditDesign,
   projectId,
+  projectRevision,
+  onManualEditSaved,
 }: {
   result: PatternEngineResult;
   onRebuild?: () => void;
@@ -162,6 +165,8 @@ export function PatternResultCard({
   designIntent?: GarmentDesignIntent;
   onEditDesign?: () => void;
   projectId?: string;
+  projectRevision?: number;
+  onManualEditSaved?: (result: PatternEngineResult) => Promise<void> | void;
 }) {
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
@@ -296,6 +301,14 @@ export function PatternResultCard({
           analysis={analysis}
           pattern={pattern}
           onEditDesign={onEditDesign}
+        />
+      )}
+      {projectRevision && onManualEditSaved && (
+        <PatternGeometryEditor
+          key={result.generation_id}
+          result={result}
+          projectRevision={projectRevision}
+          onSaved={onManualEditSaved}
         />
       )}
       {projectId && (
@@ -646,7 +659,7 @@ export default function App() {
         </aside>
 
         <section className="content">
-          <div className="stage-badge">Автосохранение и проекты · этап 24</div>
+          <div className="stage-badge">Ручной редактор геометрии · этап 27</div>
           {!project ? (
             <>
               <div className="intro"><p className="eyebrow">Начнём спокойно</p><h1>Создадим выкройку<br /><em>последовательно</em></h1><p>Каждый шаг сохраняется. Никакие мерки не угадываются, а результат AI всегда подтверждает человек.</p></div>
@@ -692,7 +705,7 @@ export default function App() {
               {activeStep === 6 && (
                 <section className="generation-card" aria-labelledby="generation-title"><div className="action-card__icon" aria-hidden="true">06</div><div><p className="eyebrow">Все входы подтверждены</p><h2 id="generation-title">Построить выкройку?</h2><p>Формульный движок создаст детали из сохранённых мерок, фасона, ткани и прибавок, затем проверит геометрию.</p><ul><li>{GARMENT_NAMES[project.garment_spec.garment_type]} · {garmentConstruction}</li><li>{garmentLength}</li><li>Стабильная тканая ткань · пробный статус</li><li>Экспертная проверка и макет: ещё не пройдены</li></ul><button className="primary-button" onClick={() => void generatePattern()} disabled={busy}>{busy ? 'Строим и проверяем…' : 'Построить выкройку'} <span aria-hidden="true">→</span></button></div></section>
               )}
-              {activeStep === 7 && project.latest_generation && <PatternResultCard result={project.latest_generation} projectId={project.project_id} acceptance={currentAcceptance} analysis={analysis} designIntent={project.garment_spec.design_intent} onEditDesign={() => navigateToStep(3)} onRebuild={() => void generatePattern()} onNewVersion={() => void startNewVersion()} busy={busy} />}
+              {activeStep === 7 && project.latest_generation && <PatternResultCard result={project.latest_generation} projectId={project.project_id} projectRevision={project.revision} acceptance={currentAcceptance} analysis={analysis} designIntent={project.garment_spec.design_intent} onEditDesign={() => navigateToStep(3)} onManualEditSaved={async () => remember(await api.getProject(project.project_id))} onRebuild={() => void generatePattern()} onNewVersion={() => void startNewVersion()} busy={busy} />}
               <ProjectHistory project={project} onRestored={remember} />
             </>
           )}

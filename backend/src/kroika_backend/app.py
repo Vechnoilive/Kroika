@@ -21,6 +21,7 @@ from kroika_contracts.semantic import (
 )
 from kroika_pattern_engine import (
     GeometryPatternEngine,
+    ManualEditError,
     PDFRenderError,
     inspect_pattern_print_plan,
     render_pattern_pdf,
@@ -35,6 +36,7 @@ from .config import Settings
 from .comparison import compare_generations, generation_summary
 from .errors import AppError, install_exception_handlers
 from .logging_config import configure_logging
+from .manual_editing import build_manual_generation
 from .image_store import LocalImageStore
 from .models import (
     AIProviderListResponse,
@@ -48,6 +50,7 @@ from .models import (
     MeasurementProfileListResponse,
     MeasurementProfileRecord,
     MeasurementProfileSummary,
+    ManualPatternEditRequest,
     PhysicalValidationCreate,
     PhysicalValidationSummary,
     PrintPlanResponse,
@@ -61,7 +64,7 @@ from .repository import SQLiteRepository
 from .reporting import render_acceptance_report_pdf
 from .vision_providers import ProviderRegistry, build_provider_registry
 
-APP_VERSION = "0.26.0"
+APP_VERSION = "0.27.0"
 
 PAPER_SQUARE_TOLERANCE_MM = 1.0
 PAPER_CONTROL_LINE_TOLERANCE_MM = 1.0
@@ -571,6 +574,50 @@ def create_app(
     @app.get("/api/v1/patterns/{generation_id}/validation", tags=["patterns"])
     def get_validation(generation_id: UUID) -> dict[str, Any]:
         return _generation_or_404(repository, str(generation_id))["validation_report"]
+
+    @app.post("/api/v1/patterns/{generation_id}/manual-edit", tags=["patterns"])
+    def edit_pattern_geometry(
+        generation_id: UUID,
+        edit_request: ManualPatternEditRequest,
+        expected_revision: int = Header(alias="If-Match", ge=1),
+    ) -> dict[str, Any]:
+        base = _generation_or_404(repository, str(generation_id))
+        if base["pattern"] is None or base["status"] != "succeeded":
+            raise AppError(
+                409,
+                "MANUAL_PATTERN_NOT_AVAILABLE",
+                "Ручная правка доступна только для успешно построенной выкройки.",
+            )
+        snapshot = repository.get_generation_input_snapshot(str(generation_id))
+        if snapshot is None:
+            raise AppError(
+                409,
+                "MANUAL_INPUT_SNAPSHOT_MISSING",
+                "Для этой старой версии нет точного снимка входов, поэтому безопасный пересчёт невозможен.",
+            )
+        edits = [item.model_dump() for item in edit_request.edits]
+        try:
+            result = build_manual_generation(base, snapshot, edits, edit_request.note)
+        except ManualEditError as error:
+            raise AppError(
+                422,
+                error.code,
+                error.message_ru,
+                [{
+                    "code": error.code,
+                    "severity": "blocking_error",
+                    "message_ru": error.message_ru,
+                    "json_pointer": error.json_pointer,
+                }],
+            ) from error
+        validate_document("pattern-engine-result", result)
+        validate_validation_report(result["validation_report"])
+        return repository.record_manual_generation(
+            result,
+            snapshot,
+            base_generation_id=str(generation_id),
+            expected_revision=expected_revision,
+        )
 
     @app.get("/api/v1/patterns/{generation_id}/preview.svg", tags=["patterns"])
     def get_preview(

@@ -3,8 +3,8 @@ info:
   title: Kroika API contracts
   version: 1.0.0
   description: >-
-    Контракт API этапа 26. Каждая генерация связана с неизменяемым снимком входов;
-    сравнение версий показывает мерки, фасон, реальные контуры и предупреждения.
+    Контракт API этапа 27. Ручные правки геометрии создают новую неизменяемую
+    генерацию только после проверки контуров, припусков и парных швов.
 servers:
   - url: http://127.0.0.1:8000
     description: Локальный сервер
@@ -551,6 +551,31 @@ paths:
                 $ref: ./v1/validation-report.schema.json
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/patterns/{generation_id}/manual-edit:
+    post:
+      operationId: editPatternGeometry
+      summary: Проверить ручные правки и сохранить новую генерацию
+      parameters:
+        - $ref: '#/components/parameters/GenerationId'
+        - name: If-Match
+          in: header
+          required: true
+          description: Текущая ревизия проекта до создания новой версии
+          schema: {type: integer, minimum: 1}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ManualPatternEditRequest'}
+      responses:
+        '200':
+          description: Новая неизменяемая генерация с пересчитанными припусками
+          content:
+            application/json:
+              schema: {$ref: ./v1/pattern-engine-result.schema.json}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/ContractError'}
   /api/v1/patterns/{generation_id}/preview.svg:
     get:
       operationId: getPatternPreview
@@ -912,6 +937,27 @@ components:
         blocking_issue_count: {type: integer, minimum: 0}
         comparable: {type: boolean}
         is_current: {type: boolean}
+    ManualPointEdit:
+      type: object
+      additionalProperties: false
+      required: [piece_id, segment_id, handle, x_mm, y_mm]
+      properties:
+        piece_id: {type: string, pattern: '^[a-z][a-z0-9_-]*$'}
+        segment_id: {type: string, pattern: '^[a-z][a-z0-9_-]*$'}
+        handle: {type: string, enum: [end, control_1, control_2]}
+        x_mm: {type: number, minimum: -1000000, maximum: 1000000}
+        y_mm: {type: number, minimum: -1000000, maximum: 1000000}
+    ManualPatternEditRequest:
+      type: object
+      additionalProperties: false
+      required: [edits]
+      properties:
+        note: {type: string, maxLength: 500, default: ''}
+        edits:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items: {$ref: '#/components/schemas/ManualPointEdit'}
     GenerationList:
       type: object
       additionalProperties: false

@@ -332,6 +332,23 @@ class GenerationComparisonResponse(BaseModel):
     no_changes: bool
 
 
+class ManualPointEdit(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    piece_id: str = Field(pattern=r"^[a-z][a-z0-9_-]*$")
+    segment_id: str = Field(pattern=r"^[a-z][a-z0-9_-]*$")
+    handle: Literal["end", "control_1", "control_2"]
+    x_mm: float = Field(ge=-1_000_000, le=1_000_000)
+    y_mm: float = Field(ge=-1_000_000, le=1_000_000)
+
+
+class ManualPatternEditRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    note: str = Field(default="", max_length=500)
+    edits: list[ManualPointEdit] = Field(min_length=1, max_length=100)
+
+
 class ProjectSummary(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
