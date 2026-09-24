@@ -126,6 +126,7 @@ class PhysicalValidationCreate(BaseModel):
     square_height_mm: float | None = Field(default=None, gt=0, le=100)
     control_line_mm: float | None = Field(default=None, gt=0, le=400)
     figure_label: str | None = Field(default=None, min_length=2, max_length=120)
+    evidence_image_refs: list[str] = Field(default_factory=list, max_length=4)
 
     @model_validator(mode="after")
     def validate_gate_fields(self) -> "PhysicalValidationCreate":
@@ -162,6 +163,7 @@ class PhysicalValidationRecord(BaseModel):
     square_height_mm: float | None
     control_line_mm: float | None
     figure_label: str | None
+    evidence_image_refs: list[str]
     created_at: str
 
 
@@ -185,6 +187,21 @@ class PhysicalValidationSummary(BaseModel):
     production_allowed: bool
     policy: str
     records: list[PhysicalValidationRecord]
+
+
+class PrintPlanResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    generation_id: str
+    page_format: Literal["A4"]
+    scale: Literal[1.0]
+    pattern_sheet_count: int = Field(ge=1)
+    total_pdf_pages: int = Field(ge=2)
+    columns: int = Field(ge=1)
+    rows: int = Field(ge=1)
+    overlap_mm: float = Field(ge=0)
+    control_square_mm: float = Field(gt=0)
+    production_allowed: bool
 
 
 class ProjectSummary(BaseModel):

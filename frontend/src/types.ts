@@ -217,6 +217,7 @@ export interface PhysicalValidationCreate {
   square_height_mm?: number;
   control_line_mm?: number;
   figure_label?: string;
+  evidence_image_refs?: string[];
 }
 
 export interface PhysicalValidationRecord {
@@ -232,6 +233,7 @@ export interface PhysicalValidationRecord {
   square_height_mm: number | null;
   control_line_mm: number | null;
   figure_label: string | null;
+  evidence_image_refs: string[];
   created_at: string;
 }
 
@@ -249,6 +251,19 @@ export interface PhysicalValidationSummary {
   production_allowed: boolean;
   policy: string;
   records: PhysicalValidationRecord[];
+}
+
+export interface PrintPlan {
+  generation_id: string;
+  page_format: 'A4';
+  scale: 1;
+  pattern_sheet_count: number;
+  total_pdf_pages: number;
+  columns: number;
+  rows: number;
+  overlap_mm: number;
+  control_square_mm: number;
+  production_allowed: boolean;
 }
 
 export interface FitSettings {

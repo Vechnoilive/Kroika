@@ -106,21 +106,21 @@ docker compose up --build
 
 Интерфейс будет доступен на `http://localhost:8080`, API — на `http://localhost:8000`.
 
-## Проверить текущий этап 24
+## Проверить текущий этап 25
 
 После первого запуска, Linux/macOS:
 
 ```bash
-.venv/bin/python scripts/verify_stage24.py
+.venv/bin/python scripts/verify_stage25.py
 ```
 
 Windows PowerShell:
 
 ```powershell
-.venv\Scripts\python.exe scripts\verify_stage24.py
+.venv\Scripts\python.exe scripts\verify_stage25.py
 ```
 
-Команда запускает только новые проверки этапа 24: автосохранение и восстановление черновика, защиту переходов, поиск, переименование, копирование и удаление проектов, frontend test, typecheck и production-сборку. Тесты прошлых этапов этой командой не запускаются; полная историческая регрессия остаётся отдельной командой `scripts/verify_all.py`.
+Команда запускает только новые проверки этапа 25: точный план печати, отдельный лист проверки масштаба, локальные фото-доказательства, PDF-отчёт приёмки, frontend test, typecheck и production-сборку. Тесты прошлых этапов и live AI этой командой не запускаются; полная историческая регрессия остаётся отдельной командой `scripts/verify_all.py`.
 
 ## Документы
 

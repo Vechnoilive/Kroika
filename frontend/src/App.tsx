@@ -17,6 +17,7 @@ import type {
   GarmentType,
   PatternEngineResult,
   PatternLayer,
+  PrintPlan,
   PhysicalValidationSummary,
   ProjectDocument,
   ProjectSummary,
@@ -161,12 +162,27 @@ export function PatternResultCard({
 }) {
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [printPlan, setPrintPlan] = useState<PrintPlan | null>(null);
+  const [scaleDownloading, setScaleDownloading] = useState(false);
   const [zoom, setZoom] = useState(100);
   const [layers, setLayers] = useState<PatternLayer[]>(LAYERS.map((item) => item.id));
   const [physicalSummary, setPhysicalSummary] = useState<PhysicalValidationSummary | null>(null);
   const productionAllowed = physicalSummary?.generation_id === result.generation_id
     && physicalSummary.production_allowed;
   const pattern = result.pattern;
+
+  useEffect(() => {
+    let active = true;
+    api.printPlan(result.generation_id)
+      .then((loaded) => {
+        if (active) setPrintPlan(loaded);
+      })
+      .catch(() => {
+        if (active) setPrintPlan(null);
+      });
+    return () => { active = false; };
+  }, [result.generation_id]);
+
   if (!pattern) return null;
   if (!pattern.print_layout) {
     return (
@@ -201,6 +217,26 @@ export function PatternResultCard({
       setDownloadError(caught instanceof ApiError ? caught.message : 'Не удалось скачать PDF.');
     } finally {
       setDownloading(false);
+    }
+  }
+
+  async function downloadScaleCheck() {
+    setScaleDownloading(true);
+    setDownloadError(null);
+    try {
+      const file = await api.downloadScaleCheckPdf(result.generation_id);
+      const url = URL.createObjectURL(file.blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = file.filename;
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (caught) {
+      setDownloadError(caught instanceof ApiError ? caught.message : 'Не удалось скачать проверочный лист.');
+    } finally {
+      setScaleDownloading(false);
     }
   }
 
@@ -248,7 +284,8 @@ export function PatternResultCard({
       <dl className="result-facts">
         <div><dt>Детали</dt><dd>{pattern.pieces.length}</dd></div>
         <div><dt>Пары швов</dt><dd>{pattern.seam_pairs.length}</dd></div>
-        <div><dt>Печать</dt><dd>A4 · 1:1</dd></div>
+        <div><dt>Листы выкройки</dt><dd>{printPlan?.pattern_sheet_count ?? '…'}</dd></div>
+        <div><dt>Полный PDF</dt><dd>{printPlan ? `${printPlan.total_pdf_pages} стр.` : 'A4 · 1:1'}</dd></div>
       </dl>
       {designIntent && (
         <DesignCoverageSummary
@@ -260,6 +297,12 @@ export function PatternResultCard({
       )}
       <section className="print-guide" aria-labelledby="print-guide-title">
         <h3 id="print-guide-title">Как распечатать без ошибки</h3>
+        <div className="scale-check-action">
+          <p><strong>Сначала распечатайте один лист</strong><span>Он содержит квадрат 50 × 50 мм, линию 200 мм и карту сборки. Полный файл: {printPlan?.pattern_sheet_count ?? '…'} листов выкройки + 1 карта.</span></p>
+          <button className="secondary-button" type="button" onClick={() => void downloadScaleCheck()} disabled={scaleDownloading}>
+            {scaleDownloading ? 'Готовим…' : 'PDF проверки масштаба'} <span aria-hidden="true">↓</span>
+          </button>
+        </div>
         <ol>
           <li><span>1</span><p><strong>Выберите 100%</strong>Отключите подгонку к странице.</p></li>
           <li><span>2</span><p><strong>Проверьте 50 × 50 мм</strong>Измерьте квадрат линейкой.</p></li>
