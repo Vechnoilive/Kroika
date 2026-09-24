@@ -37,6 +37,12 @@ GENERATION_INPUT_FIELDS = (
 )
 
 
+def _generation_input_snapshot(source: dict[str, Any]) -> dict[str, Any] | None:
+    if not all(field in source for field in GENERATION_INPUT_FIELDS):
+        return None
+    return {field: deepcopy(source[field]) for field in GENERATION_INPUT_FIELDS}
+
+
 def _change_summary(before: dict[str, Any] | None, after: dict[str, Any]) -> str:
     if before is None:
         return "Проект создан"
@@ -184,6 +190,17 @@ class SQLiteRepository:
                 );
                 CREATE INDEX IF NOT EXISTS physical_validation_generation_idx
                     ON physical_validation_records(generation_id, sequence DESC);
+                CREATE TABLE IF NOT EXISTS generation_input_snapshots (
+                    generation_id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL,
+                    payload TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY (generation_id) REFERENCES generations(generation_id)
+                        ON DELETE CASCADE,
+                    FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS generation_input_snapshots_project_idx
+                    ON generation_input_snapshots(project_id, created_at);
             """)
             connection.execute(
                 "INSERT OR IGNORE INTO project_revisions "
@@ -191,6 +208,35 @@ class SQLiteRepository:
                 "SELECT project_id, revision, payload, updated_at, ? FROM projects",
                 ("Сохранённая версия до включения истории",),
             )
+            missing_snapshots = connection.execute(
+                "SELECT generation_id, project_id, created_at FROM generations "
+                "WHERE generation_id NOT IN "
+                "(SELECT generation_id FROM generation_input_snapshots)"
+            ).fetchall()
+            for generation in missing_snapshots:
+                revisions = connection.execute(
+                    "SELECT payload FROM project_revisions WHERE project_id = ? "
+                    "ORDER BY revision DESC",
+                    (generation["project_id"],),
+                ).fetchall()
+                snapshot = None
+                for revision in revisions:
+                    project = _load(revision["payload"])
+                    latest = project.get("latest_generation") or {}
+                    if latest.get("generation_id") == generation["generation_id"]:
+                        snapshot = _generation_input_snapshot(project)
+                        break
+                if snapshot is not None:
+                    connection.execute(
+                        "INSERT OR IGNORE INTO generation_input_snapshots "
+                        "(generation_id, project_id, payload, created_at) VALUES (?, ?, ?, ?)",
+                        (
+                            generation["generation_id"],
+                            generation["project_id"],
+                            _dump(snapshot),
+                            generation["created_at"],
+                        ),
+                    )
             connection.execute(f"PRAGMA user_version = {self.SCHEMA_VERSION}")
         self._make_private(self.database_path, 0o600)
 
@@ -500,6 +546,48 @@ class SQLiteRepository:
             ).fetchone()
         return _load(row["payload"]) if row else None
 
+    def list_generations(self, project_id: str) -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT g.payload, s.generation_id AS snapshot_generation_id "
+                "FROM generations AS g LEFT JOIN generation_input_snapshots AS s "
+                "ON s.generation_id = g.generation_id "
+                "WHERE g.project_id = ? ORDER BY g.created_at DESC, g.generation_id DESC",
+                (project_id,),
+            ).fetchall()
+        return [{
+            "result": _load(row["payload"]),
+            "comparable": row["snapshot_generation_id"] is not None,
+        } for row in rows]
+
+    def get_generation_input_snapshot(self, generation_id: str) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT payload FROM generation_input_snapshots WHERE generation_id = ?",
+                (generation_id,),
+            ).fetchone()
+        return _load(row["payload"]) if row else None
+
+    @staticmethod
+    def _store_generation_input_snapshot(
+        connection: sqlite3.Connection,
+        result: dict[str, Any],
+        source: dict[str, Any] | None,
+    ) -> None:
+        if source is None:
+            return
+        snapshot = _generation_input_snapshot(source)
+        if snapshot is None:
+            return
+        connection.execute(
+            "INSERT OR IGNORE INTO generation_input_snapshots "
+            "(generation_id, project_id, payload, created_at) VALUES (?, ?, ?, ?)",
+            (
+                result["generation_id"], result["project_id"], _dump(snapshot),
+                result["created_at"],
+            ),
+        )
+
     def physical_validation_summary(self, generation_id: str) -> dict[str, Any] | None:
         with self._connect() as connection:
             generation = connection.execute(
@@ -599,7 +687,11 @@ class SQLiteRepository:
             ).fetchone()
         return _load(row["payload"]) if row else None
 
-    def activate_generation(self, result: dict[str, Any]) -> dict[str, Any]:
+    def activate_generation(
+        self,
+        result: dict[str, Any],
+        input_snapshot: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Attach an existing immutable result to the current matching inputs."""
 
         project_id = result["project_id"]
@@ -610,6 +702,7 @@ class SQLiteRepository:
             ).fetchone()
             if row is None:
                 raise AppError(404, "PROJECT_NOT_FOUND", "Сначала сохраните проект.")
+            self._store_generation_input_snapshot(connection, result, input_snapshot)
             project = _load(row["payload"])
             if (project.get("latest_generation") or {}).get("generation_id") == result["generation_id"]:
                 return deepcopy(result)
@@ -647,7 +740,11 @@ class SQLiteRepository:
             )
         return deepcopy(result)
 
-    def record_generation(self, result: dict[str, Any]) -> dict[str, Any]:
+    def record_generation(
+        self,
+        result: dict[str, Any],
+        input_snapshot: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         project_id = result["project_id"]
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -657,7 +754,9 @@ class SQLiteRepository:
                 (project_id, result["input_hash"], result["engine_version"]),
             ).fetchone()
             if existing:
-                return _load(existing["payload"])
+                stored = _load(existing["payload"])
+                self._store_generation_input_snapshot(connection, stored, input_snapshot)
+                return stored
             row = connection.execute(
                 "SELECT revision, payload FROM projects WHERE project_id = ?", (project_id,)
             ).fetchone()
@@ -694,6 +793,7 @@ class SQLiteRepository:
                     result["created_at"],
                 ),
             )
+            self._store_generation_input_snapshot(connection, result, input_snapshot)
             connection.execute(
                 "UPDATE projects SET revision = ?, payload = ?, updated_at = ? WHERE project_id = ?",
                 (project["revision"], _dump(project), project["updated_at"], project_id),

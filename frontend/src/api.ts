@@ -2,6 +2,8 @@ import type {
   ApiErrorBody,
   BodyMeasurements,
   GarmentCatalogue,
+  GenerationComparisonResult,
+  GenerationSummary,
   MeasurementCatalog,
   MeasurementProfileRecord,
   MeasurementProfileSummary,
@@ -155,6 +157,14 @@ export const api = {
     request<ProjectDocument>(
       `/api/v1/projects/${encodeURIComponent(project.project_id)}/history/${revision}/restore`,
       {method: 'POST', headers: {'If-Match': String(project.revision)}},
+    ),
+  listGenerations: (projectId: string) =>
+    request<{project_id: string; items: GenerationSummary[]}>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/generations`,
+    ),
+  compareGenerations: (projectId: string, baseGenerationId: string, targetGenerationId: string) =>
+    request<GenerationComparisonResult>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/generations/compare?base_generation_id=${encodeURIComponent(baseGenerationId)}&target_generation_id=${encodeURIComponent(targetGenerationId)}`,
     ),
   measurementCatalog: (garmentType: string, sleeveType: string) =>
     request<MeasurementCatalog>(

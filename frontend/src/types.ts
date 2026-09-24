@@ -266,6 +266,94 @@ export interface PrintPlan {
   production_allowed: boolean;
 }
 
+export interface GenerationSummary {
+  generation_id: string;
+  created_at: string;
+  status: 'succeeded' | 'rejected';
+  validation_status: 'passed' | 'warnings' | 'failed';
+  engine_version: string;
+  method_version: string;
+  piece_count: number;
+  issue_count: number;
+  blocking_issue_count: number;
+  comparable: boolean;
+  is_current: boolean;
+}
+
+export interface MeasurementChange {
+  field_id: string;
+  label_ru: string;
+  kind: 'added' | 'removed' | 'changed';
+  before: number | null;
+  after: number | null;
+  delta: number | null;
+  unit: 'mm' | 'deg';
+}
+
+export interface StyleChange {
+  path: string;
+  section: string;
+  label_ru: string;
+  kind: 'added' | 'removed' | 'changed';
+  before: unknown;
+  after: unknown;
+  delta: number | null;
+  unit: string | null;
+}
+
+export interface ComparedPiece {
+  piece_id: string;
+  name_ru: string;
+  cut_quantity: number;
+  cut_on_fold: boolean;
+}
+
+export interface PieceGeometryChange {
+  piece_id: string;
+  name_ru: string;
+  area_delta_mm2: number | null;
+  width_delta_mm: number | null;
+  height_delta_mm: number | null;
+  perimeter_delta_mm: number | null;
+  segment_count_delta: number;
+  cut_quantity_before: number;
+  cut_quantity_after: number;
+}
+
+export interface GenerationComparisonResult {
+  project_id: string;
+  base: GenerationSummary;
+  target: GenerationSummary;
+  measurements: MeasurementChange[];
+  style: StyleChange[];
+  pattern: {
+    piece_count_before: number;
+    piece_count_after: number;
+    sheet_count_before: number | null;
+    sheet_count_after: number | null;
+    added_pieces: ComparedPiece[];
+    removed_pieces: ComparedPiece[];
+    changed_pieces: PieceGeometryChange[];
+    added_seam_pair_ids: string[];
+    removed_seam_pair_ids: string[];
+  };
+  validation: {
+    status_before: 'passed' | 'warnings' | 'failed';
+    status_after: 'passed' | 'warnings' | 'failed';
+    added_issues: Array<{code: string; severity: 'blocking_error' | 'warning'; message_ru: string; piece_id: string | null}>;
+    removed_issues: Array<{code: string; severity: 'blocking_error' | 'warning'; message_ru: string; piece_id: string | null}>;
+  };
+  totals: {
+    measurement_changes: number;
+    style_changes: number;
+    added_pieces: number;
+    removed_pieces: number;
+    changed_pieces: number;
+    validation_changes: number;
+  };
+  no_changes: boolean;
+}
+
 export interface FitSettings {
   schema_version: '1.0.0';
   settings_id: string;
