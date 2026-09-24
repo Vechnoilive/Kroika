@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime, timezone
 import json
@@ -79,12 +81,17 @@ class SQLiteRepository:
             # Windows uses ACLs rather than POSIX mode bits.
             pass
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
         connection = sqlite3.connect(self.database_path, timeout=5)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
         connection.execute("PRAGMA busy_timeout = 5000")
-        return connection
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
 
     def initialize(self) -> None:
         self.database_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)

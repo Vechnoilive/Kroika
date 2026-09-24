@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 import json
 from pathlib import Path
+import sqlite3
 import sys
 
 from fastapi.testclient import TestClient
@@ -14,6 +15,7 @@ sys.path[:0] = [str(ROOT / "src"), str(ROOT / "pattern-engine" / "src"),
 
 from kroika_backend.app import create_app  # noqa: E402
 from kroika_backend.config import Settings  # noqa: E402
+from kroika_backend.repository import SQLiteRepository  # noqa: E402
 from kroika_contracts.contract_io import ContractValidationError, validate_document  # noqa: E402
 from kroika_contracts.measurements import (  # noqa: E402
     MEASUREMENTS,
@@ -41,6 +43,17 @@ def fixed_profiles() -> list[dict]:
         )
     )
     return document["profiles"]
+
+
+def test_repository_connection_context_closes_the_database_file(tmp_path: Path):
+    repository = SQLiteRepository(tmp_path / "closed.db")
+    repository.initialize()
+
+    with repository._connect() as connection:  # noqa: SLF001 - resource regression test.
+        assert connection.execute("SELECT 1").fetchone()[0] == 1
+
+    with pytest.raises(sqlite3.ProgrammingError, match="closed"):
+        connection.execute("SELECT 1")
 
 
 @pytest.fixture
