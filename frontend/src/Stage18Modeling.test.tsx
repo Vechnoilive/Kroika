@@ -122,7 +122,7 @@ describe('stage 18 modeling capability mapping', () => {
     request.garment_spec.design_intent.elements[0].dimensions_mm!.depth = 30;
     const second = stableJson(canonicalGenerationPayload(request));
     expect(first).not.toBe(second);
-    expect(first).toContain('"hash_contract_version":"1.1.0"');
+    expect(first).toContain('"hash_contract_version":"1.3.0"');
     expect(first).toContain('center_pleat_v1');
     expect(first).not.toContain('evidence_ru');
   });

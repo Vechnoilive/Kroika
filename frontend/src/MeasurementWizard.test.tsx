@@ -61,7 +61,7 @@ describe('MeasurementWizard', () => {
     const input = await screen.findByLabelText(/Значение, см/);
     await userEvent.type(input, '92');
     expect(screen.getByText('Введено вручную')).toBeVisible();
-    await userEvent.click(screen.getByRole('button', {name: /сохранить черновик/i}));
+    await userEvent.click(screen.getByRole('button', {name: /сохранить сейчас/i}));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
     expect(onSave.mock.calls[0][0].values.bust).toEqual({

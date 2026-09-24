@@ -96,6 +96,6 @@ describe('stage 22 physical validation journal', () => {
     const back = await screen.findByRole('button', {name: /назад: создать проект/i});
     await userEvent.click(back);
     expect(await screen.findByRole('button', {name: /создать проект/i})).toBeVisible();
-    expect(screen.getByText(/недавние проекты/i)).toBeVisible();
+    expect(screen.getByRole('heading', {name: /ваши проекты/i})).toBeVisible();
   });
 });

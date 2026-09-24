@@ -59,7 +59,7 @@ afterEach(() => {
 });
 
 describe('stage 16 design intent and workflow navigation', () => {
-  it('keeps every visible detail and refuses to silently build the base template', async () => {
+  it('keeps every visible detail and requires an explicit review before building', async () => {
     const project = makeDemoProject('Юбка с воланом');
     project.garment_spec.garment_type = 'skirt';
     project.garment_spec.design_intent = buildDesignIntent(analysis, project.garment_spec);
@@ -67,14 +67,13 @@ describe('stage 16 design intent and workflow navigation', () => {
 
     render(<StyleEditor project={project} analysis={analysis} providerName="Gemini" onSave={onSave} />);
 
-    expect(screen.getByText('Пояс')).toBeVisible();
-    expect(screen.getByText('Волан')).toBeVisible();
-    expect(screen.getByText('Накладной слой')).toBeVisible();
-    expect(screen.getAllByText('Модуль не готов')).toHaveLength(2);
-    expect(screen.getByText(/точная выкройка пока заблокирована/i)).toBeVisible();
+    expect(screen.getByText('Деталь 1: Пояс')).toBeVisible();
+    expect(screen.getByText('Деталь 2: Волан')).toBeVisible();
+    expect(screen.getByLabelText('Назначение слоя 2')).toHaveValue('overlay');
+    expect(screen.getAllByText('Нужно подтвердить')).toHaveLength(5);
 
     await userEvent.click(screen.getByRole('button', {name: /подтвердить фасон/i}));
-    expect(await screen.findByRole('alert')).toHaveTextContent(/нельзя подтвердить точный фасон/i);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/сначала проверьте детали, слои и пропорции/i);
     expect(onSave).not.toHaveBeenCalled();
   });
 

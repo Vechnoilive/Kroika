@@ -107,7 +107,7 @@ describe('stage 19 composite capability mapping', () => {
     expect(hood.status).toBe('partial');
   });
 
-  it('hashes only compiled composite inputs with an order-independent 1.2 contract', () => {
+  it('hashes compiled composite inputs with the current coverage-aware contract', () => {
     const project = makeDemoProject('Hash составных деталей');
     const intent = baseIntent();
     intent.elements = [element()];
@@ -121,7 +121,7 @@ describe('stage 19 composite capability mapping', () => {
       fabric_properties: project.fabric_properties,
     };
     const payload = canonicalGenerationPayload(request);
-    expect(payload.hash_contract_version).toBe('1.2.0');
+    expect(payload.hash_contract_version).toBe('1.3.0');
     expect(payload.garment_spec.composite_elements[0].module_id).toBe(
       'paired_patch_pocket_v1',
     );

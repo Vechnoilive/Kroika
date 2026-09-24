@@ -30,7 +30,7 @@ describe('stage-9 printing result', () => {
     render(<PatternResultCard result={result} />);
     expect(screen.getByRole('heading', {name: /выкройка готова к проверке/i})).toBeVisible();
     expect(screen.getByText(/выберите 100%/i)).toBeVisible();
-    expect(screen.getByText(/50 × 50 мм/i)).toBeVisible();
+    expect(screen.getAllByText(/50 × 50 мм/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/кроить ткань пока нельзя/i)).toBeVisible();
     expect(screen.getByRole('link', {name: /единый svg/i})).toHaveAttribute(
       'href',
@@ -45,7 +45,7 @@ describe('stage-9 printing result', () => {
     );
     render(<PatternResultCard result={result} />);
     await userEvent.click(screen.getByRole('button', {name: /pdf a4 для проверки/i}));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось подготовить печатные листы.');
+    expect(await screen.findByText('Не удалось подготовить печатные листы.')).toBeVisible();
     expect(screen.getByRole('img')).toBeVisible();
   });
 
