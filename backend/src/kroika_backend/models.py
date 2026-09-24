@@ -194,7 +194,7 @@ class PrintPlanResponse(BaseModel):
 
     generation_id: str
     page_format: Literal["A4"]
-    scale: Literal[1.0]
+    scale: float = Field(ge=1.0, le=1.0)
     pattern_sheet_count: int = Field(ge=1)
     total_pdf_pages: int = Field(ge=2)
     columns: int = Field(ge=1)

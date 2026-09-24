@@ -193,7 +193,7 @@ def _required_module_ids(request: Mapping[str, Any]) -> set[str]:
 
 
 def _geometry_index(pattern: Mapping[str, Any]) -> dict[str, set[str]]:
-    index = {
+    index: dict[str, set[str]] = {
         "piece_ids": set(),
         "seam_pair_ids": set(),
         "path_ids": set(),

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from time import perf_counter
-from typing import Any, Literal
+from typing import Any, cast, Literal
 from uuid import UUID, uuid4
 
 from fastapi import Body, FastAPI, Header, Query, Request
@@ -476,13 +476,13 @@ def create_app(
         for image_ref in request_document.evidence_image_refs:
             image_store.resolve(image_ref)
         if request_document.gate == "paper":
+            square_width_mm = cast(float, request_document.square_width_mm)
+            square_height_mm = cast(float, request_document.square_height_mm)
+            control_line_mm = cast(float, request_document.control_line_mm)
             observation["outcome"] = "passed" if all((
-                abs(float(request_document.square_width_mm) - 50.0)
-                <= PAPER_SQUARE_TOLERANCE_MM,
-                abs(float(request_document.square_height_mm) - 50.0)
-                <= PAPER_SQUARE_TOLERANCE_MM,
-                abs(float(request_document.control_line_mm) - 200.0)
-                <= PAPER_CONTROL_LINE_TOLERANCE_MM,
+                abs(square_width_mm - 50.0) <= PAPER_SQUARE_TOLERANCE_MM,
+                abs(square_height_mm - 50.0) <= PAPER_SQUARE_TOLERANCE_MM,
+                abs(control_line_mm - 200.0) <= PAPER_CONTROL_LINE_TOLERANCE_MM,
             )) else "failed"
         return repository.add_physical_validation(str(generation_id), observation)
 

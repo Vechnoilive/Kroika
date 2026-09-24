@@ -635,16 +635,16 @@ def _split_curve_at_y(curve: Any, y_mm: float, source_id: str) -> tuple[Any, Any
         )
     if isinstance(curve, ArcSegment):
         sweep = curve.sweep_angle_rad
-        first = ArcSegment(
+        arc_first = ArcSegment(
             curve.center, curve.radius_x_mm, curve.radius_y_mm, curve.rotation_rad,
             curve.start_angle_rad, sweep * parameter, f"{curve.id}_below_yoke",
         )
-        second = ArcSegment(
+        arc_second = ArcSegment(
             curve.center, curve.radius_x_mm, curve.radius_y_mm, curve.rotation_rad,
             curve.start_angle_rad + sweep * parameter, sweep * (1.0 - parameter),
             f"{curve.id}_in_yoke",
         )
-        return first, second
+        return arc_first, arc_second
     raise _topology_error(
         "TOPOLOGY_YOKE_CURVE_UNSUPPORTED",
         "Тип боковой кривой не поддерживается для кокетки.",
