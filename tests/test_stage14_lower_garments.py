@@ -19,6 +19,7 @@ sys.path[:0] = [
 from kroika_backend.app import create_app  # noqa: E402
 from kroika_backend.config import Settings  # noqa: E402
 from kroika_contracts.hashing import compute_input_hash  # noqa: E402
+from kroika_pattern_engine import GeometryPatternEngine  # noqa: E402
 
 
 def _json(relative: str) -> dict:
@@ -157,7 +158,7 @@ def test_trousers_and_shorts_build_complete_balanced_sets(tmp_path: Path):
             assert response.status_code == 200, response.text
             result = response.json()
         assert result["status"] == "succeeded"
-        assert result["engine_version"] == "0.9.0"
+        assert result["engine_version"] == GeometryPatternEngine.engine_version
         assert [piece["id"] for piece in result["pattern"]["pieces"]] == reference["piece_ids"]
         assert len(result["pattern"]["seam_pairs"]) == reference["seam_pair_count"]
         assert all(piece["cutting_contour"] for piece in result["pattern"]["pieces"])
