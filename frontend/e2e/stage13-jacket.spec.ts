@@ -59,5 +59,7 @@ test('лёгкий жакет проходит последовательный 
   expect(result.status(), await result.text()).toBe(200);
   await expect(page.getByRole('heading', {name: /выкройка готова к проверке/i}))
     .toBeVisible({timeout: 60_000});
-  await expect(page.getByText(/expert status — pending, toile status — pending/i)).toBeVisible();
+  const physicalGates = page.getByLabel('Состояние физических проверок');
+  await expect(physicalGates).toBeVisible();
+  await expect(physicalGates.getByText('Не проверено', {exact: true})).toHaveCount(3);
 });
