@@ -554,6 +554,77 @@ export interface PatternPieceSummary {
   cut_on_fold: boolean;
 }
 
+export type PatternPoint = [number, number];
+
+export type PatternSegment = {
+  id: string;
+  type: 'line';
+  start: PatternPoint;
+  end: PatternPoint;
+} | {
+  id: string;
+  type: 'cubic_bezier';
+  start: PatternPoint;
+  control_1: PatternPoint;
+  control_2: PatternPoint;
+  end: PatternPoint;
+} | {
+  id: string;
+  type: 'arc';
+  start: PatternPoint;
+  end: PatternPoint;
+  radius_x_mm: number;
+  radius_y_mm: number;
+  rotation_deg: number;
+  large_arc: boolean;
+  sweep: boolean;
+};
+
+export interface PatternPath {
+  id: string;
+  closed: boolean;
+  segments: PatternSegment[];
+}
+
+export interface PatternPiece extends PatternPieceSummary {
+  mirrored_pair?: boolean;
+  seam_contour?: PatternPath;
+  cutting_contour?: PatternPath | null;
+  internal_paths?: PatternPath[];
+  edge_allowances?: Array<{
+    segment_id: string;
+    edge_type: string;
+    allowance_mm: number;
+  }>;
+  grainline?: {start: PatternPoint; end: PatternPoint};
+  notches?: Array<Record<string, unknown>>;
+  annotations?: Array<Record<string, unknown>>;
+}
+
+export type ManualEditHandle = 'end' | 'control_1' | 'control_2';
+
+export interface ManualPointEditRequest {
+  piece_id: string;
+  segment_id: string;
+  handle: ManualEditHandle;
+  x_mm: number;
+  y_mm: number;
+}
+
+export interface ManualAdjustments {
+  schema_version: '1.0.0';
+  base_generation_id: string;
+  note: string;
+  edits: Array<{
+    piece_id: string;
+    segment_id: string;
+    handle: ManualEditHandle;
+    before: PatternPoint;
+    after: PatternPoint;
+    distance_mm: number;
+  }>;
+}
+
 export interface DesignCoverageEvidence {
   piece_ids: string[];
   seam_pair_ids: string[];
@@ -574,8 +645,9 @@ export interface DesignCoverageCatalogue {
 
 export interface PatternData {
   unit: 'mm';
-  pieces: PatternPieceSummary[];
+  pieces: PatternPiece[];
   seam_pairs: Array<{id: string}>;
+  manual_adjustments?: ManualAdjustments;
   design_coverage?: DesignCoverageCatalogue;
   print_layout?: {
     page_format: 'A4';

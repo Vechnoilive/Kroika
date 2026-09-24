@@ -29,6 +29,7 @@
       "type": "array",
       "items": {"$ref": "#/$defs/composite_operation"}
     },
+    "manual_adjustments": {"$ref": "#/$defs/manual_adjustments"},
     "design_coverage": {"$ref": "#/$defs/design_coverage"},
     "print_layout": {
       "type": "object", "additionalProperties": false,
@@ -222,6 +223,33 @@
         "target_piece_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}},
         "parameters_mm": {"type": "object", "additionalProperties": {"type": "number"}},
         "invariant_residual_mm": {"type": "number", "minimum": 0}
+      }
+    },
+    "manual_point_edit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["piece_id", "segment_id", "handle", "before", "after", "distance_mm"],
+      "properties": {
+        "piece_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "segment_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "handle": {"type": "string", "enum": ["end", "control_1", "control_2"]},
+        "before": {"$ref": "#/$defs/point"},
+        "after": {"$ref": "#/$defs/point"},
+        "distance_mm": {"type": "number", "minimum": 0, "maximum": 50}
+      }
+    },
+    "manual_adjustments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "base_generation_id", "note", "edits"],
+      "properties": {
+        "schema_version": {"type": "string", "const": "1.0.0"},
+        "base_generation_id": {"$ref": "common.schema.json#/$defs/uuid"},
+        "note": {"type": "string", "maxLength": 500},
+        "edits": {
+          "type": "array", "minItems": 1, "maxItems": 100,
+          "items": {"$ref": "#/$defs/manual_point_edit"}
+        }
       }
     },
     "design_coverage": {

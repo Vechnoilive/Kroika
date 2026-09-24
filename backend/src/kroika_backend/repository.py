@@ -807,3 +807,80 @@ class SQLiteRepository:
                 ),
             )
         return deepcopy(result)
+
+    def record_manual_generation(
+        self,
+        result: dict[str, Any],
+        input_snapshot: dict[str, Any],
+        *,
+        base_generation_id: str,
+        expected_revision: int,
+    ) -> dict[str, Any]:
+        """Atomically append an edited generation without overwriting its parent."""
+
+        project_id = result["project_id"]
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT revision, payload FROM projects WHERE project_id = ?", (project_id,)
+            ).fetchone()
+            if row is None:
+                raise AppError(404, "PROJECT_NOT_FOUND", "Сначала сохраните проект.")
+            project = _load(row["payload"])
+            current_generation_id = (project.get("latest_generation") or {}).get(
+                "generation_id"
+            )
+            if current_generation_id == result["generation_id"]:
+                stored = connection.execute(
+                    "SELECT payload FROM generations WHERE generation_id = ?",
+                    (result["generation_id"],),
+                ).fetchone()
+                return _load(stored["payload"]) if stored else deepcopy(result)
+            if row["revision"] != expected_revision:
+                raise AppError(
+                    409,
+                    "PROJECT_REVISION_CONFLICT",
+                    "Проект уже изменён. Обновите страницу перед сохранением ручной правки.",
+                )
+            if current_generation_id != base_generation_id:
+                raise AppError(
+                    409,
+                    "MANUAL_BASE_NOT_CURRENT",
+                    "Редактируемая версия уже не является текущей. Откройте последнюю выкройку.",
+                )
+            connection.execute(
+                "INSERT INTO generations"
+                "(generation_id, project_id, input_hash, engine_version, payload, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    result["generation_id"], project_id, result["input_hash"],
+                    result["engine_version"], _dump(result), result["created_at"],
+                ),
+            )
+            self._store_generation_input_snapshot(connection, result, input_snapshot)
+            project["latest_generation"] = deepcopy(result)
+            project["generation_history"].append({
+                "generation_id": result["generation_id"],
+                "input_hash": result["input_hash"],
+                "engine_version": result["engine_version"],
+                "method_version": result["pattern_method"]["version"],
+                "created_at": result["created_at"],
+                "status": result["status"],
+            })
+            project["status"] = "generated"
+            project["revision"] = row["revision"] + 1
+            project["updated_at"] = _now()
+            validate_project(project)
+            connection.execute(
+                "UPDATE projects SET revision = ?, payload = ?, updated_at = ? WHERE project_id = ?",
+                (project["revision"], _dump(project), project["updated_at"], project_id),
+            )
+            connection.execute(
+                "INSERT INTO project_revisions "
+                "(project_id, revision, payload, updated_at, change_summary) VALUES (?, ?, ?, ?, ?)",
+                (
+                    project_id, project["revision"], _dump(project), project["updated_at"],
+                    "Сохранена проверенная ручная правка геометрии",
+                ),
+            )
+        return deepcopy(result)
