@@ -28,6 +28,18 @@ class PDFRenderResult:
     rows: int
 
 
+@dataclass(frozen=True, slots=True)
+class PrintPlanSummary:
+    page_format: str
+    scale: float
+    pattern_sheet_count: int
+    total_pdf_pages: int
+    columns: int
+    rows: int
+    overlap_mm: float
+    control_square_mm: float
+
+
 class PDFRenderError(ValueError):
     pass
 
@@ -316,22 +328,68 @@ def _draw_tile_content(
     document.showPage()
 
 
-def render_pattern_pdf(
-    pattern: Mapping[str, Any], *, production_allowed: bool = False,
-) -> PDFRenderResult:
-    """Create an A4 PDF: one assembly map followed by exact 1:1 pattern tiles."""
-
+def _validated_plan(
+    pattern: Mapping[str, Any],
+) -> tuple[Mapping[str, Any], PatternLayout, TilePlan]:
     spec = pattern.get("print_layout")
     if not isinstance(spec, Mapping) or spec.get("page_format") != "A4" or spec.get("scale") != 1:
         raise PDFRenderError("Выкройка не содержит проверенный макет A4 1:1.")
     if not all(piece.get("cutting_contour") for piece in pattern.get("pieces", ())):
         raise PDFRenderError("PDF нельзя построить без линий среза всех деталей.")
-    regular_font, bold_font = _register_fonts()
     try:
         layout = layout_pattern(pattern)
         plan = make_tile_plan(layout, spec)
     except (KeyError, TypeError, ValueError) as error:
         raise PDFRenderError("Параметры разбиения выкройки на листы некорректны.") from error
+    return spec, layout, plan
+
+
+def inspect_pattern_print_plan(pattern: Mapping[str, Any]) -> PrintPlanSummary:
+    """Return the exact sheet plan used by both printable PDF renderers."""
+
+    spec, _layout, plan = _validated_plan(pattern)
+    return PrintPlanSummary(
+        page_format="A4",
+        scale=1.0,
+        pattern_sheet_count=len(plan.tiles),
+        total_pdf_pages=len(plan.tiles) + 1,
+        columns=plan.columns,
+        rows=plan.rows,
+        overlap_mm=plan.overlap_mm,
+        control_square_mm=float(spec.get("control_square_mm", 50)),
+    )
+
+
+def render_scale_check_pdf(
+    pattern: Mapping[str, Any], *, production_allowed: bool = False,
+) -> PDFRenderResult:
+    """Create only the assembly/scale page for a cheap printer calibration run."""
+
+    _spec, layout, plan = _validated_plan(pattern)
+    regular_font, bold_font = _register_fonts()
+    output = BytesIO()
+    document = canvas.Canvas(
+        output,
+        pagesize=A4,
+        pageCompression=1,
+        invariant=1,
+        pdfVersion=(1, 7),
+    )
+    document.setTitle("Kroika — проверка масштаба A4 1:1")
+    document.setAuthor("Kroika")
+    document.setSubject("Одностраничная проверка масштаба перед печатью выкройки")
+    _draw_map_page(document, layout, plan, regular_font, bold_font, production_allowed)
+    document.save()
+    return PDFRenderResult(output.getvalue(), 1, len(plan.tiles), plan.columns, plan.rows)
+
+
+def render_pattern_pdf(
+    pattern: Mapping[str, Any], *, production_allowed: bool = False,
+) -> PDFRenderResult:
+    """Create an A4 PDF: one assembly map followed by exact 1:1 pattern tiles."""
+
+    _spec, layout, plan = _validated_plan(pattern)
+    regular_font, bold_font = _register_fonts()
     output = BytesIO()
     document = canvas.Canvas(
         output,

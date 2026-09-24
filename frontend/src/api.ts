@@ -12,6 +12,7 @@ import type {
   PatternLayer,
   PhysicalValidationCreate,
   PhysicalValidationSummary,
+  PrintPlan,
   ProjectHistoryEntry,
   Readiness,
   StyleAnalysis,
@@ -196,6 +197,19 @@ export const api = {
     requestBlob(`/api/v1/patterns/${encodeURIComponent(generationId)}/export/a4-pdf`, {
       method: 'POST',
     }),
+  printPlan: (generationId: string) =>
+    request<PrintPlan>(
+      `/api/v1/patterns/${encodeURIComponent(generationId)}/print-plan`,
+    ),
+  downloadScaleCheckPdf: (generationId: string) =>
+    requestBlob(
+      `/api/v1/patterns/${encodeURIComponent(generationId)}/export/scale-check-pdf`,
+      {method: 'POST'},
+    ),
+  downloadAcceptanceReport: (generationId: string) =>
+    requestBlob(
+      `/api/v1/patterns/${encodeURIComponent(generationId)}/physical-validation/report.pdf`,
+    ),
   physicalValidation: (generationId: string) =>
     request<PhysicalValidationSummary>(
       `/api/v1/patterns/${encodeURIComponent(generationId)}/physical-validation`,
@@ -220,6 +234,7 @@ export const api = {
     `/api/v1/images/${encodeURIComponent(imageRef)}`,
     {method: 'DELETE'},
   ),
+  imageUrl: (imageRef: string) => `/api/v1/images/${encodeURIComponent(imageRef)}`,
   checkVisionProvider: (provider: VisionProviderId, signal?: AbortSignal) =>
     request<VisionProviderCheck>(
       `/api/v1/ai/providers/${encodeURIComponent(provider)}/check`,

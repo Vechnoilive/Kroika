@@ -219,18 +219,37 @@ class SQLiteRepository:
                 "UNION ALL SELECT payload FROM project_revisions WHERE project_id = ?",
                 (project_id, project_id),
             ).fetchall()
-        return {
+            validation_rows = connection.execute(
+                "SELECT payload FROM physical_validation_records WHERE project_id = ?",
+                (project_id,),
+            ).fetchall()
+        project_refs = {
             str(image_ref)
             for row in rows
             for image_ref in _load(row["payload"]).get("image_refs", [])
         }
+        evidence_refs = {
+            str(image_ref)
+            for row in validation_rows
+            for image_ref in _load(row["payload"]).get("evidence_image_refs", [])
+        }
+        return project_refs | evidence_refs
 
     def image_ref_in_use(self, image_ref: str) -> bool:
         with self._connect() as connection:
             rows = connection.execute(
                 "SELECT payload FROM projects UNION ALL SELECT payload FROM project_revisions"
             ).fetchall()
-        return any(image_ref in _load(row["payload"]).get("image_refs", []) for row in rows)
+            validation_rows = connection.execute(
+                "SELECT payload FROM physical_validation_records"
+            ).fetchall()
+        return (
+            any(image_ref in _load(row["payload"]).get("image_refs", []) for row in rows)
+            or any(
+                image_ref in _load(row["payload"]).get("evidence_image_refs", [])
+                for row in validation_rows
+            )
+        )
 
     def delete_project(self, project_id: str) -> bool:
         with self._connect() as connection:
@@ -494,6 +513,8 @@ class SQLiteRepository:
                 (generation_id,),
             ).fetchall()
         records = [_load(row["payload"]) for row in rows]
+        for record in records:
+            record.setdefault("evidence_image_refs", [])
         required = {"paper": 2, "expert": 1, "toile": 3}
         gates: list[dict[str, Any]] = []
         for gate in ("paper", "expert", "toile"):

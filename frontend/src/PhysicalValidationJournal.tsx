@@ -44,8 +44,10 @@ export function PhysicalValidationJournal({
   const [squareHeight, setSquareHeight] = useState('');
   const [controlLine, setControlLine] = useState('');
   const [figureLabel, setFigureLabel] = useState('');
+  const [evidenceFiles, setEvidenceFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -92,7 +94,12 @@ export function PhysicalValidationJournal({
       return;
     }
     setSaving(true);
+    const uploadedRefs: string[] = [];
     try {
+      for (const file of evidenceFiles) {
+        uploadedRefs.push((await api.uploadImage(file)).image_ref);
+      }
+      record.evidence_image_refs = uploadedRefs;
       const updated = await api.recordPhysicalValidation(generationId, record);
       setSummary(updated);
       onSummary?.(updated);
@@ -104,10 +111,32 @@ export function PhysicalValidationJournal({
         setControlLine('');
       }
       if (gate === 'toile') setFigureLabel('');
+      setEvidenceFiles([]);
     } catch (caught) {
+      await Promise.allSettled(uploadedRefs.map((imageRef) => api.deleteImage(imageRef)));
       setError(caught instanceof ApiError ? caught.message : 'Не удалось сохранить проверку.');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function downloadReport() {
+    setReporting(true);
+    setError(null);
+    try {
+      const file = await api.downloadAcceptanceReport(generationId);
+      const url = URL.createObjectURL(file.blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = file.filename;
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : 'Не удалось скачать отчёт.');
+    } finally {
+      setReporting(false);
     }
   }
 
@@ -115,7 +144,7 @@ export function PhysicalValidationJournal({
     <section className="physical-journal" aria-labelledby="physical-journal-title">
       <header>
         <div>
-          <p className="eyebrow">Этап 22 · физическая приёмка</p>
+          <p className="eyebrow">Этап 25 · физическая приёмка</p>
           <h3 id="physical-journal-title">Журнал проверки этой версии</h3>
           <p>{garmentName ?? 'Изделие'} · записи не перезаписываются, повторная проверка добавляется в историю.</p>
         </div>
@@ -132,6 +161,10 @@ export function PhysicalValidationJournal({
           ? 'Экспорт этой генерации будет помечен как production. Новая версия потребует новых проверок.'
           : 'Нужны точная печать на двух принтерах, заключение конструктора и три успешных макета на разных фигурах.'}</span>
       </div>
+
+      <button className="secondary-button physical-report-download" type="button" onClick={() => void downloadReport()} disabled={reporting || loading}>
+        {reporting ? 'Готовим отчёт…' : 'Скачать PDF-отчёт приёмки'} <span aria-hidden="true">↓</span>
+      </button>
 
       <div className="physical-gates" aria-label="Состояние физических проверок">
         {(['paper', 'expert', 'toile'] as const).map((item) => {
@@ -193,6 +226,29 @@ export function PhysicalValidationJournal({
           <label className="physical-wide">Замечания
             <textarea required={outcome === 'failed' && gate !== 'paper'} maxLength={2000} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Что проверили и что нужно поправить" />
           </label>
+          <label className="physical-wide physical-evidence">Фото бумажной сборки или макета · до 4 файлов
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              onChange={(event) => {
+                const files = Array.from(event.target.files ?? []);
+                if (files.length > 4) {
+                  setError('Можно приложить не больше четырёх фотографий к одной записи.');
+                  event.target.value = '';
+                  return;
+                }
+                setError(null);
+                setEvidenceFiles(files);
+              }}
+            />
+            <small>Хранятся только локально и не отправляются Qwen или Gemini.</small>
+          </label>
+          {evidenceFiles.length > 0 && (
+            <ul className="physical-evidence-list physical-wide">
+              {evidenceFiles.map((file) => <li key={`${file.name}-${file.lastModified}`}>{file.name}</li>)}
+            </ul>
+          )}
           {error && <div className="inline-error physical-wide" role="alert">{error}</div>}
           <button className="primary-button physical-wide" type="submit" disabled={saving}>
             {saving ? 'Сохраняем…' : 'Записать проверку'} <span aria-hidden="true">→</span>
@@ -207,6 +263,15 @@ export function PhysicalValidationJournal({
             <li key={record.record_id}>
               <span><strong>{GATE_LABELS[record.gate]} · {STATUS_LABELS[record.outcome]}</strong><small>{record.reviewer_name} · {new Date(record.created_at).toLocaleString('ru-RU')}</small></span>
               {record.notes && <p>{record.notes}</p>}
+              {record.evidence_image_refs.length > 0 && (
+                <div className="physical-history__images" aria-label={`Фото-доказательства: ${record.evidence_image_refs.length}`}>
+                  {record.evidence_image_refs.map((imageRef, index) => (
+                    <a key={imageRef} href={api.imageUrl(imageRef)} target="_blank" rel="noreferrer">
+                      <img src={api.imageUrl(imageRef)} alt={`Фото проверки ${index + 1}`} />
+                    </a>
+                  ))}
+                </div>
+              )}
             </li>
           ))}</ol>
         </details>

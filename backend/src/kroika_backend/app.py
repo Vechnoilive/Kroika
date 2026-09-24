@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from time import perf_counter
 from typing import Any, Literal
 from uuid import UUID, uuid4
@@ -21,7 +22,9 @@ from kroika_contracts.semantic import (
 from kroika_pattern_engine import (
     GeometryPatternEngine,
     PDFRenderError,
+    inspect_pattern_print_plan,
     render_pattern_pdf,
+    render_scale_check_pdf,
     render_pattern_svg,
     SVG_PREVIEW_LAYERS,
     garment_catalogue,
@@ -44,6 +47,7 @@ from .models import (
     MeasurementProfileSummary,
     PhysicalValidationCreate,
     PhysicalValidationSummary,
+    PrintPlanResponse,
     ProjectListResponse,
     ProjectHistoryResponse,
     ProjectSummary,
@@ -51,9 +55,10 @@ from .models import (
     ReleaseStatusResponse,
 )
 from .repository import SQLiteRepository
+from .reporting import render_acceptance_report_pdf
 from .vision_providers import ProviderRegistry, build_provider_registry
 
-APP_VERSION = "0.24.0"
+APP_VERSION = "0.25.0"
 
 PAPER_SQUARE_TOLERANCE_MM = 1.0
 PAPER_CONTROL_LINE_TOLERANCE_MM = 1.0
@@ -118,6 +123,7 @@ def create_app(
             "X-Request-ID",
             "Content-Disposition",
             "X-Kroika-Sheet-Count",
+            "X-Kroika-Total-Page-Count",
             "X-Kroika-Export-Mode",
             "X-Kroika-Production-Ready",
         ],
@@ -397,6 +403,8 @@ def create_app(
                 "Физическую проверку можно записать только для построенной выкройки.",
             )
         observation = request_document.model_dump()
+        for image_ref in request_document.evidence_image_refs:
+            image_store.resolve(image_ref)
         if request_document.gate == "paper":
             observation["outcome"] = "passed" if all((
                 abs(float(request_document.square_width_mm) - 50.0)
@@ -421,6 +429,19 @@ def create_app(
             "media_type": asset.media_type,
             "size_bytes": len(asset.data),
         }
+
+    @app.get("/api/v1/images/{image_ref}", tags=["privacy"])
+    def get_image(image_ref: str) -> Response:
+        asset = image_store.resolve(image_ref)
+        return Response(
+            content=asset.data,
+            media_type=asset.media_type,
+            headers={
+                "Cache-Control": "no-store",
+                "Content-Disposition": f'inline; filename="{asset.image_ref}"',
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
 
     @app.delete("/api/v1/images/{image_ref}", status_code=204, tags=["privacy"])
     def delete_image(image_ref: str) -> Response:
@@ -569,8 +590,110 @@ def create_app(
                 "Content-Disposition": f'attachment; filename="kroika-{generation_id}-a4.pdf"',
                 "X-Content-Type-Options": "nosniff",
                 "X-Kroika-Sheet-Count": str(rendered.tile_count),
+                "X-Kroika-Total-Page-Count": str(rendered.page_count),
                 "X-Kroika-Export-Mode": "production" if production_allowed else "diagnostic",
                 "X-Kroika-Production-Ready": str(production_allowed).lower(),
+            },
+        )
+
+    @app.get(
+        "/api/v1/patterns/{generation_id}/print-plan",
+        response_model=PrintPlanResponse,
+        tags=["patterns"],
+    )
+    def get_print_plan(generation_id: UUID) -> dict[str, Any]:
+        result = _generation_or_404(repository, str(generation_id))
+        if result["pattern"] is None or not result["validation_report"]["diagnostic_export_allowed"]:
+            raise AppError(
+                409,
+                "DIAGNOSTIC_EXPORT_BLOCKED",
+                "Печатный план недоступен для отклонённого построения.",
+            )
+        try:
+            plan = inspect_pattern_print_plan(result["pattern"])
+        except PDFRenderError as error:
+            raise AppError(409, "PDF_EXPORT_INVALID", str(error)) from error
+        physical = repository.physical_validation_summary(str(generation_id))
+        return {
+            "generation_id": str(generation_id),
+            **asdict(plan),
+            "production_allowed": bool(physical and physical["production_allowed"]),
+        }
+
+    @app.post(
+        "/api/v1/patterns/{generation_id}/export/scale-check-pdf",
+        tags=["patterns"],
+    )
+    def export_scale_check_pdf(generation_id: UUID) -> Response:
+        result = _generation_or_404(repository, str(generation_id))
+        if result["pattern"] is None or not result["validation_report"]["diagnostic_export_allowed"]:
+            raise AppError(
+                409,
+                "DIAGNOSTIC_EXPORT_BLOCKED",
+                "Проверка масштаба недоступна для отклонённого построения.",
+            )
+        physical = repository.physical_validation_summary(str(generation_id))
+        production_allowed = bool(physical and physical["production_allowed"])
+        try:
+            rendered = render_scale_check_pdf(
+                result["pattern"], production_allowed=production_allowed
+            )
+        except PDFRenderError as error:
+            raise AppError(409, "PDF_EXPORT_INVALID", str(error)) from error
+        return Response(
+            content=rendered.content,
+            media_type="application/pdf",
+            headers={
+                "Cache-Control": "no-store",
+                "Content-Disposition": (
+                    f'attachment; filename="kroika-{generation_id}-scale-check.pdf"'
+                ),
+                "X-Content-Type-Options": "nosniff",
+                "X-Kroika-Sheet-Count": str(rendered.tile_count),
+                "X-Kroika-Total-Page-Count": "1",
+            },
+        )
+
+    @app.get(
+        "/api/v1/patterns/{generation_id}/physical-validation/report.pdf",
+        tags=["release"],
+    )
+    def export_physical_validation_report(generation_id: UUID) -> Response:
+        result = _generation_or_404(repository, str(generation_id))
+        project = _project_or_404(repository, result["project_id"])
+        summary = repository.physical_validation_summary(str(generation_id))
+        if summary is None:  # pragma: no cover - generation was checked above.
+            raise AppError(404, "GENERATION_NOT_FOUND", "Результат построения не найден.")
+        if result.get("pattern") is None:
+            raise AppError(409, "PATTERN_NOT_AVAILABLE", "Отчёт доступен только для выкройки.")
+        try:
+            plan = inspect_pattern_print_plan(result["pattern"])
+        except PDFRenderError as error:
+            raise AppError(409, "PDF_EXPORT_INVALID", str(error)) from error
+        evidence_refs = {
+            image_ref
+            for record in summary["records"]
+            for image_ref in record.get("evidence_image_refs", [])
+        }
+        evidence_images = {
+            image_ref: image_store.resolve(image_ref).data for image_ref in evidence_refs
+        }
+        report = render_acceptance_report_pdf(
+            project,
+            result,
+            summary,
+            asdict(plan),
+            evidence_images,
+        )
+        return Response(
+            content=report,
+            media_type="application/pdf",
+            headers={
+                "Cache-Control": "no-store",
+                "Content-Disposition": (
+                    f'attachment; filename="kroika-{generation_id}-acceptance-report.pdf"'
+                ),
+                "X-Content-Type-Options": "nosniff",
             },
         )
 

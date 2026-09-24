@@ -3,9 +3,8 @@ info:
   title: Kroika API contracts
   version: 1.0.0
   description: >-
-    Контракт API этапа 24. Проекты имеют ревизии, историю и явное удаление; подписанные
-    виды изображений передаются модели в заданном порядке, а соединение с провайдером
-    проверяется отдельным запросом без фотографий.
+    Контракт API этапа 25. Печатный план, одностраничная проверка масштаба и отчёт
+    физической приёмки связаны с точной generation_id; доказательные фото остаются локально.
 servers:
   - url: http://127.0.0.1:8000
     description: Локальный сервер
@@ -131,6 +130,20 @@ paths:
           $ref: '#/components/responses/ContractError'
         '422':
           $ref: '#/components/responses/ContractError'
+  /api/v1/patterns/{generation_id}/physical-validation/report.pdf:
+    parameters:
+      - $ref: '#/components/parameters/GenerationId'
+    get:
+      operationId: exportPhysicalValidationReport
+      summary: Скачать PDF-отчёт приёмки точной версии с локальными доказательствами
+      responses:
+        '200':
+          description: Печатный отчёт статусов, наблюдений и приложенных фотографий
+          content:
+            application/pdf:
+              schema: {type: string, format: binary}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
   /api/v1/ai/providers:
     get:
       operationId: listAIProviders
@@ -191,6 +204,17 @@ paths:
         in: path
         required: true
         schema: {type: string, pattern: '^img_[a-f0-9]{32}$'}
+    get:
+      operationId: getLocalImage
+      summary: Открыть локально сохранённое очищенное изображение
+      responses:
+        '200':
+          description: JPEG, PNG или WebP без исходных метаданных
+          content:
+            image/jpeg: {schema: {type: string, format: binary}}
+            image/png: {schema: {type: string, format: binary}}
+            image/webp: {schema: {type: string, format: binary}}
+        '422': {$ref: '#/components/responses/ContractError'}
     delete:
       operationId: deleteGarmentImage
       summary: Удалить неиспользуемое локальное изображение
@@ -564,6 +588,34 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/patterns/{generation_id}/print-plan:
+    get:
+      operationId: getPatternPrintPlan
+      summary: Получить точное число листов до загрузки полного PDF
+      parameters:
+        - $ref: '#/components/parameters/GenerationId'
+      responses:
+        '200':
+          description: Тот же план разбиения, который использует PDF renderer
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PrintPlan'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /api/v1/patterns/{generation_id}/export/scale-check-pdf:
+    post:
+      operationId: exportScaleCheckPdf
+      summary: Скачать один A4-лист для проверки масштаба до полной печати
+      parameters:
+        - $ref: '#/components/parameters/GenerationId'
+      responses:
+        '200':
+          description: Одна страница с квадратом 50 мм, линией 200 мм и картой листов
+          content:
+            application/pdf:
+              schema: {type: string, format: binary}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
   /api/v1/patterns/{generation_id}/export/project-json:
     get:
       operationId: exportPatternProject
@@ -739,10 +791,14 @@ components:
         square_height_mm: {type: [number, 'null'], exclusiveMinimum: 0, maximum: 100}
         control_line_mm: {type: [number, 'null'], exclusiveMinimum: 0, maximum: 400}
         figure_label: {type: [string, 'null'], minLength: 2, maxLength: 120}
+        evidence_image_refs:
+          type: array
+          maxItems: 4
+          items: {type: string, pattern: '^img_[a-f0-9]{32}$'}
     PhysicalValidationRecord:
       type: object
       additionalProperties: false
-      required: [record_id, project_id, generation_id, gate, outcome, reviewer_name, notes, printer_name, square_width_mm, square_height_mm, control_line_mm, figure_label, created_at]
+      required: [record_id, project_id, generation_id, gate, outcome, reviewer_name, notes, printer_name, square_width_mm, square_height_mm, control_line_mm, figure_label, evidence_image_refs, created_at]
       properties:
         record_id: {type: string, format: uuid}
         project_id: {type: string, format: uuid}
@@ -756,6 +812,10 @@ components:
         square_height_mm: {type: [number, 'null'], exclusiveMinimum: 0, maximum: 100}
         control_line_mm: {type: [number, 'null'], exclusiveMinimum: 0, maximum: 400}
         figure_label: {type: [string, 'null'], minLength: 2, maxLength: 120}
+        evidence_image_refs:
+          type: array
+          maxItems: 4
+          items: {type: string, pattern: '^img_[a-f0-9]{32}$'}
         created_at: {type: string, format: date-time}
     PhysicalGateStatus:
       type: object
@@ -785,6 +845,21 @@ components:
         records:
           type: array
           items: {$ref: '#/components/schemas/PhysicalValidationRecord'}
+    PrintPlan:
+      type: object
+      additionalProperties: false
+      required: [generation_id, page_format, scale, pattern_sheet_count, total_pdf_pages, columns, rows, overlap_mm, control_square_mm, production_allowed]
+      properties:
+        generation_id: {type: string, format: uuid}
+        page_format: {type: string, const: A4}
+        scale: {type: number, const: 1}
+        pattern_sheet_count: {type: integer, minimum: 1}
+        total_pdf_pages: {type: integer, minimum: 2}
+        columns: {type: integer, minimum: 1}
+        rows: {type: integer, minimum: 1}
+        overlap_mm: {type: number, minimum: 0}
+        control_square_mm: {type: number, exclusiveMinimum: 0}
+        production_allowed: {type: boolean}
     ImageUploadRequest:
       type: object
       additionalProperties: false
