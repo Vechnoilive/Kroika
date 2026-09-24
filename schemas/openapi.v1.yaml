@@ -3,8 +3,8 @@ info:
   title: Kroika API contracts
   version: 1.0.0
   description: >-
-    Контракт API этапа 25. Печатный план, одностраничная проверка масштаба и отчёт
-    физической приёмки связаны с точной generation_id; доказательные фото остаются локально.
+    Контракт API этапа 26. Каждая генерация связана с неизменяемым снимком входов;
+    сравнение версий показывает мерки, фасон, реальные контуры и предупреждения.
 servers:
   - url: http://127.0.0.1:8000
     description: Локальный сервер
@@ -344,6 +344,42 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/projects/{project_id}/generations:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      operationId: listProjectGenerations
+      summary: Получить сохранённые генерации и доступность точного сравнения
+      responses:
+        '200':
+          description: Новые генерации расположены первыми
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GenerationList'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/projects/{project_id}/generations/compare:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: base_generation_id
+        in: query
+        required: true
+        schema: {type: string, format: uuid}
+      - name: target_generation_id
+        in: query
+        required: true
+        schema: {type: string, format: uuid}
+    get:
+      operationId: compareProjectGenerations
+      summary: Сравнить входы, детали, геометрию и проверки двух генераций проекта
+      responses:
+        '200':
+          description: Детерминированное сравнение двух неизменяемых версий
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GenerationComparison'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/ContractError'}
   /api/v1/measurements/catalog:
     get:
       operationId: getMeasurementCatalog
@@ -860,6 +896,136 @@ components:
         overlap_mm: {type: number, minimum: 0}
         control_square_mm: {type: number, exclusiveMinimum: 0}
         production_allowed: {type: boolean}
+    GenerationSummary:
+      type: object
+      additionalProperties: false
+      required: [generation_id, created_at, status, validation_status, engine_version, method_version, piece_count, issue_count, blocking_issue_count, comparable, is_current]
+      properties:
+        generation_id: {type: string, format: uuid}
+        created_at: {type: string, format: date-time}
+        status: {type: string, enum: [succeeded, rejected]}
+        validation_status: {type: string, enum: [passed, warnings, failed]}
+        engine_version: {type: string}
+        method_version: {type: string}
+        piece_count: {type: integer, minimum: 0}
+        issue_count: {type: integer, minimum: 0}
+        blocking_issue_count: {type: integer, minimum: 0}
+        comparable: {type: boolean}
+        is_current: {type: boolean}
+    GenerationList:
+      type: object
+      additionalProperties: false
+      required: [project_id, items]
+      properties:
+        project_id: {type: string, format: uuid}
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/GenerationSummary'}
+    MeasurementChange:
+      type: object
+      additionalProperties: false
+      required: [field_id, label_ru, kind, before, after, delta, unit]
+      properties:
+        field_id: {type: string}
+        label_ru: {type: string}
+        kind: {type: string, enum: [added, removed, changed]}
+        before: {type: [number, 'null']}
+        after: {type: [number, 'null']}
+        delta: {type: [number, 'null']}
+        unit: {type: string, enum: [mm, deg]}
+    StyleChange:
+      type: object
+      additionalProperties: false
+      required: [path, section, label_ru, kind, before, after, delta, unit]
+      properties:
+        path: {type: string}
+        section: {type: string}
+        label_ru: {type: string}
+        kind: {type: string, enum: [added, removed, changed]}
+        before: {type: [string, number, boolean, 'null']}
+        after: {type: [string, number, boolean, 'null']}
+        delta: {type: [number, 'null']}
+        unit: {type: [string, 'null']}
+    ComparedPiece:
+      type: object
+      additionalProperties: false
+      required: [piece_id, name_ru, cut_quantity, cut_on_fold]
+      properties:
+        piece_id: {type: string}
+        name_ru: {type: string}
+        cut_quantity: {type: integer, minimum: 1}
+        cut_on_fold: {type: boolean}
+    PieceGeometryChange:
+      type: object
+      additionalProperties: false
+      required: [piece_id, name_ru, area_delta_mm2, width_delta_mm, height_delta_mm, perimeter_delta_mm, segment_count_delta, cut_quantity_before, cut_quantity_after]
+      properties:
+        piece_id: {type: string}
+        name_ru: {type: string}
+        area_delta_mm2: {type: [number, 'null']}
+        width_delta_mm: {type: [number, 'null']}
+        height_delta_mm: {type: [number, 'null']}
+        perimeter_delta_mm: {type: [number, 'null']}
+        segment_count_delta: {type: integer}
+        cut_quantity_before: {type: integer, minimum: 1}
+        cut_quantity_after: {type: integer, minimum: 1}
+    PatternComparison:
+      type: object
+      additionalProperties: false
+      required: [piece_count_before, piece_count_after, sheet_count_before, sheet_count_after, added_pieces, removed_pieces, changed_pieces, added_seam_pair_ids, removed_seam_pair_ids]
+      properties:
+        piece_count_before: {type: integer, minimum: 0}
+        piece_count_after: {type: integer, minimum: 0}
+        sheet_count_before: {type: [integer, 'null'], minimum: 1}
+        sheet_count_after: {type: [integer, 'null'], minimum: 1}
+        added_pieces: {type: array, items: {$ref: '#/components/schemas/ComparedPiece'}}
+        removed_pieces: {type: array, items: {$ref: '#/components/schemas/ComparedPiece'}}
+        changed_pieces: {type: array, items: {$ref: '#/components/schemas/PieceGeometryChange'}}
+        added_seam_pair_ids: {type: array, items: {type: string}}
+        removed_seam_pair_ids: {type: array, items: {type: string}}
+    ComparedIssue:
+      type: object
+      additionalProperties: false
+      required: [code, severity, message_ru, piece_id]
+      properties:
+        code: {type: string}
+        severity: {type: string, enum: [blocking_error, warning]}
+        message_ru: {type: string}
+        piece_id: {type: [string, 'null']}
+    ValidationComparison:
+      type: object
+      additionalProperties: false
+      required: [status_before, status_after, added_issues, removed_issues]
+      properties:
+        status_before: {type: string, enum: [passed, warnings, failed]}
+        status_after: {type: string, enum: [passed, warnings, failed]}
+        added_issues: {type: array, items: {$ref: '#/components/schemas/ComparedIssue'}}
+        removed_issues: {type: array, items: {$ref: '#/components/schemas/ComparedIssue'}}
+    ComparisonTotals:
+      type: object
+      additionalProperties: false
+      required: [measurement_changes, style_changes, added_pieces, removed_pieces, changed_pieces, validation_changes]
+      properties:
+        measurement_changes: {type: integer, minimum: 0}
+        style_changes: {type: integer, minimum: 0}
+        added_pieces: {type: integer, minimum: 0}
+        removed_pieces: {type: integer, minimum: 0}
+        changed_pieces: {type: integer, minimum: 0}
+        validation_changes: {type: integer, minimum: 0}
+    GenerationComparison:
+      type: object
+      additionalProperties: false
+      required: [project_id, base, target, measurements, style, pattern, validation, totals, no_changes]
+      properties:
+        project_id: {type: string, format: uuid}
+        base: {$ref: '#/components/schemas/GenerationSummary'}
+        target: {$ref: '#/components/schemas/GenerationSummary'}
+        measurements: {type: array, items: {$ref: '#/components/schemas/MeasurementChange'}}
+        style: {type: array, items: {$ref: '#/components/schemas/StyleChange'}}
+        pattern: {$ref: '#/components/schemas/PatternComparison'}
+        validation: {$ref: '#/components/schemas/ValidationComparison'}
+        totals: {$ref: '#/components/schemas/ComparisonTotals'}
+        no_changes: {type: boolean}
     ImageUploadRequest:
       type: object
       additionalProperties: false

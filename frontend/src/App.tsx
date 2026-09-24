@@ -7,6 +7,7 @@ import {VisionAnalyzer} from './VisionAnalyzer';
 import {configureGarment, GARMENT_NAMES} from './garments';
 import {buildDesignIntent} from './designIntent';
 import {DesignCoverageSummary} from './DesignCoverage';
+import {GenerationComparison} from './GenerationComparison';
 import {PhysicalValidationJournal} from './PhysicalValidationJournal';
 import {ProjectHub} from './ProjectHub';
 import {duplicateProjectDocument, projectSummary, uniqueCopyName} from './projectManagement';
@@ -150,6 +151,7 @@ export function PatternResultCard({
   analysis,
   designIntent,
   onEditDesign,
+  projectId,
 }: {
   result: PatternEngineResult;
   onRebuild?: () => void;
@@ -159,6 +161,7 @@ export function PatternResultCard({
   analysis?: StyleAnalysis | null;
   designIntent?: GarmentDesignIntent;
   onEditDesign?: () => void;
+  projectId?: string;
 }) {
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
@@ -293,6 +296,12 @@ export function PatternResultCard({
           analysis={analysis}
           pattern={pattern}
           onEditDesign={onEditDesign}
+        />
+      )}
+      {projectId && (
+        <GenerationComparison
+          projectId={projectId}
+          currentGenerationId={result.generation_id}
         />
       )}
       <section className="print-guide" aria-labelledby="print-guide-title">
@@ -683,7 +692,7 @@ export default function App() {
               {activeStep === 6 && (
                 <section className="generation-card" aria-labelledby="generation-title"><div className="action-card__icon" aria-hidden="true">06</div><div><p className="eyebrow">Все входы подтверждены</p><h2 id="generation-title">Построить выкройку?</h2><p>Формульный движок создаст детали из сохранённых мерок, фасона, ткани и прибавок, затем проверит геометрию.</p><ul><li>{GARMENT_NAMES[project.garment_spec.garment_type]} · {garmentConstruction}</li><li>{garmentLength}</li><li>Стабильная тканая ткань · пробный статус</li><li>Экспертная проверка и макет: ещё не пройдены</li></ul><button className="primary-button" onClick={() => void generatePattern()} disabled={busy}>{busy ? 'Строим и проверяем…' : 'Построить выкройку'} <span aria-hidden="true">→</span></button></div></section>
               )}
-              {activeStep === 7 && project.latest_generation && <PatternResultCard result={project.latest_generation} acceptance={currentAcceptance} analysis={analysis} designIntent={project.garment_spec.design_intent} onEditDesign={() => navigateToStep(3)} onRebuild={() => void generatePattern()} onNewVersion={() => void startNewVersion()} busy={busy} />}
+              {activeStep === 7 && project.latest_generation && <PatternResultCard result={project.latest_generation} projectId={project.project_id} acceptance={currentAcceptance} analysis={analysis} designIntent={project.garment_spec.design_intent} onEditDesign={() => navigateToStep(3)} onRebuild={() => void generatePattern()} onNewVersion={() => void startNewVersion()} busy={busy} />}
               <ProjectHistory project={project} onRestored={remember} />
             </>
           )}

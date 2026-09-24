@@ -32,6 +32,7 @@ from kroika_pattern_engine import (
 )
 
 from .config import Settings
+from .comparison import compare_generations, generation_summary
 from .errors import AppError, install_exception_handlers
 from .logging_config import configure_logging
 from .image_store import LocalImageStore
@@ -39,6 +40,8 @@ from .models import (
     AIProviderListResponse,
     AIProviderCheckResponse,
     GarmentCatalogueResponse,
+    GenerationComparisonResponse,
+    GenerationListResponse,
     HealthResponse,
     ImageUploadRequest,
     ImageUploadResponse,
@@ -58,7 +61,7 @@ from .repository import SQLiteRepository
 from .reporting import render_acceptance_report_pdf
 from .vision_providers import ProviderRegistry, build_provider_registry
 
-APP_VERSION = "0.25.0"
+APP_VERSION = "0.26.0"
 
 PAPER_SQUARE_TOLERANCE_MM = 1.0
 PAPER_CONTROL_LINE_TOLERANCE_MM = 1.0
@@ -225,6 +228,70 @@ def create_app(
         if_match: int = Header(..., alias="If-Match", ge=1),
     ) -> dict[str, Any]:
         return repository.restore_project_revision(str(project_id), revision, if_match)
+
+    @app.get(
+        "/api/v1/projects/{project_id}/generations",
+        response_model=GenerationListResponse,
+        tags=["projects"],
+    )
+    def list_project_generations(project_id: UUID) -> dict[str, Any]:
+        project = _project_or_404(repository, str(project_id))
+        current_generation_id = (project.get("latest_generation") or {}).get("generation_id")
+        return {
+            "project_id": str(project_id),
+            "items": [
+                generation_summary(
+                    entry["result"],
+                    comparable=entry["comparable"],
+                    current_generation_id=current_generation_id,
+                )
+                for entry in repository.list_generations(str(project_id))
+            ],
+        }
+
+    @app.get(
+        "/api/v1/projects/{project_id}/generations/compare",
+        response_model=GenerationComparisonResponse,
+        tags=["projects"],
+    )
+    def compare_project_generations(
+        project_id: UUID,
+        base_generation_id: UUID = Query(...),
+        target_generation_id: UUID = Query(...),
+    ) -> dict[str, Any]:
+        project = _project_or_404(repository, str(project_id))
+        if base_generation_id == target_generation_id:
+            raise AppError(
+                422,
+                "GENERATION_COMPARE_SAME",
+                "Выберите две разные версии выкройки.",
+            )
+        base = _generation_or_404(repository, str(base_generation_id))
+        target = _generation_or_404(repository, str(target_generation_id))
+        if base["project_id"] != str(project_id) or target["project_id"] != str(project_id):
+            raise AppError(
+                409,
+                "GENERATION_PROJECT_MISMATCH",
+                "Сравнивать можно только версии одного проекта.",
+            )
+        base_snapshot = repository.get_generation_input_snapshot(str(base_generation_id))
+        target_snapshot = repository.get_generation_input_snapshot(str(target_generation_id))
+        if base_snapshot is None or target_snapshot is None:
+            raise AppError(
+                409,
+                "GENERATION_INPUT_SNAPSHOT_MISSING",
+                "Для одной из старых версий не сохранился точный снимок входов. "
+                "Kroika не будет выдумывать сравнение мерок и фасона.",
+            )
+        return compare_generations(
+            base,
+            target,
+            base_snapshot,
+            target_snapshot,
+            current_generation_id=(project.get("latest_generation") or {}).get(
+                "generation_id"
+            ),
+        )
 
     @app.get("/api/v1/measurements/catalog", tags=["measurements"])
     def get_measurement_catalog(
@@ -489,7 +556,7 @@ def create_app(
             pattern_engine.engine_version,
         )
         if existing is not None:
-            return repository.activate_generation(existing)
+            return repository.activate_generation(existing, request_document)
         result = pattern_engine.generate(request_document)
         validate_document("pattern-engine-result", result)
         validate_validation_report(result["validation_report"])
@@ -499,7 +566,7 @@ def create_app(
                 500, "ENGINE_RESULT_MISMATCH",
                 "Движок вернул несогласованный результат. Проект не был изменён.",
             )
-        return repository.record_generation(result)
+        return repository.record_generation(result, request_document)
 
     @app.get("/api/v1/patterns/{generation_id}/validation", tags=["patterns"])
     def get_validation(generation_id: UUID) -> dict[str, Any]:

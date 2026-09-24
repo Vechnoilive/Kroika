@@ -204,6 +204,134 @@ class PrintPlanResponse(BaseModel):
     production_allowed: bool
 
 
+class GenerationSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    generation_id: str
+    created_at: str
+    status: Literal["succeeded", "rejected"]
+    validation_status: Literal["passed", "warnings", "failed"]
+    engine_version: str
+    method_version: str
+    piece_count: int = Field(ge=0)
+    issue_count: int = Field(ge=0)
+    blocking_issue_count: int = Field(ge=0)
+    comparable: bool
+    is_current: bool
+
+
+class GenerationListResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: str
+    items: list[GenerationSummary]
+
+
+class MeasurementChange(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    field_id: str
+    label_ru: str
+    kind: Literal["added", "removed", "changed"]
+    before: float | None
+    after: float | None
+    delta: float | None
+    unit: Literal["mm", "deg"]
+
+
+class StyleChange(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    path: str
+    section: str
+    label_ru: str
+    kind: Literal["added", "removed", "changed"]
+    before: Any
+    after: Any
+    delta: float | None
+    unit: str | None
+
+
+class ComparedPiece(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    piece_id: str
+    name_ru: str
+    cut_quantity: int = Field(ge=1)
+    cut_on_fold: bool
+
+
+class PieceGeometryChange(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    piece_id: str
+    name_ru: str
+    area_delta_mm2: float | None
+    width_delta_mm: float | None
+    height_delta_mm: float | None
+    perimeter_delta_mm: float | None
+    segment_count_delta: int
+    cut_quantity_before: int = Field(ge=1)
+    cut_quantity_after: int = Field(ge=1)
+
+
+class PatternComparison(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    piece_count_before: int = Field(ge=0)
+    piece_count_after: int = Field(ge=0)
+    sheet_count_before: int | None = Field(default=None, ge=1)
+    sheet_count_after: int | None = Field(default=None, ge=1)
+    added_pieces: list[ComparedPiece]
+    removed_pieces: list[ComparedPiece]
+    changed_pieces: list[PieceGeometryChange]
+    added_seam_pair_ids: list[str]
+    removed_seam_pair_ids: list[str]
+
+
+class ComparedIssue(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: str
+    severity: Literal["blocking_error", "warning"]
+    message_ru: str
+    piece_id: str | None
+
+
+class ValidationComparison(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status_before: Literal["passed", "warnings", "failed"]
+    status_after: Literal["passed", "warnings", "failed"]
+    added_issues: list[ComparedIssue]
+    removed_issues: list[ComparedIssue]
+
+
+class ComparisonTotals(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    measurement_changes: int = Field(ge=0)
+    style_changes: int = Field(ge=0)
+    added_pieces: int = Field(ge=0)
+    removed_pieces: int = Field(ge=0)
+    changed_pieces: int = Field(ge=0)
+    validation_changes: int = Field(ge=0)
+
+
+class GenerationComparisonResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: str
+    base: GenerationSummary
+    target: GenerationSummary
+    measurements: list[MeasurementChange]
+    style: list[StyleChange]
+    pattern: PatternComparison
+    validation: ValidationComparison
+    totals: ComparisonTotals
+    no_changes: bool
+
+
 class ProjectSummary(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
