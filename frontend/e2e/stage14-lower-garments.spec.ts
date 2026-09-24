@@ -1,4 +1,5 @@
 import {expect, test, type Page} from '@playwright/test';
+import {completeDesignReview} from './design-review';
 
 const VALUES: Record<string, number> = {
   waist: 74, hips: 100, sitting_height: 27, crotch_length: 72,
@@ -32,6 +33,7 @@ test('прямые брюки проходят последовательный 
   await page.getByRole('radio', {name: /Прямые брюки/}).check();
   await expect(page.getByText('Боковые карманы')).toBeVisible();
   await expect(page.getByLabel('Длина брюк от талии')).toHaveValue('100');
+  await completeDesignReview(page, {excludeElements: true});
   await page.getByRole('button', {name: /подтвердить фасон/i}).click();
 
   await expect(page.getByRole('heading', {name: /снимаем мерки/i})).toBeVisible();

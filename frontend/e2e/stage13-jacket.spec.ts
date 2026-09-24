@@ -1,4 +1,5 @@
 import {expect, test, type Page} from '@playwright/test';
+import {completeDesignReview} from './design-review';
 
 const VALUES: Record<string, number> = {
   bust: 92, waist: 74, hips: 100, neck_circumference: 38,
@@ -38,6 +39,7 @@ test('лёгкий жакет проходит последовательный 
   await page.getByRole('radio', {name: /Лёгкий жакет/}).check();
   await expect(page.getByText('Лацкан и воротник')).toBeVisible();
   await expect(page.getByLabel('Ширина лацкана')).toHaveValue('7');
+  await completeDesignReview(page, {excludeElements: true});
   await page.getByRole('button', {name: /подтвердить фасон/i}).click();
 
   await expect(page.getByRole('heading', {name: /снимаем мерки/i})).toBeVisible();

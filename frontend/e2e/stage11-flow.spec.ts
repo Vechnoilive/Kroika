@@ -1,5 +1,6 @@
 import path from 'node:path';
 import {expect, test, type Page} from '@playwright/test';
+import {completeDesignReview} from './design-review';
 
 const VALUES: Record<string, number> = {
   bust: 92,
@@ -58,6 +59,7 @@ async function completeFlow(page: Page, provider: 'mock' | 'qwen') {
   }
 
   await expect(page.getByRole('heading', {name: /проверьте фасон/i})).toBeVisible();
+  await completeDesignReview(page);
   await page.getByRole('button', {name: /подтвердить фасон/i}).click();
   await expect(page.getByRole('heading', {name: /снимаем мерки/i})).toBeVisible();
   await fillRequiredMeasurements(page);
