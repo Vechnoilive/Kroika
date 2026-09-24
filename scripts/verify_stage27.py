@@ -8,6 +8,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+from verify_support import resolve_command
+
 
 ROOT = Path(__file__).resolve().parents[1]
 environment = os.environ.copy()
@@ -22,7 +24,9 @@ environment["PYTHONPATH"] = os.pathsep.join([
 ])
 
 commands = [
-    ([sys.executable, "-m", "pytest", "-q", "tests/test_stage27_manual_geometry.py"], ROOT),
+    ([sys.executable, "-m", "pytest", "-q",
+      "tests/test_stage27_manual_geometry.py",
+      "tests/test_verify_support.py"], ROOT),
     ([sys.executable, "-m", "ruff", "check",
       "pattern-engine/src/kroika_pattern_engine/manual_edit.py",
       "pattern-engine/src/kroika_pattern_engine/__init__.py",
@@ -31,8 +35,10 @@ commands = [
       "backend/src/kroika_backend/models.py",
       "backend/src/kroika_backend/repository.py",
       "tests/test_stage27_manual_geometry.py",
+      "tests/test_verify_support.py",
       "scripts/start_local.py",
       "scripts/verify_all.py",
+      "scripts/verify_support.py",
       "scripts/verify_stage27.py"], ROOT),
     (["npm", "run", "test:stage27"], ROOT / "frontend"),
     (["npm", "run", "typecheck"], ROOT / "frontend"),
@@ -41,7 +47,9 @@ commands = [
 
 for command, cwd in commands:
     print(f"\n=== {' '.join(command)} ===", flush=True)
-    completed = subprocess.run(command, cwd=cwd, env=environment, check=False)
+    completed = subprocess.run(
+        resolve_command(command, environment), cwd=cwd, env=environment, check=False
+    )
     if completed.returncode:
         raise SystemExit(completed.returncode)
 

@@ -8,6 +8,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+from verify_support import resolve_command
+
 ROOT = Path(__file__).resolve().parents[1]
 environment = os.environ.copy()
 environment["PYTHONPATH"] = os.pathsep.join([
@@ -23,7 +25,9 @@ commands = [
     ([sys.executable, str(ROOT / "scripts" / "smoke_stage9.py")], ROOT),
 ]
 for command, cwd in commands:
-    completed = subprocess.run(command, cwd=cwd, env=environment, check=False)
+    completed = subprocess.run(
+        resolve_command(command, environment), cwd=cwd, env=environment, check=False
+    )
     if completed.returncode:
         raise SystemExit(completed.returncode)
 print("Этап 9 проверен: припуски, SVG, PDF A4 1:1, интерфейс и HTTP smoke-test прошли.")

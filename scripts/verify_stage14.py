@@ -8,6 +8,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+from verify_support import resolve_command
+
 ROOT = Path(__file__).resolve().parents[1]
 environment = os.environ.copy()
 venv_bin = ROOT / ".venv" / ("Scripts" if os.name == "nt" else "bin")
@@ -26,7 +28,9 @@ commands = [
 ]
 
 for command, cwd in commands:
-    completed = subprocess.run(command, cwd=cwd, env=environment, check=False)
+    completed = subprocess.run(
+        resolve_command(command, environment), cwd=cwd, env=environment, check=False
+    )
     if completed.returncode:
         raise SystemExit(completed.returncode)
 
