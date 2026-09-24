@@ -6,7 +6,7 @@ import {ConstructionEditor, ProjectHistory, StyleEditor} from './ProjectWorkflow
 import {VisionAnalyzer} from './VisionAnalyzer';
 import {configureGarment, GARMENT_NAMES} from './garments';
 import {buildDesignIntent} from './designIntent';
-import {DesignCoverageSummary} from './DesignCoverage';
+import {DesignCoverageSummary} from './DesignCoverageSummary';
 import {GenerationComparison} from './GenerationComparison';
 import {PhysicalValidationJournal} from './PhysicalValidationJournal';
 import {PatternGeometryEditor} from './PatternGeometryEditor';

@@ -148,9 +148,12 @@ class Stage2References(unittest.TestCase):
         self.assertEqual(manifest['commit'], REGISTRY['source_commit'])
         for item in manifest['files']:
             data = (ROOT / item['snapshot_path']).read_bytes()
+            # Git may materialize text snapshots with CRLF on Windows. The
+            # pinned upstream digest is defined over their canonical LF form.
+            data = data.replace(b'\r\n', b'\n')
             self.assertEqual(hashlib.sha256(data).hexdigest(), item['sha256'])
         self.assertIn('Copyright (c) 2024 Maria Korosteleva',
-                      (ROOT / 'LICENSES/GarmentCode-MIT.txt').read_text())
+                      (ROOT / 'LICENSES/GarmentCode-MIT.txt').read_text(encoding='utf-8'))
 
     def test_missing_measurement_is_not_inferred(self):
         for key in MEASUREMENT_KEYS:
@@ -238,8 +241,8 @@ class Stage2References(unittest.TestCase):
             for target in re.findall(r'\[[^\]]+\]\(([^)]+)\)', text):
                 if '://' not in target and not target.startswith('#'):
                     self.assertTrue((path.parent / target.split('#')[0]).is_file(), (path, target))
-        registry_md = (ROOT/'docs/FORMULA_REGISTRY.md').read_text()
-        values_md = (ROOT/'docs/REFERENCE_CALCULATIONS.md').read_text()
+        registry_md = (ROOT/'docs/FORMULA_REGISTRY.md').read_text(encoding='utf-8')
+        values_md = (ROOT/'docs/REFERENCE_CALCULATIONS.md').read_text(encoding='utf-8')
         for record in REGISTRY['records']:
             self.assertIn(f"| {record['formula_id']} ", registry_md)
             self.assertIn(f"| {record['formula_id']} ", values_md)

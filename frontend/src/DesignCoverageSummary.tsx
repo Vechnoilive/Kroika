@@ -8,6 +8,7 @@ const DECISION_LABELS = {
   missing_from_plan: 'Потеряно между фото и планом',
 } as const;
 
+/** Render the photo-to-pattern coverage report for the generated pattern. */
 export function DesignCoverageSummary({
   intent,
   analysis,
