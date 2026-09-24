@@ -64,6 +64,7 @@ def _fingerprint() -> str:
         ROOT / "requirements-stage23.txt",
         ROOT / "requirements-stage24.txt",
         ROOT / "requirements-stage25.txt",
+        ROOT / "requirements-stage26.txt",
         ROOT / "requirements-stage27.txt",
         ROOT / "pyproject.toml",
         ROOT / "pattern-engine" / "pyproject.toml",

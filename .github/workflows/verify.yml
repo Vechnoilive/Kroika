@@ -1,4 +1,4 @@
-name: Kroika regression
+name: Kroika stage 27 gate
 
 on:
   push:
@@ -34,5 +34,5 @@ jobs:
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
-      - name: Run stage 26 only
+      - name: Run stage 27 only
         run: python scripts/verify_stage27.py

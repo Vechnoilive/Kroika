@@ -1,6 +1,6 @@
 # Локальный запуск Kroika
 
-Этап 23 запускается без API-ключей в безопасном `mock`. Проекты, профили мерок, загруженные изображения и журнал физических проверок находятся локально.
+Этап 27 запускается без API-ключей в безопасном `mock`. Проекты, профили мерок, загруженные изображения и журнал физических проверок находятся локально.
 
 ## Самый простой способ без Docker
 
@@ -28,6 +28,32 @@ python3 scripts/start_local.py --no-browser
 ```
 
 В Windows замените `python3` на `py -3.12`.
+
+## Запуск с Gemini в Windows PowerShell
+
+Ключ задаётся только в текущей консоли и не записывается в файлы проекта:
+
+```powershell
+$env:KROIKA_AI_PROVIDER="gemini"
+$env:KROIKA_ENABLED_AI_PROVIDERS="mock,gemini"
+$env:GEMINI_API_KEY="ВСТАВЬТЕ_КЛЮЧ_ТОЛЬКО_ЗДЕСЬ"
+$env:GEMINI_BASE_URL="https://generativelanguage.googleapis.com/v1beta"
+$env:GEMINI_MODEL="gemini-3.8-flash"
+$env:KROIKA_AI_TIMEOUT_SECONDS="120"
+py -3.12 scripts/start_local.py
+```
+
+После запуска Gemini можно проверить без отправки фото из второй PowerShell-консоли:
+
+```powershell
+Invoke-RestMethod -Method Post "http://127.0.0.1:8000/api/v1/ai/providers/gemini/check" | Format-List
+```
+
+Не вставляйте ключ в frontend, `.env.example`, Git или скриншоты. После остановки можно удалить его из текущей консоли:
+
+```powershell
+Remove-Item Env:GEMINI_API_KEY
+```
 
 ## Docker Compose
 

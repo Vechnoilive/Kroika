@@ -35,7 +35,18 @@ def example(name: str):
 class JsonSchemaContracts(unittest.TestCase):
     def test_every_schema_is_valid_draft_2020_12(self):
         names = available_schemas()
-        self.assertEqual(len(names), 13)
+        # New stages may add contracts.  Keep the original architecture gate
+        # strict about the schemas it introduced without making additions fail
+        # an unrelated historical test.
+        required = {
+            'ai-analysis-request', 'ai-style-analysis', 'body-measurements',
+            'common', 'fabric-properties', 'fit-settings', 'formula-record',
+            'garment-design-intent', 'garment-spec', 'pattern-data',
+            'pattern-engine-request', 'pattern-engine-result', 'pattern-project',
+            'validation-report',
+        }
+        self.assertTrue(required.issubset(names))
+        self.assertEqual(len(names), len(set(names)))
         for name in names:
             with self.subTest(schema=name):
                 Draft202012Validator.check_schema(load_schema(name))
@@ -273,6 +284,9 @@ class MigrationAndPortContracts(unittest.TestCase):
 
             async def analyze_style(self, request):
                 return example('example-ai-response.json')
+
+            async def check_connection(self):
+                return None
 
         class FakeEngine:
             engine_id = 'mock-engine'

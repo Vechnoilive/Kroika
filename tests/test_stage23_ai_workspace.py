@@ -26,6 +26,7 @@ from kroika_backend.vision_providers import (  # noqa: E402
     HTTPResult,
     QwenProvider,
 )
+from tests.wiring import assert_current_only_workflow  # noqa: E402
 
 
 def _example(name: str) -> dict:
@@ -153,7 +154,7 @@ def test_stage23_contract_and_current_only_gate_are_wired(tmp_path: Path) -> Non
     assert "-r requirements-stage22.txt" in requirements
     assert 'ROOT / "requirements-stage23.txt"' in launcher
     assert '"requirements-stage23.txt"' in launcher
-    assert "python scripts/verify_stage23.py" in workflow
+    assert_current_only_workflow(ROOT, workflow)
     assert "verify_stage23.py" in verify_all
 
     spec, base_uri = read_from_filename(str(ROOT / "schemas/openapi.v1.yaml"))

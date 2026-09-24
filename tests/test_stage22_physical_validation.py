@@ -25,6 +25,7 @@ from kroika_backend.app import create_app  # noqa: E402
 from kroika_backend.config import Settings  # noqa: E402
 from kroika_backend.repository import SQLiteRepository  # noqa: E402
 from kroika_contracts.hashing import compute_input_hash  # noqa: E402
+from tests.wiring import assert_current_only_workflow  # noqa: E402
 
 
 def _example(name: str) -> dict:
@@ -288,7 +289,7 @@ def test_stage22_contract_and_current_only_gate_are_wired(tmp_path: Path) -> Non
     assert "-r requirements-stage21.txt" in requirements
     assert 'ROOT / "requirements-stage22.txt"' in launcher
     assert '"requirements-stage22.txt"' in launcher
-    assert "python scripts/verify_stage22.py" in workflow
+    assert_current_only_workflow(ROOT, workflow)
     assert "verify_stage22.py" in verify_all
 
     spec, base_uri = read_from_filename(str(ROOT / "schemas/openapi.v1.yaml"))

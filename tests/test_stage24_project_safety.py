@@ -17,6 +17,7 @@ sys.path[:0] = [
 
 from kroika_backend.app import create_app  # noqa: E402
 from kroika_backend.config import Settings  # noqa: E402
+from tests.wiring import assert_current_only_workflow, assert_current_versions  # noqa: E402
 
 
 def _example(name: str) -> dict:
@@ -71,7 +72,7 @@ def test_stage24_isolated_gate_is_wired() -> None:
     assert "-r requirements-stage23.txt" in requirements
     assert 'ROOT / "requirements-stage24.txt"' in launcher
     assert '"requirements-stage24.txt"' in launcher
-    assert "python scripts/verify_stage24.py" in workflow
+    assert_current_only_workflow(ROOT, workflow)
     assert "verify_stage24.py" in verify_all
     assert "test:stage24" in package["scripts"]
-    assert package["version"] == "0.24.0"
+    assert package["version"] == assert_current_versions(ROOT, 24)

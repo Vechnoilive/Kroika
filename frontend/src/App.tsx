@@ -655,7 +655,7 @@ export default function App() {
               return <Step key={title} number={number} title={title} state={state} onSelect={canNavigate ? () => navigateToStep(number) : undefined} />;
             })}
           </ol>
-          <div className="privacy-note"><span aria-hidden="true">⌂</span><p><strong>Мерки остаются на компьютере</strong>Фото отправляется Qwen только после отдельного согласия.</p></div>
+          <div className="privacy-note"><span aria-hidden="true">⌂</span><p><strong>Мерки остаются на компьютере</strong>Фото отправляется выбранному AI-сервису только после отдельного согласия.</p></div>
         </aside>
 
         <section className="content">

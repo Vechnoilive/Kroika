@@ -24,6 +24,7 @@ sys.path[:0] = [
 from kroika_backend.app import APP_VERSION, create_app  # noqa: E402
 from kroika_backend.config import Settings  # noqa: E402
 from kroika_contracts.hashing import compute_input_hash  # noqa: E402
+from tests.wiring import assert_current_only_workflow, assert_current_versions  # noqa: E402
 
 
 def _example(name: str) -> dict:
@@ -212,11 +213,11 @@ def test_stage25_contract_and_current_only_gate_are_wired(tmp_path: Path) -> Non
     assert "-r requirements-stage24.txt" in requirements
     assert 'ROOT / "requirements-stage25.txt"' in launcher
     assert '"requirements-stage25.txt"' in launcher
-    assert "python scripts/verify_stage25.py" in workflow
+    assert_current_only_workflow(ROOT, workflow)
     assert "verify_stage25.py" in verify_all
     assert package["scripts"]["test:stage25"].endswith("Stage25PrintAcceptance.test.tsx")
-    assert package["version"] == APP_VERSION == "0.25.0"
-    assert 'version = "0.25.0"' in backend
+    assert package["version"] == APP_VERSION == assert_current_versions(ROOT, 25)
+    assert f'version = "{APP_VERSION}"' in backend
 
     spec, base_uri = read_from_filename(str(ROOT / "schemas/openapi.v1.yaml"))
     validate(spec, base_uri=base_uri)

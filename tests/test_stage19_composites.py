@@ -20,6 +20,7 @@ from kroika_pattern_engine.composites import (  # noqa: E402
     pocket_dimensions_mm,
 )
 from kroika_pattern_engine.geometry import contour_from_data  # noqa: E402
+from tests.wiring import assert_current_only_workflow  # noqa: E402
 
 
 EXTRA_MEASUREMENTS = {
@@ -350,6 +351,4 @@ def test_stage19_local_launcher_and_ci_use_only_the_current_gate():
     launcher = (ROOT / "scripts" / "start_local.py").read_text(encoding="utf-8")
     workflow = (ROOT / ".github" / "workflows" / "verify.yml").read_text(encoding="utf-8")
     assert '"requirements-stage19.txt"' in launcher
-    assert "python scripts/verify_stage19.py" in workflow
-    assert "verify_all.py" not in workflow
-    assert "verify_stage18.py" not in workflow
+    assert_current_only_workflow(ROOT, workflow)
