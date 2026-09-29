@@ -17,6 +17,7 @@ import webbrowser
 ROOT = Path(__file__).resolve().parents[1]
 VENV = ROOT / ".venv"
 STATE = ROOT / ".local-state"
+BOOTSTRAP_VERSION = "2"
 
 
 def _venv_python() -> Path:
@@ -39,6 +40,7 @@ def _node() -> str:
 
 def _fingerprint() -> str:
     digest = hashlib.sha256()
+    digest.update(BOOTSTRAP_VERSION.encode("ascii"))
     for path in (
         ROOT / "requirements-stage3.txt",
         ROOT / "requirements-stage4.txt",
@@ -87,6 +89,11 @@ def bootstrap() -> None:
         return
 
     print("Устанавливаем Python-зависимости…")
+    subprocess.run(
+        [str(python), "-m", "pip", "install", "--upgrade", "pip"],
+        cwd=ROOT,
+        check=True,
+    )
     subprocess.run(
         [str(python), "-m", "pip", "install", "-r", str(ROOT / "requirements-stage27.txt")],
         cwd=ROOT,

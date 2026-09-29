@@ -8,6 +8,18 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
+def _string(name: str, default: str) -> str:
+    raw = os.getenv(name)
+    normalized = raw.strip() if raw is not None else ""
+    return normalized or default
+
+
+def _optional_string(name: str) -> str | None:
+    raw = os.getenv(name)
+    normalized = raw.strip() if raw is not None else ""
+    return normalized or None
+
+
 def _boolean(name: str, default: bool) -> bool:
     raw = os.getenv(name)
     if raw is None:
@@ -75,17 +87,17 @@ class Settings:
         return cls(
             database_path=Path(os.getenv("KROIKA_DATABASE_PATH", "data/kroika.db")),
             image_storage_path=Path(os.getenv("KROIKA_IMAGE_STORAGE_PATH", "data/images")),
-            log_level=os.getenv("KROIKA_LOG_LEVEL", "INFO").upper(),
-            ai_provider=os.getenv("KROIKA_AI_PROVIDER", "mock").lower(),
+            log_level=_string("KROIKA_LOG_LEVEL", "INFO").upper(),
+            ai_provider=_string("KROIKA_AI_PROVIDER", "mock").lower(),
             enabled_ai_providers=enabled_ai_providers,
-            qwen_api_key=os.getenv("QWEN_API_KEY") or None,
-            qwen_base_url=os.getenv("QWEN_BASE_URL") or None,
-            qwen_model=os.getenv("QWEN_MODEL", "qwen3-vl-plus"),
-            gemini_api_key=os.getenv("GEMINI_API_KEY") or None,
-            gemini_base_url=os.getenv(
+            qwen_api_key=_optional_string("QWEN_API_KEY"),
+            qwen_base_url=_optional_string("QWEN_BASE_URL"),
+            qwen_model=_string("QWEN_MODEL", "qwen3-vl-plus"),
+            gemini_api_key=_optional_string("GEMINI_API_KEY"),
+            gemini_base_url=_string(
                 "GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta"
             ),
-            gemini_model=os.getenv("GEMINI_MODEL", "gemini-3.8-flash"),
+            gemini_model=_string("GEMINI_MODEL", "gemini-3.8-flash"),
             ai_timeout_seconds=_float("KROIKA_AI_TIMEOUT_SECONDS", 45.0),
             ai_max_attempts=_integer("KROIKA_AI_MAX_ATTEMPTS", 2),
             max_image_bytes=_integer("KROIKA_MAX_IMAGE_BYTES", 10 * 1024 * 1024),

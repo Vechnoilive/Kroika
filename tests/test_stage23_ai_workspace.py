@@ -104,6 +104,7 @@ def test_provider_checks_are_text_only_for_qwen_and_gemini(tmp_path: Path) -> No
     assert '"type": "image"' not in gemini_serialized
     assert gemini_payloads[0]["store"] is False
     assert gemini_payloads[0]["generation_config"]["max_output_tokens"] == 8
+    assert "temperature" not in gemini_payloads[0]["generation_config"]
 
 
 def test_provider_check_endpoint_and_view_count_validation(tmp_path: Path) -> None:

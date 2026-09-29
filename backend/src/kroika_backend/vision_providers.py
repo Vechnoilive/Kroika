@@ -6,6 +6,7 @@ import asyncio
 import base64
 from dataclasses import dataclass
 import json
+import random
 from typing import Any, Awaitable, Callable, Mapping, Protocol
 from urllib.parse import urlparse
 
@@ -23,6 +24,8 @@ from .vision_prompt import COMMON_SYSTEM_PROMPT, analysis_instruction, provider_
 
 MAX_RESPONSE_CHARACTERS = 256_000
 MAX_EXTERNAL_IMAGE_BYTES = 14 * 1024 * 1024
+RETRY_BASE_DELAY_SECONDS = 1.0
+RETRY_MAX_JITTER_SECONDS = 0.25
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,6 +66,12 @@ async def httpx_json_transport(
 
 
 def _provider_error(status_code: int) -> AIProviderError:
+    if status_code in {408, 504}:
+        return AIProviderError(
+            ProviderErrorCode.TIMEOUT,
+            "Сервис анализа не успел ответить. Попробуйте ещё раз или выберите демо-режим.",
+            True,
+        )
     if status_code in {401, 403}:
         return AIProviderError(
             ProviderErrorCode.AUTH,
@@ -80,6 +89,12 @@ def _provider_error(status_code: int) -> AIProviderError:
             ProviderErrorCode.RATE_LIMIT,
             "Сервис анализа перегружен. Попробуйте чуть позже или выберите демо-режим.",
             True,
+        )
+    if 300 <= status_code < 500:
+        return AIProviderError(
+            ProviderErrorCode.PROVIDER_UNAVAILABLE,
+            "Сервис отклонил запрос. Проверьте API-ключ, адрес API и имя модели в настройках.",
+            False,
         )
     return AIProviderError(
         ProviderErrorCode.PROVIDER_UNAVAILABLE,
@@ -116,10 +131,12 @@ class ExternalVisionProvider:
         transport: JSONTransport = httpx_json_transport,
         retry_pause: Callable[[float], Awaitable[None]] = asyncio.sleep,
     ):
+        normalized_api_key = api_key.strip() if api_key else ""
+        normalized_base_url = base_url.strip() if base_url else ""
         self.image_store = image_store
-        self.api_key = api_key
-        self.base_url = base_url.rstrip("/") if base_url else None
-        self.model = model
+        self.api_key = normalized_api_key or None
+        self.base_url = normalized_base_url.rstrip("/") or None
+        self.model = model.strip()
         self.timeout_seconds = timeout_seconds
         self.max_attempts = max_attempts
         self.transport = transport
@@ -197,7 +214,7 @@ class ExternalVisionProvider:
                     self._url(), self._headers(), payload,
                     self.timeout_seconds,
                 )
-                if result.status_code < 400:
+                if 200 <= result.status_code < 300:
                     return result.payload
                 error = _provider_error(result.status_code)
             except AIProviderError as exc:
@@ -205,7 +222,11 @@ class ExternalVisionProvider:
             last_error = error
             if not error.retryable or attempt + 1 >= self.max_attempts:
                 raise error
-            await self.retry_pause(0.1 * (2 ** attempt))
+            delay = (
+                RETRY_BASE_DELAY_SECONDS * (2 ** attempt)
+                + random.uniform(0.0, RETRY_MAX_JITTER_SECONDS)
+            )
+            await self.retry_pause(delay)
         assert last_error is not None
         raise last_error
 
@@ -307,7 +328,8 @@ class GeminiProvider(ExternalVisionProvider):
             "system_instruction": COMMON_SYSTEM_PROMPT,
             "input": content,
             "store": False,
-            "generation_config": {"temperature": 0.1},
+            # Gemini 3.x is tuned for its default temperature. Forcing a low
+            # value can degrade or loop structured responses, so leave it unset.
             "response_format": {
                 # The canonical contract is already included once in the instruction.
                 # Repeating that large, deeply nested schema here makes Gemini compile
@@ -332,7 +354,7 @@ class GeminiProvider(ExternalVisionProvider):
             "model": self.model,
             "input": "Ответь только словом OK.",
             "store": False,
-            "generation_config": {"temperature": 0, "max_output_tokens": 8},
+            "generation_config": {"max_output_tokens": 8},
         }
 
 

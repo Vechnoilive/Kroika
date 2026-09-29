@@ -138,6 +138,7 @@ def test_gemini_payload_uses_inline_image_and_bounded_json_mode(tmp_path: Path):
     assert payload["response_format"] == {
         "type": "text", "mime_type": "application/json",
     }
+    assert "temperature" not in payload.get("generation_config", {})
     assert "Ответ обязан соответствовать этой JSON Schema" in payload["input"][0]["text"]
     assert '"schema_version"' in payload["input"][0]["text"]
     assert payload["store"] is False
@@ -182,6 +183,48 @@ def test_retry_is_bounded_and_invalid_model_output_is_rejected(tmp_path: Path):
     with pytest.raises(AIProviderError) as failure:
         asyncio.run(provider.analyze_style(request))
     assert failure.value.code is ProviderErrorCode.INVALID_SCHEMA
+
+
+def test_transient_timeout_uses_provider_safe_backoff(tmp_path: Path):
+    calls = 0
+    pauses: list[float] = []
+
+    async def timed_out(url, headers, payload, timeout):
+        nonlocal calls
+        calls += 1
+        return HTTPResult(408, {})
+
+    async def record_pause(delay: float) -> None:
+        pauses.append(delay)
+
+    provider, request = configured_provider(QwenProvider, tmp_path, timed_out, attempts=2)
+    provider.retry_pause = record_pause
+    with pytest.raises(AIProviderError) as failure:
+        asyncio.run(provider.analyze_style(request))
+
+    assert failure.value.code is ProviderErrorCode.TIMEOUT
+    assert failure.value.retryable is True
+    assert calls == 2
+    assert len(pauses) == 1
+    assert 1.0 <= pauses[0] <= 1.25
+
+
+def test_provider_configuration_errors_are_not_retried(tmp_path: Path):
+    calls = 0
+
+    async def invalid_request(url, headers, payload, timeout):
+        nonlocal calls
+        calls += 1
+        return HTTPResult(400, {})
+
+    provider, request = configured_provider(QwenProvider, tmp_path, invalid_request, attempts=2)
+    with pytest.raises(AIProviderError) as failure:
+        asyncio.run(provider.analyze_style(request))
+
+    assert failure.value.code is ProviderErrorCode.PROVIDER_UNAVAILABLE
+    assert failure.value.retryable is False
+    assert "имя модели" in failure.value.message_ru
+    assert calls == 1
 
 
 def test_qwen_reports_insufficient_openrouter_credit_without_retry(tmp_path: Path):
@@ -315,6 +358,25 @@ def test_stage10_configuration_rejects_unsafe_or_unknown_values(tmp_path: Path):
         Settings(database_path=tmp_path / "db", ai_provider="other").validate()
     with pytest.raises(ValueError, match="https"):
         Settings(database_path=tmp_path / "db", qwen_base_url="http://example.test").validate()
+
+
+def test_stage10_configuration_normalizes_external_provider_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("KROIKA_AI_PROVIDER", " gemini ")
+    monkeypatch.setenv("KROIKA_ENABLED_AI_PROVIDERS", " mock, gemini ")
+    monkeypatch.setenv("GEMINI_API_KEY", " secret-without-whitespace \n")
+    monkeypatch.setenv("GEMINI_BASE_URL", "   ")
+    monkeypatch.setenv("GEMINI_MODEL", "   ")
+
+    settings = Settings.from_env()
+    settings.validate()
+
+    assert settings.ai_provider == "gemini"
+    assert settings.enabled_ai_providers == ("mock", "gemini")
+    assert settings.gemini_api_key == "secret-without-whitespace"
+    assert settings.gemini_base_url == "https://generativelanguage.googleapis.com/v1beta"
+    assert settings.gemini_model == "gemini-3.8-flash"
 
 
 def test_stage10_runtime_contract_and_current_only_ci_are_wired(tmp_path: Path):
