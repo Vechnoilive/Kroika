@@ -354,7 +354,11 @@ class GeminiProvider(ExternalVisionProvider):
             "model": self.model,
             "input": "Ответь только словом OK.",
             "store": False,
-            "generation_config": {"max_output_tokens": 8},
+            # Gemini 3.x counts hidden thought tokens against max_output_tokens.
+            # A tiny hard limit can therefore end the request before model_output
+            # is emitted. Minimal thinking keeps this health check cheap without
+            # risking an empty, status=incomplete response.
+            "generation_config": {"thinking_level": "minimal"},
         }
 
 

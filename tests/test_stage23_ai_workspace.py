@@ -103,7 +103,8 @@ def test_provider_checks_are_text_only_for_qwen_and_gemini(tmp_path: Path) -> No
     assert qwen_payloads[0]["max_tokens"] == 8
     assert '"type": "image"' not in gemini_serialized
     assert gemini_payloads[0]["store"] is False
-    assert gemini_payloads[0]["generation_config"]["max_output_tokens"] == 8
+    assert gemini_payloads[0]["generation_config"]["thinking_level"] == "minimal"
+    assert "max_output_tokens" not in gemini_payloads[0]["generation_config"]
     assert "temperature" not in gemini_payloads[0]["generation_config"]
 
 
