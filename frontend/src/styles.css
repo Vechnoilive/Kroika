@@ -192,7 +192,7 @@ button:disabled { cursor: not-allowed; }
 
 .analysis-card--compact { margin-bottom: 24px; }
 .measurement-loading { min-height: 180px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 22px; color: var(--muted); background: var(--paper); }
-.measurement-wizard { max-width: 900px; padding: clamp(22px, 4vw, 36px); border: 1px solid var(--line); border-radius: 26px; background: var(--paper); box-shadow: var(--shadow); }
+.measurement-wizard { max-width: 1440px; width: 100%; padding: clamp(22px, 4vw, 36px); border: 1px solid var(--line); border-radius: 26px; background: var(--paper); box-shadow: var(--shadow); }
 .measurement-wizard__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
 .measurement-wizard__header h2 { margin: 0; font: 30px/1.25 'Prata', Georgia, serif; font-weight: 400; }
 .measurement-wizard__header > div:first-child > p:last-child { max-width: 610px; margin: 10px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
@@ -653,3 +653,54 @@ footer { min-height: 56px; display: flex; align-items: center; justify-content: 
   .geometry-editor__canvas { min-height: 330px; }
   .geometry-editor__canvas svg { height: 360px; }
 }
+
+.measurements-workspace { display: grid; grid-template-columns: minmax(340px, 1fr) minmax(320px, 1.05fr); gap: 24px; align-items: start; }
+.measurement-unit-switch { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.measurement-unit-switch > span { font-size: 12px; color: var(--muted); }
+.measurement-group { min-width: 0; margin: 0 0 18px; padding: 16px; border: 1px solid var(--line); border-radius: 18px; }
+.measurement-group > legend { padding: 0 8px; font-weight: 700; font-size: 15px; }
+.measurement-fields-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.measurement-field { min-width: 0; padding: 12px; border: 1px solid transparent; border-radius: 12px; background: #faf7f4; }
+.measurement-field--active { border-color: var(--peach-dark); background: #fff; }
+.measurement-field-label { display: flex; align-items: start; gap: 8px; min-height: 48px; font-size: 12px; font-weight: 700; line-height: 1.4; }
+.measurement-field-label small { display: block; margin-top: 3px; font-size: 10px; font-weight: 400; color: var(--muted); }
+.measurement-number { flex: 0 0 24px; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; color: white; font-size: 11px; }
+.measurement-input-row { display: flex; align-items: center; gap: 7px; }
+.measurement-input-row input { width: 100%; min-width: 0; height: 44px; padding: 8px 10px; background: white; border: 1px solid #d9ccc4; border-radius: 8px; color: var(--ink); font-size: 16px; }
+.measurement-input-row input[aria-invalid="true"] { border-color: #ab3434; }
+.measurement-input-row > span { color: var(--muted); font-size: 12px; }
+.measurement-field .range-hint, .measurement-field .source-note { margin: 6px 0; font-size: 10px; }
+.measurement-help { font-size: 11px; color: var(--muted); line-height: 1.5; }
+.measurement-help summary { cursor: pointer; padding: 4px 0; }
+.measurement-help p { margin: 5px 0; }
+.measurement-atlas { position: sticky; top: 18px; padding: 16px; border: 1px solid var(--line); border-radius: 18px; background: white; max-height: calc(100vh - 36px); overflow: auto; }
+.atlas-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+.atlas-heading h3 { margin: 0; font: 22px 'Prata', Georgia, serif; }
+.atlas-heading button { padding: 8px 10px; min-height: 36px; font-size: 11px; }
+.measurement-atlas figure { margin: 16px 0 10px; }
+.measurement-atlas svg, .atlas-dialog svg { display: block; width: 100%; height: auto; }
+.measurement-atlas svg g[data-measurement] { cursor: pointer; }
+.measurement-atlas figcaption { color: var(--muted); font-size: 11px; line-height: 1.5; margin-top: 8px; }
+.atlas-all { display: flex; align-items: center; gap: 7px; font-size: 12px; }
+.atlas-instruction { padding: 12px; margin: 12px 0; border-radius: 12px; background: #faf6f1; font-size: 12px; line-height: 1.5; }
+.atlas-instruction p { margin: 7px 0; }
+.atlas-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; margin-top: 12px; }
+.atlas-legend button { min-height: 34px; padding: 4px 5px; border: 1px solid transparent; border-radius: 7px; background: transparent; text-align: left; display: flex; align-items: center; gap: 6px; font-size: 10px; font-family: inherit; line-height: 1.4; color: var(--ink); }
+.atlas-legend button[aria-pressed="true"] { background: #faf6f1; border-color: var(--line); }
+.atlas-legend button span { flex: 0 0 20px; display: grid; place-items: center; height: 20px; border-radius: 50%; color: white; font-size: 10px; }
+.atlas-dialog { width: min(1400px, 96vw); max-width: 96vw; max-height: 94vh; padding: 20px; border: 1px solid var(--line); border-radius: 18px; }
+.atlas-dialog::backdrop { background: #17141a99; }
+.back-design { margin: 20px 0; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: #faf6f2; }
+.back-design legend { padding: 0 6px; font-weight: 700; }
+.back-design-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 15px; }
+.back-design-options label { display: flex; align-items: start; gap: 8px; padding: 12px; background: white; border: 1px solid var(--line); border-radius: 10px; font-size: 12px; line-height: 1.5; }
+.back-design-options label:has(input:checked) { border-color: var(--peach-dark); }
+.back-design-options small { display: block; color: var(--muted); margin-top: 5px; }
+@media (max-width: 1100px) { .measurements-workspace { grid-template-columns: minmax(290px, 1fr) minmax(290px, 1fr); gap: 15px; } .measurement-fields-grid { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .measurements-workspace { display: flex; flex-direction: column; } .measurement-atlas { order: -1; position: static; max-height: none; width: 100%; } .measurements-fields { width: 100%; } .measurement-fields-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .back-design-options { grid-template-columns: 1fr; } }
+@media (max-width: 430px) { .measurement-fields-grid, .atlas-legend { grid-template-columns: 1fr; } }
+
+.atlas-seated { max-width: 180px; margin-inline: auto !important; }
+.workspace--measurements { width: min(1680px, 100%); grid-template-columns: 190px minmax(0, 1fr); gap: 24px; padding-inline: 32px; }
+@media (max-width: 1100px) { .workspace--measurements { grid-template-columns: 1fr; } .workspace--measurements .journey { order: 2; } }
+@media (max-width: 560px) { .workspace--measurements { padding-inline: 15px; } }

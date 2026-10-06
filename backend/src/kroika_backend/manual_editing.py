@@ -12,7 +12,7 @@ from uuid import NAMESPACE_URL, uuid4, uuid5
 from kroika_pattern_engine import apply_manual_edits
 
 
-MANUAL_ENGINE_VERSION = "0.15.0"
+MANUAL_ENGINE_VERSION = "0.16.0"
 
 
 def _now() -> str:

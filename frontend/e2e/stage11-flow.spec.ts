@@ -34,9 +34,6 @@ async function fillRequiredMeasurements(page: Page) {
   for (let index = 0; index < required.length; index += 1) {
     const definition = required[index];
     await page.locator(`#measurement-${definition.id}`).fill(String(VALUES[definition.id]));
-    if (index < required.length - 1) {
-      await page.getByRole('button', {name: 'Дальше →'}).click();
-    }
   }
   await page.getByRole('button', {name: /проверить и завершить/i}).click();
 }
@@ -61,7 +58,7 @@ async function completeFlow(page: Page, provider: 'mock' | 'qwen') {
   await expect(page.getByRole('heading', {name: /проверьте фасон/i})).toBeVisible();
   await completeDesignReview(page);
   await page.getByRole('button', {name: /подтвердить фасон/i}).click();
-  await expect(page.getByRole('heading', {name: /снимаем мерки/i})).toBeVisible();
+  await expect(page.getByRole('heading', {name: /все мерки на одном экране/i})).toBeVisible();
   await fillRequiredMeasurements(page);
 
   await expect(page.getByRole('heading', {name: /подтвердите прибавки/i})).toBeVisible();

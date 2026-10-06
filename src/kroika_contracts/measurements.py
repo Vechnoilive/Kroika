@@ -7,7 +7,7 @@ from typing import Any, Literal, Mapping
 
 from .contract_io import validate_document
 
-CATALOG_VERSION = "1.0.0"
+CATALOG_VERSION = "1.1.0"
 GarmentType = Literal[
     "dress", "sundress", "skirt", "top", "blouse", "shirt", "vest",
     "jacket", "trousers", "shorts", "jumpsuit",
@@ -90,8 +90,8 @@ MEASUREMENTS: tuple[MeasurementDefinition, ...] = (
     _linear("back_hip_arc", "Задняя дуга бёдер", "Дуги", 250, 1000,
             "Измерьте по спинке между теми же боковыми вертикалями на уровне бёдер.",
             "back-arc", ALL, STAGE13_ALL),
-    _linear("shoulder_span", "Плечевой обхват", "Плечо и баланс", 280, 650,
-            "Измерьте вокруг плечевого пояса по уровню, принятому в выбранной методике.",
+    _linear("shoulder_span", "Расстояние между плечевыми точками", "Плечо и баланс", 280, 650,
+            "Измерьте прямое расстояние между правой и левой плечевыми точками. Это ширина плечевого пояса, не обхват.",
             "shoulder", UPPER, STAGE13_UPPER),
     _linear("shoulder_length", "Длина плеча", "Плечо и баланс", 80, 220,
             "От основания шеи проведите ленту до плечевой точки по середине плеча.",
@@ -176,8 +176,8 @@ MEASUREMENTS: tuple[MeasurementDefinition, ...] = (
         "shoulder-angle", UPPER, STAGE13_UPPER,
     ),
     MeasurementDefinition(
-        "hip_inclination", "Наклон линии бёдер", "Плечо и баланс", "angle", "deg", 0, 40,
-        "Угол измеряйте инструментом либо получайте только по явно указанной формуле методики.",
+        "hip_inclination", "Угол бокового расширения бёдер", "Плечо и баланс", "angle", "deg", 0, 40,
+        "В этой методике укажите удвоенный угол отклонения боковой линии от вертикали между талией и бёдрами. Это не наклон горизонтальной ленты; используйте измерительный инструмент.",
         "hip-angle", ALL, STAGE13_ALL,
     ),
 )

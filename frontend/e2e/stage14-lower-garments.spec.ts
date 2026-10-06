@@ -19,7 +19,6 @@ async function fillTrouserMeasurements(page: Page) {
     const item = required[index];
     expect(VALUES[item.id], `Нет E2E-значения для ${item.id}`).toBeDefined();
     await page.locator(`#measurement-${item.id}`).fill(String(VALUES[item.id]));
-    if (index < required.length - 1) await page.getByRole('button', {name: 'Дальше →'}).click();
   }
   await page.getByRole('button', {name: /проверить и завершить/i}).click();
 }
@@ -36,7 +35,7 @@ test('прямые брюки проходят последовательный 
   await completeDesignReview(page, {excludeElements: true});
   await page.getByRole('button', {name: /подтвердить фасон/i}).click();
 
-  await expect(page.getByRole('heading', {name: /снимаем мерки/i})).toBeVisible();
+  await expect(page.getByRole('heading', {name: /все мерки на одном экране/i})).toBeVisible();
   await fillTrouserMeasurements(page);
   await expect(page.getByRole('heading', {name: /подтвердите прибавки/i})).toBeVisible();
   await expect(page.getByLabel(/^По талии/)).toHaveValue('2');

@@ -110,7 +110,8 @@ def test_stage9_builds_audited_allowances_cutting_contours_and_matching_notches(
         for piece_id, notch in matches:
             source = next(
                 segment
-                for segment in pieces[piece_id]["seam_contour"]["segments"]
+                for path in [pieces[piece_id]["seam_contour"], *pieces[piece_id]["internal_paths"]]
+                for segment in path["segments"]
                 if segment["id"] == notch["segment_id"]
             )
             from kroika_pattern_engine.geometry import curve_from_data

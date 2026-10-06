@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "scope": "stage12_bounded_woven_variants",
   "unit": "mm",
-  "source_note": "Автоматические контрольные эталоны для канонического профиля examples/v1; не заменяют бумажную, экспертную или макетную проверку.",
+  "source_note": "Счётчик швов топа и блузки включает центральный шов ниже разреза спинки (движок 0.16.0). Автоматические контрольные эталоны для канонического профиля examples/v1; не заменяют бумажную, экспертную или макетную проверку.",
   "garments": {
     "skirt": {
       "formula_count": 14,
@@ -13,12 +13,12 @@
     "top": {
       "formula_count": 41,
       "piece_ids": ["front_bodice", "back_bodice", "front_facing", "back_facing"],
-      "seam_pair_count": 8
+      "seam_pair_count": 9
     },
     "blouse": {
       "formula_count": 41,
       "piece_ids": ["front_bodice", "back_bodice", "base_sleeve", "front_neck_facing", "back_neck_facing"],
-      "seam_pair_count": 8
+      "seam_pair_count": 9
     },
     "shirt": {
       "formula_count": 41,

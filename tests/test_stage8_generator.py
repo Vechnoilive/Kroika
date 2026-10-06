@@ -81,7 +81,7 @@ def test_supported_variant_matrix_builds_valid_complete_geometry(
     pattern = result["pattern"]
     assert pattern is not None
     assert len(pattern["pieces"]) == 6
-    assert len(pattern["seam_pairs"]) == 10
+    assert len(pattern["seam_pairs"]) == 11
     assert {piece["id"] for piece in pattern["pieces"]} == {
         "front_bodice",
         "back_bodice",
@@ -100,11 +100,13 @@ def test_supported_variant_matrix_builds_valid_complete_geometry(
     for pair in pattern["seam_pairs"]:
         first_segments = {
             segment["id"]: segment
-            for segment in pieces[pair["first_piece_id"]]["seam_contour"]["segments"]
+            for path in [pieces[pair["first_piece_id"]]["seam_contour"], *pieces[pair["first_piece_id"]]["internal_paths"]]
+            for segment in path["segments"]
         }
         second_segments = {
             segment["id"]: segment
-            for segment in pieces[pair["second_piece_id"]]["seam_contour"]["segments"]
+            for path in [pieces[pair["second_piece_id"]]["seam_contour"], *pieces[pair["second_piece_id"]]["internal_paths"]]
+            for segment in path["segments"]
         }
         first = sum(
             curve_from_data(first_segments[segment_id]).length_mm

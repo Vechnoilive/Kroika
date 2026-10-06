@@ -4,6 +4,7 @@ import {AutosaveIndicator} from './AutosaveIndicator';
 import {loadLocalDraft, useDraftAutosave} from './autosave';
 import {configureGarment, easeForGarment, GARMENT_OPTIONS, methodForGarment, presetForGarment} from './garments';
 import {DesignIntentEditor} from './DesignIntentEditor';
+import {BACK_GARMENTS, answerBackQuestions, isBackQuestion} from './backDesign';
 import {buildDesignIntent, prepareDesignIntentForReview, reevaluateDesignIntent} from './designIntent';
 import type {
   FabricProperties,
@@ -80,7 +81,7 @@ export function StyleEditor({
   if (loadedDraft.current === null) {
     const initial = structuredClone(project.garment_spec);
     const prepared = initial.design_intent
-      ? {...initial, design_intent: prepareDesignIntentForReview(initial.design_intent)}
+      ? {...initial, design_intent: answerBackQuestions(prepareDesignIntentForReview(initial.design_intent), initial)}
       : initial;
     loadedDraft.current = loadLocalDraft(draftKey, prepared, project.updated_at);
   }
@@ -123,6 +124,21 @@ export function StyleEditor({
     updateSpec(updated.design_intent
       ? {...updated, design_intent: reevaluateDesignIntent(updated.design_intent, updated, analysis)}
       : updated);
+  }
+
+  function selectBackClosure(type: 'zipper' | 'buttons' | 'lacing', title: string) {
+    const updated = {...spec, parameters: {...spec.parameters, closure: {
+      type, location: 'center_back' as const, length_mm: spec.parameters.closure.length_mm ?? 350,
+      ...(type === 'zipper' ? {} : {loop_pitch_mm: 80}),
+    }}};
+    if (updated.design_intent) updated.design_intent = {...updated.design_intent, elements: updated.design_intent.elements.map((item) => item.type === 'closure' && ['bodice_back', 'unknown'].includes(item.location) ? {
+      ...item, variant: type === 'lacing' ? 'tie' : type, location: 'bodice_back', count: 1,
+      construction: 'separate_piece', confirmed_by_user: true, description_ru: title,
+      dimensions_mm: {width: null, length: null, depth: null, spacing: null},
+    } : item)};
+    updateSpec({...updated, selection_status: 'proposed', confirmed_at: null,
+      ...(updated.design_intent ? {design_intent: reevaluateDesignIntent(updated.design_intent, updated, analysis)} : {}),
+    });
   }
 
   function selectGarment(garmentType: GarmentType) {
@@ -196,7 +212,7 @@ export function StyleEditor({
       || (sleeved && !bounded(sleeve.length_mm ?? NaN, 250, 900))
       || (closure.type !== 'none' && !bounded(
         closure.length_mm ?? NaN,
-        lowerOnly ? 120 : 300,
+        lowerOnly ? 120 : 100,
         lowerOnly ? 240 : 900,
       ));
     if (invalid) {
@@ -247,11 +263,11 @@ export function StyleEditor({
 
   const {parameters} = spec;
   const features: Record<GarmentType, Array<[string, string]>> = {
-    dress: [['Круглая горловина', 'обтачка'], ['Без рукавов', 'обтачка проймы'], ['А-юбка', 'отрезная по талии'], ['Молния сзади', 'центр спинки']],
-    sundress: [['Круглая горловина', 'обтачка'], ['Без рукавов', 'обтачка проймы'], ['А-юбка', 'отрезная по талии'], ['Молния сзади', 'центр спинки']],
-    skirt: [['А-силуэт', 'две основные детали'], ['Прямой пояс', 'перед и спинка'], ['Молния сзади', 'центр спинки'], ['Без лифа', 'только нижние мерки']],
-    top: [['Круглая горловина', 'обтачка'], ['Без рукавов', 'обтачка проймы'], ['Ниже талии', 'длина регулируется'], ['Молния сзади', 'центр спинки']],
-    blouse: [['Круглая горловина', 'без воротника'], ['Длинный рукав', 'одношовный'], ['Полуприлегающая', 'вытачки основы'], ['Молния сзади', 'центр спинки']],
+    dress: [['Круглая горловина', 'обтачка'], ['Без рукавов', 'обтачка проймы'], ['А-юбка', 'отрезная по талии'], ['Оформление спинки', parameters.closure.type === 'lacing' ? 'шнуровка' : parameters.closure.type === 'buttons' ? 'пуговицы с петлями' : 'молния']],
+    sundress: [['Круглая горловина', 'обтачка'], ['Без рукавов', 'обтачка проймы'], ['А-юбка', 'отрезная по талии'], ['Оформление спинки', parameters.closure.type === 'lacing' ? 'шнуровка' : parameters.closure.type === 'buttons' ? 'пуговицы с петлями' : 'молния']],
+    skirt: [['А-силуэт', 'две основные детали'], ['Прямой пояс', 'перед и спинка'], ['Оформление спинки', parameters.closure.type === 'lacing' ? 'шнуровка' : parameters.closure.type === 'buttons' ? 'пуговицы с петлями' : 'молния'], ['Без лифа', 'только нижние мерки']],
+    top: [['Круглая горловина', 'обтачка'], ['Без рукавов', 'обтачка проймы'], ['Ниже талии', 'длина регулируется'], ['Оформление спинки', parameters.closure.type === 'lacing' ? 'шнуровка' : parameters.closure.type === 'buttons' ? 'пуговицы с петлями' : 'молния']],
+    blouse: [['Круглая горловина', 'без воротника'], ['Длинный рукав', 'одношовный'], ['Полуприлегающая', 'вытачки основы'], ['Оформление спинки', parameters.closure.type === 'lacing' ? 'шнуровка' : parameters.closure.type === 'buttons' ? 'пуговицы с петлями' : 'молния']],
     shirt: [['Воротник', 'стойка и отлёт'], ['Длинный рукав', 'одношовный'], ['Планка спереди', 'цельнокроеная'], ['Пуговицы', 'центр переда']],
     vest: [['Круглая горловина', 'обтачка'], ['Без рукавов', 'обтачка проймы'], ['Планка спереди', 'цельнокроеная'], ['Пуговицы', 'центр переда']],
     jacket: [['Лацкан и воротник', 'отдельные верхний и нижний'], ['Длинный рукав', 'одношовный'], ['Рельеф переда', 'контрольная линия'], ['Подкладка', 'перед, спинка и рукав']],
@@ -302,6 +318,29 @@ export function StyleEditor({
         {features[spec.garment_type].map(([title, detail]) => <div key={title}><strong>{title}</strong><span>{detail}</span></div>)}
       </div>
 
+      {BACK_GARMENTS.includes(spec.garment_type) && <fieldset className="back-design">
+        <legend>Как оформить спинку?</legend>
+        <div className="back-design-options">
+          {([
+            ['zipper', 'Молния сзади', 'Разрез и метка конца молнии'],
+            ['buttons', 'Пуговицы с петлями', 'Навесные петли, метки пуговиц и обтачки'],
+            ['lacing', 'Шнуровка лентой', 'Парные петли, лента и подкладная планка'],
+          ] as const).map(([type, title, hint]) => <label key={type}>
+            <input type="radio" name="back-closure" checked={parameters.closure.type === type} onClick={() => {
+              if (parameters.closure.type === type) selectBackClosure(type, title);
+            }} onChange={() => {
+              selectBackClosure(type, title);
+            }}/><span><strong>{title}</strong><small>{hint}</small></span>
+          </label>)}
+        </div>
+        <div className="number-grid">
+          <NumberField id="back-neck-depth" label="Глубина горловины сзади" value={parameters.neckline.back_depth_mm / 10} min={1} max={12} onChange={(value) => updateParameters({neckline: {...parameters.neckline, back_depth_mm: value * 10}})} />
+          <NumberField id="closure-length" label={parameters.closure.type === 'zipper' ? 'Рабочая длина молнии' : 'Длина разреза спинки'} value={(parameters.closure.length_mm ?? 350) / 10} min={10} max={90} onChange={(value) => updateParameters({closure: {...parameters.closure, length_mm: value * 10}})} />
+          {parameters.closure.type !== 'zipper' && <NumberField id="loop-pitch" label="Расстояние между петлями" value={(parameters.closure.loop_pitch_mm ?? 80) / 10} min={4} max={12} onChange={(value) => updateParameters({closure: {...parameters.closure, loop_pitch_mm: value * 10}})} />}
+        </div>
+        <p className="field-hint">Выбор меняет лекала. Разрез измеряется от горловины вниз по центру спинки; ниже его конца проходит шов. Шнуровка соединяет края без заранее вырезанного зазора, под ней — защитная планка.</p>
+      </fieldset>}
+
       {spec.design_intent && <DesignIntentEditor
         intent={spec.design_intent}
         spec={spec}
@@ -318,7 +357,7 @@ export function StyleEditor({
 
       <div className="number-grid">
         {!['skirt', 'jacket', 'trousers', 'shorts'].includes(spec.garment_type) && <NumberField id="front-neck-depth" label="Глубина горловины спереди" value={parameters.neckline.front_depth_mm / 10} min={5} max={25} onChange={(value) => updateParameters({neckline: {...parameters.neckline, type: 'round', front_depth_mm: value * 10}})} />}
-        {!['skirt', 'jacket', 'trousers', 'shorts'].includes(spec.garment_type) && <NumberField id="back-neck-depth" label="Глубина горловины сзади" value={parameters.neckline.back_depth_mm / 10} min={1} max={12} onChange={(value) => updateParameters({neckline: {...parameters.neckline, type: 'round', back_depth_mm: value * 10}})} />}
+        {!BACK_GARMENTS.includes(spec.garment_type) && !['skirt', 'jacket', 'trousers', 'shorts'].includes(spec.garment_type) && <NumberField id="back-neck-depth" label="Глубина горловины сзади" value={parameters.neckline.back_depth_mm / 10} min={1} max={12} onChange={(value) => updateParameters({neckline: {...parameters.neckline, type: 'round', back_depth_mm: value * 10}})} />}
         {skirtBased && <NumberField id="skirt-length" label="Длина юбки от талии" value={parameters.skirt.length_from_waist_mm / 10} min={35} max={120} onChange={(value) => updateParameters({skirt: {...parameters.skirt, type: 'a_line', length_from_waist_mm: value * 10}})} />}
         {skirtBased && <NumberField id="hem-expansion" label="Изменение низа с каждой стороны (+ шире, − уже)" value={parameters.skirt.hem_expansion_each_side_mm / 10} min={-10} max={25} onChange={(value) => updateParameters({skirt: {...parameters.skirt, type: 'a_line', hem_expansion_each_side_mm: value * 10}})} />}
         {upperOnly && <NumberField id="upper-length" label="Длина ниже талии" value={(parameters.upper?.length_below_waist_mm ?? 100) / 10} min={4} max={30} onChange={(value) => updateParameters({upper: {length_below_waist_mm: value * 10}})} />}
@@ -329,13 +368,13 @@ export function StyleEditor({
         {parameters.trousers && <NumberField id="trouser-length" label={spec.garment_type === 'trousers' ? 'Длина брюк от талии' : 'Длина шорт от талии'} value={parameters.trousers.length_mm / 10} min={spec.garment_type === 'trousers' ? 70 : 38} max={spec.garment_type === 'trousers' ? 125 : 70} onChange={(value) => updateParameters({trousers: {...parameters.trousers!, length_mm: value * 10}})} />}
         {parameters.trousers && <NumberField id="trouser-waistband" label="Ширина готового пояса" value={parameters.trousers.waistband_width_mm / 10} min={3} max={5.5} onChange={(value) => updateParameters({trousers: {...parameters.trousers!, waistband_width_mm: value * 10}})} />}
         {parameters.trousers && <NumberField id="trouser-pocket" label="Длина входа в карман" value={parameters.trousers.pocket_opening_mm / 10} min={12} max={22} onChange={(value) => updateParameters({trousers: {...parameters.trousers!, pocket_opening_mm: value * 10}})} />}
-        {parameters.closure.type !== 'none' && <NumberField id="closure-length" label={parameters.closure.type === 'buttons' ? 'Длина застёжки' : 'Рабочая длина молнии'} value={(parameters.closure.length_mm ?? 550) / 10} min={lowerOnly ? 12 : 30} max={lowerOnly ? 24 : 90} onChange={(value) => updateParameters({closure: {...parameters.closure, length_mm: value * 10}, ...(parameters.trousers ? {trousers: {...parameters.trousers, fly_length_mm: value * 10}} : {})})} />}
+        {!BACK_GARMENTS.includes(spec.garment_type) && parameters.closure.type !== 'none' && <NumberField id="closure-length" label={parameters.closure.type === 'buttons' ? 'Длина застёжки' : 'Рабочая длина молнии'} value={(parameters.closure.length_mm ?? 550) / 10} min={lowerOnly ? 12 : 30} max={lowerOnly ? 24 : 90} onChange={(value) => updateParameters({closure: {...parameters.closure, length_mm: value * 10}, ...(parameters.trousers ? {trousers: {...parameters.trousers, fly_length_mm: value * 10}} : {})})} />}
       </div>
 
-      {!spec.design_intent && analysis.targeted_questions.length > 0 && (
+      {!spec.design_intent && analysis.targeted_questions.some((item) => !isBackQuestion(item)) && (
         <div className="questions">
           <strong>Что стоит проверить по исходному изделию</strong>
-          <ul>{analysis.targeted_questions.map((item) => <li key={item}>{item}</li>)}</ul>
+          <ul>{analysis.targeted_questions.filter((item) => !isBackQuestion(item)).map((item) => <li key={item}>{item}</li>)}</ul>
         </div>
       )}
       {error && <div className="inline-error" role="alert">{error}</div>}

@@ -85,6 +85,16 @@ def _safe_edit(generation: dict, distance: float = 1.0) -> dict:
         for segment_id in pair[segments]
     }
     for piece in pattern["pieces"]:
+        closure_target = any(
+            operation["kind"] == "closure" and piece["id"] in operation["target_piece_ids"]
+            for operation in pattern.get("composite_operations", [])
+        )
+        if closure_target:
+            paired.update(
+                (str(piece["id"]), str(segment["id"]))
+                for segment in piece["seam_contour"]["segments"]
+                if segment["start"][0] == 0 and segment["end"][0] == 0
+            )
         folds = {
             item["segment_id"] for item in piece["edge_allowances"]
             if item["edge_type"] == "fold"
@@ -121,7 +131,7 @@ def test_manual_edit_creates_audited_immutable_generation(tmp_path: Path) -> Non
         assert response.status_code == 200, response.text
         edited = response.json()
         assert edited["generation_id"] != base["generation_id"]
-        assert edited["engine_version"] == "0.15.0"
+        assert edited["engine_version"] == "0.16.0"
         assert edited["pattern"]["manual_adjustments"]["base_generation_id"] == base[
             "generation_id"
         ]

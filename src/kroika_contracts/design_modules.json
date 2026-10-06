@@ -1,5 +1,5 @@
 {
-  "registry_version": "1.2.0",
+  "registry_version": "1.3.0",
   "unit": "mm",
   "modules": [
     {
@@ -474,6 +474,10 @@
         {
           "type": [
             "closure"
+          ],
+          "variant": [
+            "zipper",
+            "buttons"
           ],
           "configured_closure": true
         }
@@ -1672,6 +1676,96 @@
           ]
         }
       ]
+    },
+    {
+      "id": "back_zipper_v1",
+      "group": "fixed_element",
+      "kind": "element",
+      "title_ru": "Молния по центру спинки",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse"
+          ],
+          "type": [
+            "closure"
+          ],
+          "variant": [
+            "zipper"
+          ],
+          "location": [
+            "bodice_back"
+          ],
+          "configured_closure": true
+        }
+      ],
+      "dimensions": {
+        "required": {},
+        "optional": {}
+      }
+    },
+    {
+      "id": "back_button_loops_v1",
+      "group": "fixed_element",
+      "kind": "element",
+      "title_ru": "Пуговицы с навесными петлями на спинке",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse"
+          ],
+          "type": [
+            "closure"
+          ],
+          "variant": [
+            "buttons"
+          ],
+          "location": [
+            "bodice_back"
+          ],
+          "configured_closure": true
+        }
+      ],
+      "dimensions": {
+        "required": {},
+        "optional": {}
+      }
+    },
+    {
+      "id": "back_lacing_v1",
+      "group": "fixed_element",
+      "kind": "element",
+      "title_ru": "Шнуровка спинки лентой",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse"
+          ],
+          "type": [
+            "closure"
+          ],
+          "variant": [
+            "tie"
+          ],
+          "location": [
+            "bodice_back"
+          ],
+          "configured_closure": true
+        }
+      ],
+      "dimensions": {
+        "required": {},
+        "optional": {}
+      }
     }
   ]
 }

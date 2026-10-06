@@ -193,7 +193,9 @@ def canonical_generation_payload(request: Mapping[str, Any]) -> dict[str, Any]:
     has_composites = bool(composite_elements or composite_layers)
     return {
         'hash_contract_version': (
-            '1.6.0' if advanced_proportions or any(
+            '1.7.0' if garment['parameters'].get('closure', {}).get('location') == 'center_back' and (
+                garment['parameters']['closure']['type'] in {'buttons', 'lacing'})
+            else '1.6.0' if advanced_proportions or any(
                 item['module_id'] in ADVANCED_ELEMENT_MODULES for item in details.get('elements', []))
             else '1.5.0' if details
             else '1.4.0' if topology_elements

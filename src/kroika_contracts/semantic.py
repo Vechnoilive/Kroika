@@ -495,10 +495,18 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
             )
         )
     )
+    closure = parameters['closure']
+    if 'loop_pitch_mm' in closure and not (
+        garment_type in {'dress', 'sundress', 'top', 'blouse'}
+        and closure['location'] == 'center_back'
+        and closure['type'] in {'buttons', 'lacing'}
+    ):
+        _add(issues, 'BACK_LOOP_SETTINGS_NOT_APPLICABLE', '/garment_spec/parameters/closure',
+             'Расстояние между петлями применяется только к пуговицам или шнуровке на спинке.')
     supported_variant = common and any((
         garment_type in {'dress', 'sundress'}
         and parameters['sleeve']['type'] == 'sleeveless'
-        and parameters['closure']['type'] == 'zipper'
+        and parameters['closure']['type'] in {'zipper', 'buttons', 'lacing'}
         and parameters['closure']['location'] == 'center_back'
         and finishing['neckline_facing'] is True
         and finishing['armhole_facing'] is True
@@ -516,7 +524,7 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
         and not finishing.get('collar', False),
         garment_type == 'top'
         and parameters['sleeve']['type'] == 'sleeveless'
-        and parameters['closure']['type'] == 'zipper'
+        and parameters['closure']['type'] in {'zipper', 'buttons', 'lacing'}
         and parameters['closure']['location'] == 'center_back'
         and finishing['neckline_facing'] is True
         and finishing['armhole_facing'] is True
@@ -525,7 +533,7 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
         and not finishing.get('collar', False),
         garment_type == 'blouse'
         and parameters['sleeve']['type'] == 'long'
-        and parameters['closure']['type'] == 'zipper'
+        and parameters['closure']['type'] in {'zipper', 'buttons', 'lacing'}
         and parameters['closure']['location'] == 'center_back'
         and finishing['neckline_facing'] is True
         and finishing['armhole_facing'] is False

@@ -160,7 +160,7 @@ export function canonicalGenerationPayload(request: JsonObject): JsonObject {
   if (coverage) garmentSpec.coverage_contract = coverage;
   const hasComposites = compositeElements.length > 0 || compositeLayers.length > 0;
   return {
-    hash_contract_version: hasAdvanced ? '1.6.0' : hasDetails ? '1.5.0' : topologyElements.length > 0
+    hash_contract_version: garment.parameters.closure?.location === 'center_back' && ['buttons', 'lacing'].includes(garment.parameters.closure.type) ? '1.7.0' : hasAdvanced ? '1.6.0' : hasDetails ? '1.5.0' : topologyElements.length > 0
       ? '1.4.0'
       : coverage ? '1.3.0'
       : hasComposites

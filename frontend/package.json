@@ -24,7 +24,7 @@
     "test:stage24": "vitest run src/Stage24ProjectSafety.test.tsx",
     "test:stage25": "vitest run src/Stage25PrintAcceptance.test.tsx",
     "test:stage26": "vitest run src/Stage26GenerationComparison.test.tsx",
-    "test:stage27": "vitest run src/Stage27PatternGeometryEditor.test.tsx src/DesignModuleWorkflow.test.tsx src/ModuleAssembly.test.tsx",
+    "test:stage27": "vitest run src/Stage27PatternGeometryEditor.test.tsx src/DesignModuleWorkflow.test.tsx src/ModuleAssembly.test.tsx src/MeasurementWizard.test.tsx src/MeasurementAtlas.test.tsx src/BackDesign.test.tsx",
     "e2e": "playwright test --grep-invert @qwen-live",
     "e2e:stage12": "playwright test e2e/stage12-garments.spec.ts",
     "e2e:stage13": "playwright test e2e/stage13-jacket.spec.ts",

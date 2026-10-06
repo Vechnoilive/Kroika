@@ -156,7 +156,7 @@ def _blouse_request(*elements: dict) -> dict:
     spec["garment_type"] = "blouse"
     spec["parameters"]["sleeve"] = {"type": "long", "length_mm": 580}
     spec["parameters"]["closure"] = {
-        "type": "zipper", "location": "center_back", "length_mm": 550,
+        "type": "zipper", "location": "center_back", "length_mm": 450,
     }
     spec["parameters"]["finishing"] = {
         "neckline_facing": True,

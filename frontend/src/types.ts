@@ -78,9 +78,10 @@ export interface GarmentSpec {
       pleat_count: 0;
     };
     closure: {
-      type: 'zipper' | 'buttons' | 'none';
+      type: 'zipper' | 'buttons' | 'lacing' | 'none';
       location: 'center_back' | 'center_front' | 'side' | 'none';
       length_mm: number | null;
+      loop_pitch_mm?: number;
     };
     finishing: {
       neckline_facing: boolean;

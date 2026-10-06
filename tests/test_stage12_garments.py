@@ -49,7 +49,7 @@ VARIANTS = {
     "top": {
         "preset": "woven_top_trial",
         "sleeve": {"type": "sleeveless", "length_mm": None},
-        "closure": {"type": "zipper", "location": "center_back", "length_mm": 550},
+        "closure": {"type": "zipper", "location": "center_back", "length_mm": 350},
         "finishing": {
             "neckline_facing": True, "armhole_facing": True, "waistband": False,
             "front_placket": False, "collar": False,
@@ -59,7 +59,7 @@ VARIANTS = {
     "blouse": {
         "preset": "woven_blouse_trial",
         "sleeve": {"type": "long", "length_mm": 580},
-        "closure": {"type": "zipper", "location": "center_back", "length_mm": 550},
+        "closure": {"type": "zipper", "location": "center_back", "length_mm": 450},
         "finishing": {
             "neckline_facing": True, "armhole_facing": False, "waistband": False,
             "front_placket": False, "collar": False,

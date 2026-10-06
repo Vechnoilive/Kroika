@@ -98,7 +98,14 @@ def apply_seam_allowances(
         distances: dict[str, float] = {}
         for segment in seam.segments:
             edge_type = edge_type_for_segment(piece, segment.id)
+            closure = request["garment_spec"]["parameters"]["closure"]
+            if (closure["location"] == "center_back" and closure["type"] in {"buttons", "lacing"}
+                    and "back" in piece["id"] and edge_type == "zipper"):
+                edge_type = "normal"
             allowance = allowance_values[edge_type]
+            if piece["id"] in {"back_closure_loops", "back_lacing_ribbon"}:
+                # These folded strips already describe their raw cutting dimensions.
+                allowance = 0.0
             distances[segment.id] = allowance
             edge_allowances.append({
                 "segment_id": segment.id,

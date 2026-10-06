@@ -27,7 +27,7 @@ function ruleMatches(rule: Rule, item: Item, spec: GarmentSpec): boolean {
       const locations: Record<string, string[]> = {
         center_back: ['bodice_back'], center_front: ['bodice_front', 'trouser_front'], side: ['waist'],
       };
-      return item.variant === closure.type
+      return item.variant === (closure.type === 'lacing' ? 'tie' : closure.type)
         && (locations[closure.location] ?? []).includes(String(item.location));
     }
     const value = field === 'garment_type' ? spec.garment_type

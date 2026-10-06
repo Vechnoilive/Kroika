@@ -50,15 +50,15 @@ describe('MeasurementWizard', () => {
     const onSave = vi.fn(async (profile) => saved(project, profile));
     render(<MeasurementWizard project={project} onSaveProject={onSave} />);
 
-    expect(await screen.findByLabelText(/Значение, см/)).toHaveValue(null);
-    expect(screen.getByText(/среднее значение не подставится/i)).toBeVisible();
+    expect(await screen.findByLabelText(/Обхват груди, см/)).toHaveValue('');
+    expect(screen.getByText(/пустые поля не заполняются автоматически/i)).toBeVisible();
     expect(screen.getByRole('button', {name: /проверить и завершить/i})).toBeDisabled();
   });
 
   it('normalizes centimetres to millimetres and records manual origin', async () => {
     const onSave = vi.fn(async (profile) => saved(project, profile));
     render(<MeasurementWizard project={project} onSaveProject={onSave} />);
-    const input = await screen.findByLabelText(/Значение, см/);
+    const input = await screen.findByLabelText(/Обхват груди, см/);
     await userEvent.type(input, '92');
     expect(screen.getByText('Введено вручную')).toBeVisible();
     await userEvent.click(screen.getByRole('button', {name: /сохранить сейчас/i}));
@@ -77,9 +77,9 @@ describe('MeasurementWizard', () => {
       value: 925, unit: 'mm', source: 'user', original_input: {value: 92.5, unit: 'cm'},
     };
     render(<MeasurementWizard project={project} onSaveProject={vi.fn()} />);
-    expect(await screen.findByLabelText(/Значение, см/)).toHaveValue(92.5);
+    expect(await screen.findByLabelText(/Обхват груди, см/)).toHaveValue('92.5');
     await userEvent.click(screen.getByRole('button', {name: 'мм'}));
-    expect(screen.getByLabelText(/Значение, мм/)).toHaveValue(925);
+    expect(screen.getByLabelText(/Обхват груди, мм/)).toHaveValue('925');
   });
 
   it('blocks out-of-range completion and finishes only after server validation', async () => {
@@ -88,7 +88,7 @@ describe('MeasurementWizard', () => {
       status: 'ready', required_count: 1, completed_count: 1, issues: [],
     });
     render(<MeasurementWizard project={project} onSaveProject={onSave} />);
-    const input = await screen.findByLabelText(/Значение, см/);
+    const input = await screen.findByLabelText(/Обхват груди, см/);
     await userEvent.type(input, '10');
     expect(screen.getByRole('alert')).toHaveTextContent(/рабочий диапазон/i);
     await userEvent.clear(input);
@@ -98,5 +98,25 @@ describe('MeasurementWizard', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
     expect(onSave.mock.calls[0][0].status).toBe('ready');
     expect(api.validateMeasurements).toHaveBeenCalledOnce();
+  });
+
+  it('shows every field together and accepts decimal commas and a zero angle', async () => {
+    vi.spyOn(api, 'measurementCatalog').mockResolvedValue({...catalog, measurements: [
+      ...catalog.measurements,
+      {...catalog.measurements[0], id: 'waist', label_ru: 'Обхват талии', minimum: 450},
+      {...catalog.measurements[0], id: 'shoulder_slope', label_ru: 'Наклон плеча', kind: 'angle', unit: 'deg', minimum: 0, maximum: 40},
+    ]});
+    const onSave = vi.fn(async (profile) => saved(project, profile));
+    render(<MeasurementWizard project={project} onSaveProject={onSave}/>);
+    const bust = await screen.findByLabelText('Обхват груди, см');
+    expect(screen.getByLabelText('Обхват талии, см')).toBeVisible();
+    expect(screen.getByLabelText('Наклон плеча, °')).toBeVisible();
+    expect(screen.queryByRole('button', {name: 'Дальше →'})).not.toBeInTheDocument();
+    await userEvent.type(bust, '92,5');
+    await userEvent.type(screen.getByLabelText('Наклон плеча, °'), '0');
+    await userEvent.click(screen.getByRole('button', {name: /сохранить сейчас/i}));
+    await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+    expect(onSave.mock.calls[0][0].values.bust.value).toBe(925);
+    expect(onSave.mock.calls[0][0].angles_deg?.shoulder_slope).toBe(0);
   });
 });

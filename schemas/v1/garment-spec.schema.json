@@ -97,8 +97,9 @@
           "type": "object", "additionalProperties": false,
           "required": ["type", "location", "length_mm"],
           "properties": {
-            "type": {"type": "string", "enum": ["zipper", "buttons", "none"]},
+            "type": {"type": "string", "enum": ["zipper", "buttons", "lacing", "none"]},
             "location": {"type": "string", "enum": ["center_back", "center_front", "side", "none"]},
+            "loop_pitch_mm": {"type": "number", "minimum": 40, "maximum": 120},
             "length_mm": {
               "anyOf": [
                 {"$ref": "common.schema.json#/$defs/positive_millimetres"},

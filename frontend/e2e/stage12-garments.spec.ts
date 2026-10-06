@@ -23,9 +23,6 @@ async function fillSkirtMeasurements(page: Page) {
   for (let index = 0; index < required.length; index += 1) {
     const item = required[index];
     await page.locator(`#measurement-${item.id}`).fill(String(SKIRT_VALUES[item.id]));
-    if (index < required.length - 1) {
-      await page.getByRole('button', {name: 'Дальше →'}).click();
-    }
   }
   await page.getByRole('button', {name: /проверить и завершить/i}).click();
 }
@@ -43,7 +40,7 @@ test('юбка проходит отдельный понятный сценар
   await completeDesignReview(page, {excludeElements: true});
   await page.getByRole('button', {name: /подтвердить фасон/i}).click();
 
-  await expect(page.getByRole('heading', {name: /снимаем мерки/i})).toBeVisible();
+  await expect(page.getByRole('heading', {name: /все мерки на одном экране/i})).toBeVisible();
   await fillSkirtMeasurements(page);
   await expect(page.getByRole('heading', {name: /подтвердите прибавки/i})).toBeVisible();
   await expect(page.getByLabel(/^По груди/)).toHaveCount(0);

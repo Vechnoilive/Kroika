@@ -188,15 +188,15 @@ describe('design modules and independent measurement entry', () => {
     const generate = vi.spyOn(api, 'generatePattern');
     render(<App />);
     await userEvent.click(await screen.findByRole('button', {name: 'Перейти к шагу 4: Ввести мерки'}));
-    await userEvent.type(await screen.findByLabelText(/Значение, см/), '92');
+    await userEvent.type(await screen.findByLabelText(/Обхват груди, см/), '92');
     await waitFor(() => expect(save).toHaveBeenCalled(), {timeout: 4000});
-    expect(screen.getByLabelText(/Значение, см/)).toHaveValue(92);
+    expect(screen.getByLabelText(/Обхват груди, см/)).toHaveValue('92');
     expect(screen.getByText('Мерки можно заполнить заранее')).toBeVisible();
     await userEvent.click(screen.getByRole('button', {name: /проверить и завершить/i}));
     await waitFor(() => expect(save.mock.calls.at(-1)?.[0].body_measurements.status).toBe('ready'));
     expect(save.mock.calls.at(-1)?.[0].garment_spec.design_intent?.elements[0].included).toBe(true);
     expect(save.mock.calls.at(-1)?.[0].garment_spec.selection_status).toBe('proposed');
-    expect(screen.getByLabelText(/Значение, см/)).toHaveValue(92);
+    expect(screen.getByLabelText(/Обхват груди, см/)).toHaveValue('92');
     expect(generate).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,7 @@
 import {useState} from 'react';
 import {DESIGN_ELEMENT_NAMES, finalizeDesignIntent, reevaluateDesignIntent} from './designIntent';
 import {DESIGN_MODULES, matchingModule} from './designModules';
+import {isBackQuestion} from './backDesign';
 import type {
   DesignElementType,
   DesignLocation,
@@ -296,11 +297,11 @@ export function DesignIntentEditor({
         <label className="review-check review-check--confirm"><input type="checkbox" checked={intent.proportions.confirmed_by_user === true} onChange={(event) => change({...intent, proportions: {...intent.proportions, confirmed_by_user: event.target.checked}})} /><span>Я проверил(а) пропорции</span></label>
       </article>
 
-      {intent.pending_questions.length > 0 && <div className="review-questions">
+      {intent.pending_questions.some((question) => !isBackQuestion(question)) && <div className="review-questions">
         <strong>Ответьте на вопросы модели</strong>
-        {intent.pending_questions.map((question, index) => {
+        {intent.pending_questions.filter((question) => !isBackQuestion(question)).map((question, index) => {
           const answer = intent.question_answers?.find((item) => item.question === question)?.answer_ru ?? '';
-          return <label key={question}><span>{question}</span><textarea aria-label={`Ответ на вопрос ${index + 1}`} maxLength={1000} value={answer} onChange={(event) => change({...intent, question_answers: (intent.question_answers ?? []).map((item) => item.question === question ? {...item, answer_ru: event.target.value} : item)})} /></label>;
+          return <label key={question}><span>{question}</span><textarea aria-label={`Ответ на вопрос ${index + 1}`} maxLength={1000} value={answer} onChange={(event) => change({...intent, question_answers: intent.pending_questions.map((item) => ({question: item, answer_ru: item === question ? event.target.value : intent.question_answers?.find((previous) => previous.question === item)?.answer_ru ?? ''}))})} /></label>;
         })}
       </div>}
 

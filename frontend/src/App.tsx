@@ -650,7 +650,7 @@ export default function App() {
         <div className={`connection connection--${connection}`} aria-live="polite"><span aria-hidden="true" />{connection === 'ready' && 'Работает локально'}{connection === 'checking' && 'Проверяем запуск…'}{connection === 'offline' && 'Нет связи с приложением'}</div>
       </header>
 
-      <main className="workspace">
+      <main className={`workspace${project && activeStep === 4 ? ' workspace--measurements' : ''}`}>
         <aside className="journey" aria-label="Этапы создания выкройки">
           <p className="eyebrow">Ваш путь</p>
           <h2>Семь понятных шагов</h2>

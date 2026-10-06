@@ -121,7 +121,7 @@ export function configureGarment(spec: GarmentSpec, type: GarmentType): GarmentS
         ? {type: 'zipper', location: 'center_front', length_mm: type === 'trousers' ? 180 : 150}
         : frontOpening
         ? {type: 'buttons', location: 'center_front', length_mm: 550}
-        : {type: 'zipper', location: 'center_back', length_mm: 550},
+        : {type: 'zipper', location: 'center_back', length_mm: type === 'top' ? 350 : type === 'blouse' ? 450 : 550},
       finishing: {
         neckline_facing: !separateSkirt && !lowerGarment && (type === 'blouse' || !sleeved),
         armhole_facing: !separateSkirt && !lowerGarment && !sleeved,

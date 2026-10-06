@@ -38,7 +38,8 @@ def _rule_matches(
                 'center_front': ('bodice_front', 'trouser_front'),
                 'side': ('waist',),
             }
-            if (item.get('variant') != closure['type']
+            variant = 'tie' if closure['type'] == 'lacing' else closure['type']
+            if (item.get('variant') != variant
                     or item.get('location') not in locations.get(closure['location'], ())):
                 return False
             continue

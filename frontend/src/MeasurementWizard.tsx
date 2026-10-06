@@ -3,7 +3,8 @@ import {api, ApiError} from './api';
 import {AutosaveIndicator} from './AutosaveIndicator';
 import {loadLocalDraft, useDraftAutosave} from './autosave';
 import {GARMENT_NAMES} from './garments';
-import {MeasurementGuide} from './MeasurementGuide';
+import {MeasurementAtlas} from './MeasurementAtlas';
+import {ATLAS_BY_ID} from './measurementAtlas';
 import type {
   BodyMeasurements,
   MeasurementCatalog,
@@ -91,7 +92,8 @@ export function MeasurementWizard({project, onSaveProject, onDirtyChange}: Props
   const [profileRevision, setProfileRevision] = useState<number | null>(null);
   const [selectedProfile, setSelectedProfile] = useState('');
   const [displayUnit, setDisplayUnit] = useState<DisplayUnit>('cm');
-  const [index, setIndex] = useState(0);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [rawValues, setRawValues] = useState<Record<string, string>>({});
   const [saveReusable, setSaveReusable] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
@@ -140,8 +142,9 @@ export function MeasurementWizard({project, onSaveProject, onDirtyChange}: Props
   }, [catalog]);
   const required = definitions.filter((item) => item.required);
   const completed = required.filter((item) => getNormalized(profile, item) !== undefined).length;
-  const current = definitions[Math.min(index, Math.max(0, definitions.length - 1))];
-  const currentError = current ? localIssue(profile, current, displayUnit) : null;
+  const invalid = definitions.some((item) => getNormalized(profile, item) !== undefined && Boolean(localIssue(profile, item, displayUnit)))
+    || definitions.some((item) => Boolean(rawValues[item.id]?.trim()) && getNormalized(profile, item) === undefined);
+  const groups = [...new Set(definitions.map((item) => item.group))];
   const progress = required.length ? Math.round(completed / required.length * 100) : 0;
   const saving = busy || autosave.state === 'saving';
 
@@ -151,11 +154,13 @@ export function MeasurementWizard({project, onSaveProject, onDirtyChange}: Props
   }
 
   function setMeasurement(definition: MeasurementDefinition, raw: string) {
+    setRawValues((previous) => ({...previous, [definition.id]: raw}));
     const next = copyProfile(profile);
     next.status = 'draft';
     setNotice('');
     setServerIssues([]);
-    if (raw === '') {
+    const parsed = Number(raw.trim().replace(',', '.'));
+    if (raw.trim() === '' || !Number.isFinite(parsed) || parsed < 0 || (definition.kind === 'linear' && parsed === 0)) {
       if (definition.kind === 'angle') {
         delete next.angles_deg?.[definition.id];
         delete next.angle_provenance?.[definition.id];
@@ -165,8 +170,6 @@ export function MeasurementWizard({project, onSaveProject, onDirtyChange}: Props
       updateProfile(next);
       return;
     }
-    const parsed = Number(raw.replace(',', '.'));
-    if (!Number.isFinite(parsed) || parsed <= 0) return;
     if (definition.kind === 'angle') {
       next.angles_deg = {...next.angles_deg, [definition.id]: parsed};
       next.angle_provenance = {
@@ -199,7 +202,8 @@ export function MeasurementWizard({project, onSaveProject, onDirtyChange}: Props
       setProfile(loaded);
       autosave.markDirty(loaded);
       setProfileRevision(record.revision);
-      setIndex(0);
+      setRawValues({});
+      setActiveId(null);
     } catch (caught) {
       setError(caught instanceof ApiError
         ? caught : new ApiError('Не удалось открыть профиль.', 0, 'UNKNOWN_ERROR'));
@@ -214,7 +218,8 @@ export function MeasurementWizard({project, onSaveProject, onDirtyChange}: Props
     autosave.markDirty(blank);
     setProfileRevision(null);
     setSelectedProfile('');
-    setIndex(0);
+    setRawValues({});
+    setActiveId(null);
     setServerIssues([]);
     setNotice('Создан пустой профиль — значения не подставлены.');
   }
@@ -292,7 +297,7 @@ export function MeasurementWizard({project, onSaveProject, onDirtyChange}: Props
     await persist(candidate, true);
   }
 
-  if (!catalog || !current) {
+  if (!catalog || definitions.length === 0) {
     return (
       <div className="measurement-loading" aria-live="polite">
         {error ? <span role="alert">{error.message}</span> : 'Готовим справочник мерок…'}
@@ -300,22 +305,13 @@ export function MeasurementWizard({project, onSaveProject, onDirtyChange}: Props
     );
   }
 
-  const source = current.kind === 'angle'
-    ? profile.angle_provenance?.[current.id]?.source
-    : profile.values[current.id]?.source;
-  const formula = current.kind === 'angle'
-    ? profile.angle_provenance?.[current.id]?.formula_id
-    : profile.values[current.id]?.formula_id;
-  const rangeDivisor = current.kind === 'linear' && displayUnit === 'cm' ? 10 : 1;
-  const shownUnit = current.kind === 'angle' ? '°' : displayUnit === 'cm' ? 'см' : 'мм';
-
   return (
     <section className="measurement-wizard" aria-labelledby="measurements-title">
       <header className="measurement-wizard__header">
         <div>
           <p className="eyebrow">Шаг 4 · мерки · {GARMENT_NAMES[garmentType]}</p>
-          <h2 id="measurements-title">Снимаем мерки спокойно, по одной</h2>
-          <p>Вводите размер тела без прибавок. Приложение ничего не угадывает и хранит расчёты в миллиметрах.</p>
+          <h2 id="measurements-title">Все мерки на одном экране</h2>
+          <p>Заполняйте в удобном порядке. Номер и цвет поля совпадают с линией на рисунке. Вводите размеры тела без прибавок; пустые поля не заполняются автоматически.</p>
         </div>
         <div className="measurement-progress" aria-label={`Заполнено ${completed} из ${required.length}`}>
           <strong>{completed}/{required.length}</strong>
@@ -328,7 +324,7 @@ export function MeasurementWizard({project, onSaveProject, onDirtyChange}: Props
       <div className="profile-tools">
         <label>
           <span>Название профиля</span>
-          <input value={profile.name} maxLength={120} onChange={(event) => {
+          <input value={profile.name} disabled={busy} maxLength={120} onChange={(event) => {
             updateProfile({...profile, name: event.target.value, status: 'draft'});
           }} onBlur={() => {
             if (!profile.name.trim()) updateProfile({...profile, name: 'Новые мерки'});
@@ -344,57 +340,51 @@ export function MeasurementWizard({project, onSaveProject, onDirtyChange}: Props
         <button type="button" className="secondary-button" onClick={startBlank} disabled={saving}>Новый пустой профиль</button>
       </div>
 
-      <div className="measurement-card">
-        <MeasurementGuide variant={current.illustration} label={current.label_ru} />
-        <div className="measurement-entry">
-          <div className="measurement-meta">
-            <span>{current.group}</span>
-            <span className={current.required ? 'required-label' : 'optional-label'}>
-              {current.required ? 'Обязательно' : 'Дополнительно'}
-            </span>
-          </div>
-          <h3>{current.label_ru}</h3>
-          <p className="measurement-instruction">{current.instruction_ru}</p>
-
-          {current.kind === 'linear' && (
-            <fieldset className="unit-switch">
-              <legend>Единицы ввода</legend>
-              <button type="button" aria-pressed={displayUnit === 'cm'} onClick={() => setDisplayUnit('cm')}>см</button>
-              <button type="button" aria-pressed={displayUnit === 'mm'} onClick={() => setDisplayUnit('mm')}>мм</button>
-            </fieldset>
-          )}
-          <label className="value-field" htmlFor={`measurement-${current.id}`}>
-            <span>Значение, {shownUnit}</span>
-            <div>
-              <input
-                id={`measurement-${current.id}`}
-                type="number"
-                inputMode="decimal"
-                min={current.minimum / rangeDivisor}
-                max={current.maximum / rangeDivisor}
-                step={current.kind === 'angle' || displayUnit === 'cm' ? 0.1 : 1}
-                value={displayValue(profile, current, displayUnit)}
-                onChange={(event) => setMeasurement(current, event.target.value)}
-                aria-invalid={Boolean(currentError)}
-                aria-describedby={`hint-${current.id}${currentError ? ` error-${current.id}` : ''}`}
-              />
-              <span>{shownUnit}</span>
-            </div>
-          </label>
-          <p id={`hint-${current.id}`} className="range-hint">
-            Допустимый рабочий диапазон: {current.minimum / rangeDivisor}–{current.maximum / rangeDivisor} {shownUnit}
-          </p>
-          {currentError && <p id={`error-${current.id}`} className="field-error" role="alert">{currentError}</p>}
-          <p className="source-note"><strong>{sourceLabel(source)}</strong>{formula && ` · формула ${formula}`}</p>
-          {!source && <p className="no-guess-note">Если оставить поле пустым, оно так и останется пустым — среднее значение не подставится.</p>}
+      <fieldset className="unit-switch measurement-unit-switch">
+        <legend>Единицы ввода всех размеров</legend>
+        {(['cm', 'mm'] as const).map((unit) => <button key={unit} type="button" aria-pressed={displayUnit === unit}
+          onClick={() => {setDisplayUnit(unit); setRawValues({});}}>{unit === 'cm' ? 'см' : 'мм'}</button>)}
+        <span>Углы всегда в градусах</span>
+      </fieldset>
+      <div className="measurements-workspace">
+        <div className="measurements-fields">
+          {groups.map((group) => <fieldset key={group} className="measurement-group">
+            <legend>{group}</legend>
+            <div className="measurement-fields-grid">{definitions.filter((item) => item.group === group).map((item) => {
+              const normalized = getNormalized(profile, item);
+              const raw = rawValues[item.id];
+              const errorText = normalized !== undefined ? localIssue(profile, item, displayUnit)
+                : raw?.trim() ? 'Введите допустимое число.' : null;
+              const source = item.kind === 'angle' ? profile.angle_provenance?.[item.id]?.source : profile.values[item.id]?.source;
+              const formula = item.kind === 'angle' ? profile.angle_provenance?.[item.id]?.formula_id : profile.values[item.id]?.formula_id;
+              const divisor = item.kind === 'linear' && displayUnit === 'cm' ? 10 : 1;
+              const unit = item.kind === 'angle' ? '°' : displayUnit === 'cm' ? 'см' : 'мм';
+              const line = ATLAS_BY_ID.get(item.id);
+              return <div key={item.id} className={`measurement-field${activeId === item.id ? ' measurement-field--active' : ''}`}>
+                <label htmlFor={`measurement-${item.id}`} className="measurement-field-label">
+                  <span className="measurement-number" style={{background: line?.color}}>{line?.number}</span>
+                  <span>{item.label_ru}<small>{item.required ? 'Обязательно' : 'Дополнительно'}</small></span>
+                </label>
+                <div className="measurement-input-row"><input id={`measurement-${item.id}`} disabled={busy} type="text" inputMode="decimal"
+                  value={raw ?? displayValue(profile, item, displayUnit)}
+                  aria-label={`${item.label_ru}, ${unit}`} aria-required={item.required}
+                  onFocus={() => setActiveId(item.id)} onChange={(event) => setMeasurement(item, event.target.value)}
+                  aria-invalid={Boolean(errorText)} aria-describedby={`hint-${item.id}${errorText ? ` error-${item.id}` : ''}`}/><span>{unit}</span></div>
+                <p id={`hint-${item.id}`} className="range-hint">{item.minimum / divisor}–{item.maximum / divisor} {unit}</p>
+                {errorText && <p id={`error-${item.id}`} className="field-error" role="alert">{errorText}</p>}
+                {source && <p className="source-note">{sourceLabel(source)}{formula && ` · ${formula}`}</p>}
+                <details className="measurement-help"><summary>Как снять мерку</summary><p>{item.instruction_ru}</p></details>
+              </div>;
+            })}</div>
+          </fieldset>)}
         </div>
+        <MeasurementAtlas definitions={definitions} activeId={activeId} onSelect={(id) => {
+          setActiveId(id);
+          const field = document.getElementById(`measurement-${id}`);
+          field?.focus({preventScroll: true});
+          field?.scrollIntoView?.({behavior: 'smooth', block: 'center'});
+        }} />
       </div>
-
-      <nav className="measurement-navigation" aria-label="Переход между мерками">
-        <button type="button" className="secondary-button" disabled={index === 0} onClick={() => setIndex(index - 1)}>← Назад</button>
-        <span>{index + 1} из {definitions.length}</span>
-        <button type="button" className="secondary-button" disabled={index >= definitions.length - 1 || Boolean(currentError && getNormalized(profile, current) !== undefined)} onClick={() => setIndex(index + 1)}>Дальше →</button>
-      </nav>
 
       {serverIssues.length > 0 && (
         <div className="notice notice--error" role="alert">
@@ -412,7 +402,7 @@ export function MeasurementWizard({project, onSaveProject, onDirtyChange}: Props
         </label>
         <div>
           <button type="button" className="secondary-button" onClick={() => void saveDraft()} disabled={saving}>Сохранить сейчас</button>
-          <button type="button" className="primary-button" onClick={() => void finish()} disabled={saving || completed !== required.length}>
+          <button type="button" className="primary-button" onClick={() => void finish()} disabled={saving || completed !== required.length || invalid}>
             {saving ? 'Сохраняем…' : 'Проверить и завершить'} <span aria-hidden="true">→</span>
           </button>
         </div>

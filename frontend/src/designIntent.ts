@@ -1,4 +1,5 @@
 import {matchingModule} from './designModules';
+import {answerBackQuestions} from './backDesign';
 import type {
   DesignElementType,
   GarmentDesignIntent,
@@ -177,6 +178,7 @@ export function reevaluateDesignIntent(
   spec: GarmentSpec,
   _analysis: StyleAnalysis,
 ): GarmentDesignIntent {
+  intent = answerBackQuestions(intent, spec);
   const next: GarmentDesignIntent = {
     ...intent,
     coverage_schema_version: '1.0.0',
@@ -225,8 +227,6 @@ export function finalizeDesignIntent(
   const activeModules = new Set(
     includedElements.map((item) => item.module_id).filter((item): item is string => item !== null),
   );
-  const hasSkirtTopology = activeModules.has('paired_straight_skirt_yoke_v1')
-    || activeModules.has('paired_equal_skirt_panels_v1');
   if (activeModules.has('paired_straight_skirt_yoke_v1')
       && activeModules.has('paired_equal_skirt_panels_v1')) {
     throw new Error('Для одной юбки выберите либо кокетку, либо панельное членение.');
@@ -235,15 +235,10 @@ export function finalizeDesignIntent(
     'center_pleat_v1', 'waist_gather_allowance_v1', 'circular_hem_flounce_v1',
     'paired_patch_pocket_v1',
   ];
-  const hasIncompatibleLayer = includedLayers.some((item) => (
-    ['skirt_full_lining_v1', 'skirt_overlay_layer_v1'].includes(item.module_id ?? '')
-  ));
-  if (hasSkirtTopology
-      && (incompatibleTopologyModules.some((moduleId) => activeModules.has(moduleId))
-        || hasIncompatibleLayer)) {
+  if (activeModules.has('paired_equal_skirt_panels_v1')
+      && incompatibleTopologyModules.some((moduleId) => activeModules.has(moduleId))) {
     throw new Error(
-      'Кокетки и панели пока нельзя совмещать со складкой, сборкой, воланом, '
-      + 'накладными карманами или дополнительным слоем юбки.',
+      'Панели пока нельзя совмещать со складкой, сборкой, воланом или накладными карманами.',
     );
   }
   if (includedLayers.filter((item) => item.role === 'main').length !== 1) {
