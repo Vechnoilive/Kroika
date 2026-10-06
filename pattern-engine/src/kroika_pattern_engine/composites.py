@@ -583,6 +583,18 @@ def _pair_residual(pattern: Mapping[str, Any]) -> float:
     pieces = {piece["id"]: piece for piece in pattern["pieces"]}
     residuals: list[float] = []
     for pair in pattern["seam_pairs"]:
+        if pair.get("copy_pairing") == "mirrored_copies":
+            piece = pieces[pair["first_piece_id"]]
+            if (
+                pair["first_piece_id"] != pair["second_piece_id"]
+                or piece["cut_quantity"] != 2
+                or not piece["mirrored_pair"]
+            ):
+                raise BlockConstructionError(
+                    "DETAIL_COPY_PAIR_INVALID",
+                    "Для соединения нужны две зеркальные детали.",
+                    "/pattern/seam_pairs",
+                )
         first = sum(
             _segment_length(pieces[pair["first_piece_id"]], segment_id)
             for segment_id in pair["first_segment_ids"]
@@ -614,9 +626,14 @@ def _has_piece(pattern: Mapping[str, Any], piece_id: str) -> bool:
 
 
 def _segment_length(piece: Mapping[str, Any], segment_id: str) -> float:
-    contour = contour_from_data(piece["seam_contour"])
+    paths = [piece["seam_contour"], *piece.get("internal_paths", [])]
     try:
-        return next(segment.length_mm for segment in contour.segments if segment.id == segment_id)
+        return next(
+            segment.length_mm
+            for path in paths
+            for segment in contour_from_data(path).segments
+            if segment.id == segment_id
+        )
     except StopIteration as error:
         raise BlockConstructionError(
             "COMPOSITE_TARGET_SEGMENT_MISSING",

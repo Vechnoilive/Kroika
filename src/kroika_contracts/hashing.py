@@ -8,7 +8,23 @@ from typing import Any, Mapping
 from .design_modules import (
     STAGE18_MODELING_MODULES, STAGE19_ELEMENT_MODULES, STAGE19_LAYER_MODULES,
     STAGE21_TOPOLOGY_MODULES,
+    DETAIL_ELEMENT_MODULES, DETAIL_LAYER_MODULES,
 )
+
+
+def _detail_inputs(garment: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    intent = garment.get('design_intent') or {}
+    result: dict[str, list[dict[str, Any]]] = {}
+    for group, modules in [('elements', DETAIL_ELEMENT_MODULES), ('layers', DETAIL_LAYER_MODULES)]:
+        keys = (['source_element_id', 'type', 'variant', 'location', 'construction', 'count',
+                 'dimensions_mm', 'module_id'] if group == 'elements'
+                else ['source_layer_id', 'role', 'coverage', 'opacity', 'drape', 'module_id'])
+        items = [{key: item.get(key) for key in keys} for item in intent.get(group, [])
+                 if item.get('included') is not False and item.get('support_status') == 'supported'
+                 and item.get('module_id') in modules]
+        if items:
+            result[group] = sorted(items, key=lambda item: (item['module_id'], item[keys[0]]))
+    return result
 
 
 def _modeling_elements(garment: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -155,6 +171,9 @@ def canonical_generation_payload(request: Mapping[str, Any]) -> dict[str, Any]:
     composite_elements = _composite_elements(garment)
     composite_layers = _composite_layers(garment)
     coverage_contract = _coverage_contract(garment)
+    details = _detail_inputs(garment)
+    if details:
+        garment_payload['details'] = details
     if modeling_elements:
         garment_payload['modeling_elements'] = modeling_elements
     if topology_elements:
@@ -168,7 +187,8 @@ def canonical_generation_payload(request: Mapping[str, Any]) -> dict[str, Any]:
     has_composites = bool(composite_elements or composite_layers)
     return {
         'hash_contract_version': (
-            '1.4.0' if topology_elements
+            '1.5.0' if details
+            else '1.4.0' if topology_elements
             else '1.3.0' if coverage_contract is not None
             else '1.2.0' if has_composites
             else '1.1.0' if modeling_elements

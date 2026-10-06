@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import {DESIGN_ELEMENT_NAMES, finalizeDesignIntent, reevaluateDesignIntent} from './designIntent';
-import {matchingModule} from './designModules';
+import {DESIGN_MODULES, matchingModule} from './designModules';
 import type {
   DesignElementType,
   DesignLocation,
@@ -53,7 +53,11 @@ function modelingHint(item: Element, spec: GarmentSpec): string | null {
     }).join(', ');
   const required = describe(module.dimensions.required);
   const optional = describe(module.dimensions.optional);
-  return `${module.title_ru}. ${required ? `Обязательно: ${required}. ` : ''}${optional ? `По желанию: ${optional}. ` : ''}Остальные размеры оставьте пустыми.`;
+  const extension = item.location === 'hem' && ['ruffle', 'flounce'].includes(item.type)
+    ? ' Глубина отделки добавляется к длине основной юбки.' : '';
+  const hemRoom = ['ruffle', 'flounce', 'peplum'].includes(item.type)
+    ? ' Глубина должна превышать выбранный припуск на низ минимум на 1 см.' : '';
+  return `${module.title_ru}. ${required ? `Обязательно: ${required}. ` : ''}${optional ? `По желанию: ${optional}. ` : ''}Остальные размеры оставьте пустыми.${extension}${hemRoom}`;
 }
 
 export function DesignIntentEditor({
@@ -72,6 +76,28 @@ export function DesignIntentEditor({
   onSave: (intent: GarmentDesignIntent) => Promise<void>;
 }) {
   const [error, setError] = useState('');
+  const [catalogModule, setCatalogModule] = useState('');
+  const catalog = DESIGN_MODULES.filter((module) => module.kind === 'element'
+    && Object.keys(module.dimensions?.required ?? {}).length > 0
+    && module.rules.some((rule) => (!rule.garment_type || rule.garment_type.includes(spec.garment_type))
+      && (!rule.sleeve_type || rule.sleeve_type.includes(spec.parameters.sleeve.type))));
+
+  function addCatalogElement() {
+    const module = catalog.find((entry) => entry.id === catalogModule);
+    if (!module) return;
+    const rule = module.rules.find((entry) => (!entry.garment_type || entry.garment_type.includes(spec.garment_type))
+      && (!entry.sleeve_type || entry.sleeve_type.includes(spec.parameters.sleeve.type)))!;
+    const element: Element = {
+      source_element_id: manualId('catalog'), type: rule.type[0] as Element['type'],
+      variant: rule.variant[0] as Element['variant'], location: rule.location[0] as Element['location'],
+      construction: rule.construction[0] as Element['construction'], count: rule.count[0] as number,
+      symmetry: 'symmetric', description_ru: module.title_ru,
+      confidence: 1, evidence_ru: 'Добавлено пользователем из каталога деталей.',
+      requires_confirmation: false, included: true, confirmed_by_user: false,
+      dimensions_mm: {...EMPTY_DIMENSIONS}, support_status: 'needs_confirmation', module_id: null,
+    };
+    change({...intent, source: 'manual', elements: [...intent.elements, element]});
+  }
 
   function change(candidate: GarmentDesignIntent) {
     setError('');
@@ -171,6 +197,13 @@ export function DesignIntentEditor({
         </span>
       </div>
       <p>Исправьте распознавание, исключите лишнее и укажите известные размеры. Сайт сохранит и ваш выбор, и исходную подсказку модели.</p>
+      <div className="review-fields">
+        <label><span>Добавить деталь из каталога</span><select value={catalogModule} onChange={(event) => setCatalogModule(event.target.value)}>
+          <option value="">Выберите конструкцию</option>
+          {catalog.map((module) => <option key={module.id} value={module.id}>{module.title_ru}</option>)}
+        </select></label>
+        <button type="button" disabled={!catalogModule || busy} onClick={addCatalogElement}>Добавить выбранную деталь</button>
+      </div>
 
       <div className="design-review-list">
         {intent.elements.map((item, index) => {

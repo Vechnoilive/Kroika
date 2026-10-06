@@ -10,6 +10,7 @@ from typing import Any, Mapping
 from kroika_contracts.design_modules import STAGE18_MODELING_MODULES as STAGE18_MODULES
 
 from .blocks import BlockConstructionError
+from .details import finish_edge_joins
 from .geometry import (
     AffineTransform,
     ArcSegment,
@@ -178,7 +179,11 @@ def apply_modeling_transformations(
             ))
         elif module_id == "circular_hem_flounce_v1":
             depth = _required_dimension(dimensions, "depth", source_id)
-            added_ids, residual = _add_hem_flounces(result, depth, source_id)
+            if depth < request['fit_settings']['seam_allowances_mm']['hem'] + 10:
+                raise _model_error('MODEL_FLOUNCE_HEM_ALLOWANCE_TOO_DEEP',
+                                   'Глубина волана должна превышать припуск на низ минимум на 1 см.',
+                                   source_id)
+            added_ids, residual = _add_hem_flounces(result, depth, source_id, request)
             operations.append(_operation(
                 source_id, "flounce", module_id, "M18-F01", added_ids,
                 {"depth": depth}, residual,
@@ -313,9 +318,14 @@ def _extend_center(
 
 
 def _add_hem_flounces(
-    pattern: dict[str, Any], depth_mm: float, source_id: str,
+    pattern: dict[str, Any],
+    depth_mm: float,
+    source_id: str,
+    request: Mapping[str, Any],
 ) -> tuple[list[str], float]:
-    targets = [piece_id for piece_id in ("front_skirt", "back_skirt") if _has_piece(pattern, piece_id)]
+    targets = [
+        piece_id for piece_id in ("front_skirt", "back_skirt") if _has_piece(pattern, piece_id)
+    ]
     if len(targets) != 2:
         raise _model_error(
             "MODEL_FLOUNCE_TARGET_REQUIRED",
@@ -323,21 +333,24 @@ def _add_hem_flounces(
             source_id,
         )
     added: list[str] = []
+    records = []
     for target_id in targets:
         target = _piece(pattern, target_id, source_id)
         contour = contour_from_data(target["seam_contour"])
         hem_id_map = {
             segment.id: f"{segment.id.removesuffix('_hem')}_flounce_join"
-            for segment in contour.segments if segment.id.endswith("_hem")
-        }
-        renamed_contour = Contour(tuple(
-            replace(segment, id=hem_id_map[segment.id])
-            if segment.id in hem_id_map else segment
             for segment in contour.segments
-        ), id=contour.id)
+            if segment.id.endswith("_hem")
+        }
+        renamed_contour = Contour(
+            tuple(
+                replace(segment, id=hem_id_map[segment.id]) if segment.id in hem_id_map else segment
+                for segment in contour.segments
+            ),
+            id=contour.id,
+        )
         hem_segments = [
-            segment for segment in renamed_contour.segments
-            if segment.id in hem_id_map.values()
+            segment for segment in renamed_contour.segments if segment.id in hem_id_map.values()
         ]
         if not hem_segments:
             raise _model_error(
@@ -350,56 +363,70 @@ def _add_hem_flounces(
         hem_length = sum(segment.length_mm for segment in hem_segments)
         inner, outer = flounce_radii_mm(hem_length, depth_mm)
         piece_id = f"{target_id}_flounce"
-        flounce = Contour((
-            ArcSegment.circular(Point(0.0, 0.0), inner, 0.0, math.pi, f"{piece_id}_inner_join"),
-            LineSegment(Point(-inner, 0.0), Point(-outer, 0.0), f"{piece_id}_side_left"),
-            ArcSegment.circular(Point(0.0, 0.0), outer, math.pi, -math.pi, f"{piece_id}_outer_hem"),
-            LineSegment(Point(outer, 0.0), Point(inner, 0.0), f"{piece_id}_side_right"),
-        ), id=f"{piece_id}_seam")
+        flounce = Contour(
+            (
+                ArcSegment.circular(Point(0.0, 0.0), inner, 0.0, math.pi, f"{piece_id}_inner_join"),
+                LineSegment(Point(-inner, 0.0), Point(-outer, 0.0), f"{piece_id}_side_left"),
+                ArcSegment.circular(
+                    Point(0.0, 0.0), outer, math.pi, -math.pi, f"{piece_id}_outer_hem"
+                ),
+                LineSegment(Point(outer, 0.0), Point(inner, 0.0), f"{piece_id}_side_right"),
+            ),
+            id=f"{piece_id}_seam",
+        )
         validate_simple_contour(flounce)
-        pattern["pieces"].append({
-            "id": piece_id,
-            "name_ru": f"Волан · {'перед' if target_id == 'front_skirt' else 'спинка'}",
-            "cut_quantity": 1,
-            "cut_on_fold": False,
-            "mirrored_pair": False,
-            "seam_contour": contour_to_data(flounce),
-            "cutting_contour": None,
-            "internal_paths": [],
-            "grainline": {"start": [-inner * 0.5, 8.0], "end": [inner * 0.5, 8.0]},
-            "notches": [],
-            "annotations": [{
-                "id": f"{piece_id}_formula",
-                "text_ru": f"Полукруговой волан: r={inner:.1f} мм, глубина={depth_mm:.1f} мм.",
-                "position": [0.0, outer * 0.55],
-            }],
-        })
-        pattern["seam_pairs"].append({
-            "id": f"{target_id}_flounce_join",
-            "first_piece_id": target_id,
-            "first_segment_ids": [segment.id for segment in hem_segments],
-            "second_piece_id": piece_id,
-            "second_segment_ids": [f"{piece_id}_inner_join"],
-            "first_length_reduction_mm": 0.0,
-            "second_length_reduction_mm": 0.0,
-            "allowed_ease_mm": 0.0,
-            "tolerance_mm": 1.0,
-        })
+        pattern["pieces"].append(
+            {
+                "id": piece_id,
+                "name_ru": f"Волан · {'перед' if target_id == 'front_skirt' else 'спинка'}",
+                "cut_quantity": target["cut_quantity"] * (2 if target["cut_on_fold"] else 1),
+                "cut_on_fold": False,
+                "mirrored_pair": target["cut_on_fold"] or target["mirrored_pair"],
+                "seam_contour": contour_to_data(flounce),
+                "cutting_contour": None,
+                "internal_paths": [],
+                "grainline": {
+                    "start": [-depth_mm / 4, inner + depth_mm / 2],
+                    "end": [depth_mm / 4, inner + depth_mm / 2],
+                },
+                "notches": [],
+                "annotations": [
+                    {
+                        "id": f"{piece_id}_formula",
+                        "text_ru": f"Полукруговой волан: r={inner:.1f} мм, глубина={depth_mm:.1f} мм.",
+                        "position": [0.0, inner + depth_mm / 2],
+                    }
+                ],
+            }
+        )
+        pattern["seam_pairs"].append(
+            {
+                "id": f"{target_id}_flounce_join",
+                "first_piece_id": target_id,
+                "first_segment_ids": [segment.id for segment in hem_segments],
+                "second_piece_id": piece_id,
+                "second_segment_ids": [f"{piece_id}_inner_join"],
+                "first_length_reduction_mm": 0.0,
+                "second_length_reduction_mm": 0.0,
+                "allowed_ease_mm": 0.0,
+                "tolerance_mm": 1.0,
+            }
+        )
         added.append(piece_id)
-    front_id, back_id = added
-    for suffix in ("left", "right"):
-        pattern["seam_pairs"].append({
-            "id": f"flounce_side_{suffix}_join",
-            "first_piece_id": front_id,
-            "first_segment_ids": [f"{front_id}_side_{suffix}"],
-            "second_piece_id": back_id,
-            "second_segment_ids": [f"{back_id}_side_{suffix}"],
-            "first_length_reduction_mm": 0.0,
-            "second_length_reduction_mm": 0.0,
-            "allowed_ease_mm": 0.0,
-            "tolerance_mm": 1.0,
-        })
-    return added, abs(_segment_length(_piece(pattern, added[0], source_id), f"{added[0]}_side_left") - depth_mm)
+        records.append((target, pattern["pieces"][-1], hem_segments))
+    new_interfaces = finish_edge_joins(pattern, records, request, "hem", True, source_id, "side")
+    for pair_id in new_interfaces:
+        pair = next(pair for pair in pattern["seam_pairs"] if pair["id"] == pair_id)
+        pair["id"] = (
+            "flounce_side_left_join"
+            if pair["first_piece_id"] != pair["second_piece_id"]
+            else "flounce_side_right_join"
+            if pair["first_piece_id"] == added[0]
+            else "flounce_center_back_join"
+        )
+    return added, abs(
+        _segment_length(_piece(pattern, added[0], source_id), f"{added[0]}_side_left") - depth_mm
+    )
 
 
 def _resize_waistbands(pattern: dict[str, Any], height_mm: float, source_id: str) -> list[str]:

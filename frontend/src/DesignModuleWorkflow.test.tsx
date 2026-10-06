@@ -54,6 +54,26 @@ afterEach(() => {
 });
 
 describe('design modules and independent measurement entry', () => {
+  it('adds a peplum from the catalog and includes its sizes in the saved request', async () => {
+    const project = reviewedProject();
+    const onSave = vi.fn(async (candidate: ProjectDocument) => ({...candidate, revision: candidate.revision + 1}));
+    render(<StyleEditor project={project} analysis={analysis} providerName="Gemini" onSave={onSave} />);
+    await userEvent.selectOptions(screen.getByLabelText('Добавить деталь из каталога'), 'circular_waist_peplum_v1');
+    await userEvent.click(screen.getByRole('button', {name: 'Добавить выбранную деталь'}));
+    await userEvent.type(screen.getByLabelText('Глубина детали 2, см'), '12');
+    await userEvent.click(screen.getAllByLabelText('Я проверил(а) эту деталь по фотографии')[1]);
+    await userEvent.click(screen.getByRole('button', {name: 'Сохранить проверку деталей'}));
+    await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+    const saved = onSave.mock.calls[0][0];
+    expect(saved.garment_spec.design_intent?.elements[1]).toMatchObject({
+      included: true, support_status: 'supported', module_id: 'circular_waist_peplum_v1',
+      dimensions_mm: {depth: 120},
+    });
+    const payload = canonicalGenerationPayload(await buildEngineRequest(saved));
+    expect(payload.hash_contract_version).toBe('1.5.0');
+    expect(payload.garment_spec.details.elements[0].dimensions_mm.depth).toBe(120);
+  });
+
   it('keeps a legacy saved intent unchanged when constructing the engine request', async () => {
     const project = reviewedProject();
     delete project.garment_spec.design_intent!.coverage_schema_version;

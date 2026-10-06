@@ -137,6 +137,7 @@ Windows PowerShell:
 | [UPSTREAM_BLOCK_AUDIT.md](docs/UPSTREAM_BLOCK_AUDIT.md) | Фактический запуск исходных заготовок и измеренные швы |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Модули, границы данных, hash и API |
 | [DESIGN_MODULE_WORKFLOW.md](docs/DESIGN_MODULE_WORKFLOW.md) | Единый реестр поддержки, независимые мерки и защита генерации |
+| [ADDITIONAL_DETAILS.md](docs/ADDITIONAL_DETAILS.md) | Кушак, завязки, карманы, панели, оборки, воланы, баска и дополнительные слои |
 | [AI_PROVIDERS.md](docs/AI_PROVIDERS.md) | Единый интерфейс и безопасная граница AI |
 | [PROJECT_MIGRATIONS.md](docs/PROJECT_MIGRATIONS.md) | Политика версий и миграций проектов |
 | [LOCAL_SETUP.md](docs/LOCAL_SETUP.md) | Запуск на Windows, macOS, Linux и через Docker |

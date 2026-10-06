@@ -1,5 +1,5 @@
 {
-  "registry_version": "1.0.0",
+  "registry_version": "1.1.0",
   "unit": "mm",
   "modules": [
     {
@@ -834,6 +834,643 @@
           ],
           "asymmetry": [
             "no"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "straight_sash_v1",
+      "group": "detail_element",
+      "kind": "element",
+      "title_ru": "Кушак: готовая ширина и полная длина",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest",
+            "skirt",
+            "trousers",
+            "shorts"
+          ],
+          "type": [
+            "sash"
+          ],
+          "variant": [
+            "straight",
+            "tie",
+            "standard"
+          ],
+          "location": [
+            "waist"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1
+          ],
+          "symmetry": [
+            "symmetric",
+            "single"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            40,
+            180
+          ],
+          "length": [
+            800,
+            2600
+          ]
+        },
+        "optional": {}
+      }
+    },
+    {
+      "id": "paired_waist_ties_v1",
+      "group": "detail_element",
+      "kind": "element",
+      "title_ru": "Парные завязки: готовая ширина и длина каждой",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "belt"
+          ],
+          "variant": [
+            "tie"
+          ],
+          "location": [
+            "waist"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "single"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            10,
+            60
+          ],
+          "length": [
+            200,
+            1000
+          ]
+        },
+        "optional": {}
+      }
+    },
+    {
+      "id": "placed_patch_pocket_v1",
+      "group": "detail_element",
+      "kind": "element",
+      "title_ru": "Накладной карман: ширина, глубина, отступ от нижнего края детали",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest"
+          ],
+          "type": [
+            "pocket"
+          ],
+          "variant": [
+            "patch"
+          ],
+          "location": [
+            "bodice_front",
+            "bodice_back"
+          ],
+          "construction": [
+            "applied",
+            "separate_piece"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "single"
+          ]
+        },
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "pocket"
+          ],
+          "variant": [
+            "patch"
+          ],
+          "location": [
+            "skirt_front",
+            "skirt_back"
+          ],
+          "construction": [
+            "applied",
+            "separate_piece"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "single"
+          ]
+        },
+        {
+          "garment_type": [
+            "trousers",
+            "shorts"
+          ],
+          "type": [
+            "pocket"
+          ],
+          "variant": [
+            "patch"
+          ],
+          "location": [
+            "trouser_front",
+            "trouser_back"
+          ],
+          "construction": [
+            "applied",
+            "separate_piece"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "single"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            60,
+            220
+          ],
+          "depth": [
+            60,
+            260
+          ],
+          "spacing": [
+            20,
+            800
+          ]
+        },
+        "optional": {}
+      }
+    },
+    {
+      "id": "rectangular_applied_panel_v1",
+      "group": "detail_element",
+      "kind": "element",
+      "title_ru": "Накладная панель: ширина, высота, отступ от нижнего края детали",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest"
+          ],
+          "type": [
+            "overlay"
+          ],
+          "variant": [
+            "straight",
+            "standard"
+          ],
+          "location": [
+            "bodice_front",
+            "bodice_back"
+          ],
+          "construction": [
+            "applied",
+            "layered"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "single"
+          ]
+        },
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "overlay"
+          ],
+          "variant": [
+            "straight",
+            "standard"
+          ],
+          "location": [
+            "skirt_front",
+            "skirt_back"
+          ],
+          "construction": [
+            "applied",
+            "layered"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "single"
+          ]
+        },
+        {
+          "garment_type": [
+            "trousers",
+            "shorts"
+          ],
+          "type": [
+            "overlay"
+          ],
+          "variant": [
+            "straight",
+            "standard"
+          ],
+          "location": [
+            "trouser_front",
+            "trouser_back"
+          ],
+          "construction": [
+            "applied",
+            "layered"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "single"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            30,
+            250
+          ],
+          "length": [
+            30,
+            400
+          ],
+          "spacing": [
+            20,
+            800
+          ]
+        },
+        "optional": {}
+      }
+    },
+    {
+      "id": "gathered_edge_ruffle_v1",
+      "group": "detail_element",
+      "kind": "element",
+      "title_ru": "Оборка: глубина и добавка на сборку на каждую половину среза",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest",
+            "skirt"
+          ],
+          "type": [
+            "ruffle"
+          ],
+          "variant": [
+            "gathered",
+            "soft"
+          ],
+          "location": [
+            "hem",
+            "neckline"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1
+          ],
+          "symmetry": [
+            "symmetric",
+            "single"
+          ]
+        },
+        {
+          "garment_type": [
+            "dress",
+            "top",
+            "blouse",
+            "shirt"
+          ],
+          "type": [
+            "ruffle"
+          ],
+          "variant": [
+            "gathered",
+            "soft"
+          ],
+          "location": [
+            "sleeve"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1
+          ],
+          "symmetry": [
+            "symmetric",
+            "single"
+          ],
+          "sleeve_type": [
+            "short",
+            "long"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "depth": [
+            20,
+            250
+          ],
+          "width": [
+            20,
+            600
+          ]
+        },
+        "optional": {}
+      }
+    },
+    {
+      "id": "circular_edge_flounce_v1",
+      "group": "detail_element",
+      "kind": "element",
+      "title_ru": "Круговой волан у горловины или рукава: глубина",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest"
+          ],
+          "type": [
+            "flounce"
+          ],
+          "variant": [
+            "circular"
+          ],
+          "location": [
+            "neckline"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1
+          ],
+          "symmetry": [
+            "symmetric",
+            "single"
+          ]
+        },
+        {
+          "garment_type": [
+            "dress",
+            "top",
+            "blouse",
+            "shirt"
+          ],
+          "type": [
+            "flounce"
+          ],
+          "variant": [
+            "circular"
+          ],
+          "location": [
+            "sleeve"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1
+          ],
+          "symmetry": [
+            "symmetric",
+            "single"
+          ],
+          "sleeve_type": [
+            "short",
+            "long"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "depth": [
+            30,
+            250
+          ]
+        },
+        "optional": {}
+      }
+    },
+    {
+      "id": "circular_waist_peplum_v1",
+      "group": "detail_element",
+      "kind": "element",
+      "title_ru": "Круговая баска: глубина от талии",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "peplum"
+          ],
+          "variant": [
+            "circular"
+          ],
+          "location": [
+            "waist"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1
+          ],
+          "symmetry": [
+            "symmetric",
+            "single"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "depth": [
+            60,
+            400
+          ]
+        },
+        "optional": {}
+      }
+    },
+    {
+      "id": "bodice_interfacing_v1",
+      "group": "detail_layer",
+      "kind": "layer",
+      "title_ru": "Прокладка лифа",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest"
+          ],
+          "role": [
+            "interfacing"
+          ],
+          "coverage": [
+            "bodice"
+          ],
+          "opacity": [
+            "opaque"
+          ],
+          "drape": [
+            "crisp",
+            "medium"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bodice_overlay_layer_v1",
+      "group": "detail_layer",
+      "kind": "layer",
+      "title_ru": "Накладной слой лифа",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest"
+          ],
+          "role": [
+            "overlay"
+          ],
+          "coverage": [
+            "bodice"
+          ],
+          "opacity": [
+            "opaque",
+            "semi_transparent",
+            "transparent"
+          ],
+          "drape": [
+            "medium",
+            "fluid"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sleeve_overlay_layer_v1",
+      "group": "detail_layer",
+      "kind": "layer",
+      "title_ru": "Накладной слой рукавов",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "top",
+            "blouse",
+            "shirt"
+          ],
+          "role": [
+            "overlay"
+          ],
+          "coverage": [
+            "sleeves"
+          ],
+          "opacity": [
+            "opaque",
+            "semi_transparent",
+            "transparent"
+          ],
+          "drape": [
+            "medium",
+            "fluid"
+          ],
+          "sleeve_type": [
+            "short",
+            "long"
           ]
         }
       ]

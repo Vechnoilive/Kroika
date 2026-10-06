@@ -22,6 +22,8 @@ STAGE19_LAYER_MODULES = module_ids('composite_layer')
 STAGE21_TOPOLOGY_MODULES = module_ids('topology')
 FIXED_ELEMENT_MODULES = module_ids('fixed_element')
 FIXED_LAYER_MODULES = module_ids('fixed_layer')
+DETAIL_ELEMENT_MODULES = module_ids('detail_element')
+DETAIL_LAYER_MODULES = module_ids('detail_layer')
 
 
 def _rule_matches(
@@ -40,6 +42,8 @@ def _rule_matches(
                 return False
             continue
         value = spec.get('garment_type') if field == 'garment_type' else item.get(field)
+        if field == 'sleeve_type':
+            value = spec['parameters']['sleeve']['type']
         if field == 'count':
             if (isinstance(value, bool) or not isinstance(value, (int, float))
                     or not math.isfinite(value) or value != int(value)):

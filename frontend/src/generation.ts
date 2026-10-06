@@ -134,10 +134,28 @@ export function canonicalGenerationPayload(request: JsonObject): JsonObject {
   if (compositeElements.length > 0) garmentSpec.composite_elements = compositeElements;
   if (compositeLayers.length > 0) garmentSpec.composite_layers = compositeLayers;
   const coverage = coverageContract(garment);
+  const details: JsonObject = {};
+  for (const [group, moduleGroup] of [['elements', 'detail_element'], ['layers', 'detail_layer']]) {
+    const modules = moduleIds(moduleGroup);
+    const keys = group === 'elements'
+      ? ['source_element_id', 'type', 'variant', 'location', 'construction', 'count', 'dimensions_mm', 'module_id']
+      : ['source_layer_id', 'role', 'coverage', 'opacity', 'drape', 'module_id'];
+    const items = (garment.design_intent?.[group] ?? [])
+      .filter((item: JsonObject) => item.included !== false && item.support_status === 'supported' && modules.has(item.module_id))
+      .map((item: JsonObject) => Object.fromEntries(keys.map((key) => [key, item[key] ?? null])))
+      .sort((a: JsonObject, b: JsonObject) => {
+        const left = `${a.module_id}\u0000${a[keys[0]]}`;
+        const right = `${b.module_id}\u0000${b[keys[0]]}`;
+        return left < right ? -1 : left > right ? 1 : 0;
+      });
+    if (items.length) details[group] = items;
+  }
+  const hasDetails = Object.keys(details).length > 0;
+  if (hasDetails) garmentSpec.details = details;
   if (coverage) garmentSpec.coverage_contract = coverage;
   const hasComposites = compositeElements.length > 0 || compositeLayers.length > 0;
   return {
-    hash_contract_version: topologyElements.length > 0
+    hash_contract_version: hasDetails ? '1.5.0' : topologyElements.length > 0
       ? '1.4.0'
       : coverage ? '1.3.0'
       : hasComposites

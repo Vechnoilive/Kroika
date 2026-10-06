@@ -11,6 +11,7 @@ from .design_modules import (
     STAGE18_MODELING_MODULES, STAGE19_ELEMENT_MODULES, STAGE19_LAYER_MODULES,
     STAGE21_TOPOLOGY_MODULES, FIXED_ELEMENT_MODULES, FIXED_LAYER_MODULES,
     module_matches,
+    DETAIL_ELEMENT_MODULES, DETAIL_LAYER_MODULES,
 )
 
 
@@ -222,7 +223,13 @@ def _validate_design_intent(
                      'Включённая деталь не может иметь статус excluded.')
             dimensions = item.get('dimensions_mm') if group == 'elements' else None
             module_id = item.get('module_id')
-            if group == 'elements' and module_id in STAGE18_MODELING_MODULES:
+            if module_id in DETAIL_ELEMENT_MODULES | DETAIL_LAYER_MODULES:
+                if item['support_status'] != 'supported' or not module_matches(
+                    module_id, item, spec, kind='element' if group == 'elements' else 'layer',
+                ):
+                    _add(issues, 'DESIGN_DETAIL_MODULE_MISMATCH', pointer,
+                         'Дополнительная деталь не соответствует конструкции или размерам.')
+            elif group == 'elements' and module_id in STAGE18_MODELING_MODULES:
                 if item['support_status'] != 'supported' or not _stage18_module_matches(item, spec):
                     _add(
                         issues, 'DESIGN_MODEL_MODULE_MISMATCH', pointer,

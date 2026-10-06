@@ -8,6 +8,7 @@ import math
 from typing import Any, Mapping, Sequence
 
 from .allowances import apply_seam_allowances
+from .details import validate_detail_placements
 from .geometry import GeometryError, contour_from_data, validate_simple_contour
 
 
@@ -130,9 +131,10 @@ def _validate_piece(piece: Mapping[str, Any]) -> None:
 
 
 def _segment_length(piece: Mapping[str, Any], segment_id: str) -> float:
-    contour = contour_from_data(piece["seam_contour"])
+    paths = [piece["seam_contour"], *piece.get("internal_paths", [])]
     try:
-        return next(segment.length_mm for segment in contour.segments if segment.id == segment_id)
+        return next(segment.length_mm for path in paths
+                    for segment in contour_from_data(path).segments if segment.id == segment_id)
     except StopIteration as error:
         raise ManualEditError(
             "MANUAL_SEAM_SEGMENT_MISSING",
@@ -242,6 +244,7 @@ def apply_manual_edits(
         "edits": audit,
     }
     try:
+        validate_detail_placements(result)
         printable = apply_seam_allowances(result, input_snapshot)
     except ValueError as error:
         raise ManualEditError(

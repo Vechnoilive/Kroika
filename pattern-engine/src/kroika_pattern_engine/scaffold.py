@@ -19,6 +19,7 @@ from .blocks import (
     build_trouser_blocks,
 )
 from .composites import apply_composite_transformations
+from .details import apply_detail_transformations
 from .coverage import compile_design_coverage
 from .garment_catalogue import garment_acceptance
 from .geometry import run_core_diagnostics
@@ -34,7 +35,7 @@ class GeometryPatternEngine:
     """Build a bounded experimental garment and return an auditable report."""
 
     engine_id = "kroika-geometry"
-    engine_version = "0.12.0"
+    engine_version = "0.13.0"
 
     def __init__(self, clock: Callable[[], datetime] = _utc_now):
         self._clock = clock
@@ -77,7 +78,8 @@ class GeometryPatternEngine:
             modeling = apply_modeling_transformations(assembly.pattern, request)
             topology = apply_topology_transformations(modeling.pattern, request)
             composite = apply_composite_transformations(topology.pattern, request)
-            coverage = compile_design_coverage(composite.pattern, request)
+            details = apply_detail_transformations(composite.pattern, request)
+            coverage = compile_design_coverage(details.pattern, request)
             printable_pattern = apply_seam_allowances(coverage.pattern, request)
         except BlockConstructionError as error:
             checks.append({
@@ -280,6 +282,22 @@ class GeometryPatternEngine:
                         else "Новые интерфейсы составных деталей не создавались."
                     ),
                     "measured_value": composite.maximum_invariant_residual_mm,
+                    "limit_value": 1.0,
+                    "unit": "mm",
+                },
+                {
+                    "id": "engine.details.modules",
+                    "status": "passed" if details.applied_count else "not_run",
+                    "message_ru": "Дополнительные детали построены с количеством кроя и метками крепления.",
+                    "measured_value": details.applied_count,
+                    "limit_value": details.applied_count,
+                    "unit": "1",
+                },
+                {
+                    "id": "engine.details.interfaces",
+                    "status": "passed" if details.applied_count else "not_run",
+                    "message_ru": "Размещение и длины соединений дополнительных деталей проверены.",
+                    "measured_value": details.maximum_invariant_residual_mm,
                     "limit_value": 1.0,
                     "unit": "mm",
                 },

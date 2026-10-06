@@ -30,7 +30,8 @@ function ruleMatches(rule: Rule, item: Item, spec: GarmentSpec): boolean {
       return item.variant === closure.type
         && (locations[closure.location] ?? []).includes(String(item.location));
     }
-    const value = field === 'garment_type' ? spec.garment_type : item[field];
+    const value = field === 'garment_type' ? spec.garment_type
+      : field === 'sleeve_type' ? spec.parameters.sleeve.type : item[field];
     if (field === 'count' && (typeof value !== 'number' || !Number.isInteger(value))) return false;
     return Array.isArray(allowed) && allowed.includes(value);
   });
