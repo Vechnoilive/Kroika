@@ -100,6 +100,12 @@ def install_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(AIProviderError)
     async def handle_provider_error(request: Request, exc: AIProviderError) -> JSONResponse:
+        request.app.state.logger.warning("ai_request_failed", extra={
+            "request_id": _request_id(request),
+            "error_code": exc.code.value,
+            "error_type": type(exc.__cause__).__name__ if exc.__cause__ else None,
+            "retryable": exc.retryable,
+        })
         status = {
             ProviderErrorCode.INVALID_IMAGE: 422,
             ProviderErrorCode.INVALID_SCHEMA: 422,

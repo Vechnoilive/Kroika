@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 import os
 from pathlib import Path
 from urllib.parse import urlparse
@@ -65,8 +66,8 @@ class Settings:
     gemini_api_key: str | None = None
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
     gemini_model: str = "gemini-3.8-flash"
-    ai_timeout_seconds: float = 45.0
-    ai_max_attempts: int = 2
+    ai_timeout_seconds: float = 300.0
+    ai_max_attempts: int = 3
     max_image_bytes: int = 10 * 1024 * 1024
     cors_origins: tuple[str, ...] = ("http://localhost:5173", "http://127.0.0.1:5173")
     debug: bool = False
@@ -98,8 +99,8 @@ class Settings:
                 "GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta"
             ),
             gemini_model=_string("GEMINI_MODEL", "gemini-3.8-flash"),
-            ai_timeout_seconds=_float("KROIKA_AI_TIMEOUT_SECONDS", 45.0),
-            ai_max_attempts=_integer("KROIKA_AI_MAX_ATTEMPTS", 2),
+            ai_timeout_seconds=_float("KROIKA_AI_TIMEOUT_SECONDS", 300.0),
+            ai_max_attempts=_integer("KROIKA_AI_MAX_ATTEMPTS", 3),
             max_image_bytes=_integer("KROIKA_MAX_IMAGE_BYTES", 10 * 1024 * 1024),
             cors_origins=origins,
             debug=_boolean("KROIKA_DEBUG", False),
@@ -126,8 +127,13 @@ class Settings:
             raise ValueError("KROIKA_LOG_LEVEL содержит неподдерживаемое значение")
         if not 1 <= self.ai_max_attempts <= 3:
             raise ValueError("KROIKA_AI_MAX_ATTEMPTS должен быть от 1 до 3")
-        if not 1 <= self.ai_timeout_seconds <= 180:
-            raise ValueError("KROIKA_AI_TIMEOUT_SECONDS должен быть от 1 до 180")
+        if not math.isfinite(self.ai_timeout_seconds) or not (
+            self.ai_timeout_seconds == 0 or 1 <= self.ai_timeout_seconds <= 1800
+        ):
+            raise ValueError(
+                "KROIKA_AI_TIMEOUT_SECONDS должен быть от 1 до 1800; "
+                "0 отключает ограничение ожидания ответа"
+            )
         if not 1024 <= self.max_image_bytes <= 20 * 1024 * 1024:
             raise ValueError("KROIKA_MAX_IMAGE_BYTES должен быть от 1024 до 20971520")
         for name, value in (

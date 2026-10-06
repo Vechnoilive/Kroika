@@ -35,7 +35,7 @@ from kroika_pattern_engine import (
 from .config import Settings
 from .comparison import compare_generations, generation_summary
 from .errors import AppError, install_exception_handlers
-from .logging_config import configure_logging
+from .logging_config import configure_logging, request_id_context
 from .manual_editing import build_manual_generation
 from .image_store import LocalImageStore
 from .models import (
@@ -141,7 +141,11 @@ def create_app(
         request_id = str(uuid4())
         request.state.request_id = request_id
         started = perf_counter()
-        response = await call_next(request)
+        token = request_id_context.set(request_id)
+        try:
+            response = await call_next(request)
+        finally:
+            request_id_context.reset(token)
         response.headers["X-Request-ID"] = request_id
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")

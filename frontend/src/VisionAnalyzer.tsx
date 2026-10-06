@@ -465,7 +465,7 @@ export function VisionAnalyzer({
         {busy && (
           <div className="analysis-progress" role="status" aria-live="polite">
             <span className="analysis-progress__spinner" aria-hidden="true" />
-            <div><strong>{phaseLabel(phase)}</strong><small>Прошло {elapsedSeconds} сек. Не закрывайте страницу.</small></div>
+            <div><strong>{phaseLabel(phase)}</strong><small>Прошло {elapsedSeconds} сек. {phase === 'analyzing' && isExternal ? 'Анализ и повтор при перегрузке могут занять несколько минут. ' : ''}Не закрывайте страницу.</small></div>
             <button type="button" className="text-button" onClick={() => abortRef.current?.abort()}>Отменить</button>
           </div>
         )}
