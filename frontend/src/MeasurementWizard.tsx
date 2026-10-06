@@ -4,7 +4,7 @@ import {AutosaveIndicator} from './AutosaveIndicator';
 import {loadLocalDraft, useDraftAutosave} from './autosave';
 import {GARMENT_NAMES} from './garments';
 import {MeasurementAtlas} from './MeasurementAtlas';
-import {ATLAS_BY_ID} from './measurementAtlas';
+import {ATLAS_BY_ID} from './measurementAtlasData';
 import type {
   BodyMeasurements,
   MeasurementCatalog,

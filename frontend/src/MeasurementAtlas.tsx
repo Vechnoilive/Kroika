@@ -1,6 +1,6 @@
 import {useId, useRef, useState} from 'react';
 import type {MeasurementDefinition} from './types';
-import {ATLAS_BY_ID, ATLAS_LINES} from './measurementAtlas';
+import {ATLAS_BY_ID, ATLAS_LINES} from './measurementAtlasData';
 
 export function MeasurementAtlas({definitions, activeId, onSelect}: {
   definitions: MeasurementDefinition[];

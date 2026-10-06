@@ -2,7 +2,7 @@ import {render, screen} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {describe, expect, it, vi} from 'vitest';
 import {MeasurementAtlas} from './MeasurementAtlas';
-import {ATLAS_LINES} from './measurementAtlas';
+import {ATLAS_LINES} from './measurementAtlasData';
 import type {MeasurementDefinition} from './types';
 
 const definitions = ['bust', 'waist', 'hips'].map((id) => ({id, label_ru: id, instruction_ru: `Инструкция ${id}`} as MeasurementDefinition));
