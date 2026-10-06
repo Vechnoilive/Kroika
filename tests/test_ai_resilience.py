@@ -36,6 +36,7 @@ def provider(tmp_path: Path, transport):
     request = example("example-ai-request.json")
     request["image_refs"] = [asset.image_ref]
     return GeminiProvider(
+        api_mode="interactions",
         image_store=store, api_key="secret-key", base_url="https://example.invalid/v1beta",
         model="gemini-3.5-flash", timeout_seconds=600, max_attempts=3,
         transport=transport, retry_pause=lambda _: asyncio.sleep(0),
@@ -134,7 +135,7 @@ def test_gemini_recovers_after_overload_and_honors_server_retry_delay(tmp_path):
     assert len(captured) == 3
     assert pauses == [15, 20]
     assert all(timeout == 600 for _, timeout in captured)
-    assert captured[0][0]["generation_config"] == {"thinking_level": "low"}
+    assert captured[0][0]["generation_config"] == {"thinking_level": "low", "max_output_tokens": 16384}
     assert captured[0][0]["store"] is False
 
 

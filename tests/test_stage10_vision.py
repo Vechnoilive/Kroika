@@ -46,6 +46,7 @@ def configured_provider(cls, tmp_path: Path, transport, *, attempts: int = 2):
     store = LocalImageStore(tmp_path / "images")
     asset = store.save_base64(base64.b64encode(dataset_png()).decode(), "image/png")
     provider = cls(
+        **({"api_mode": "interactions"} if cls is GeminiProvider else {}),
         image_store=store,
         api_key="server-only-secret",
         base_url="https://example.invalid/v1",

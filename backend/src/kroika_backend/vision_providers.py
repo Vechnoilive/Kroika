@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from time import perf_counter
 from typing import Any, Awaitable, Callable, Mapping, Protocol
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import httpx2 as httpx
 
@@ -359,6 +359,8 @@ class ExternalVisionProvider:
             logger.warning("ai_provider_attempt_failed", extra={
                 "request_id": request_id_context.get(),
                 "provider_id": self.provider_id,
+                "model": self.model,
+                "api_mode": getattr(self, "api_mode", None),
                 "attempt": attempt + 1, "max_attempts": self.max_attempts,
                 "upstream_status": upstream_status, "upstream_code": upstream_code,
                 "error_code": error.code.value, "retryable": error.retryable,
@@ -453,14 +455,61 @@ class GeminiProvider(ExternalVisionProvider):
     provider_id = "gemini"
     retry_base_delay_seconds = 5.0
 
+    def __init__(
+        self, *, api_mode: str = "generate_content", max_output_tokens: int = 16384,
+        **kwargs: Any,
+    ):
+        super().__init__(**kwargs)
+        if api_mode not in {"generate_content", "interactions"}:
+            raise ValueError("unsupported Gemini API mode")
+        if not 1024 <= max_output_tokens <= 65536:
+            raise ValueError("unsupported Gemini output token limit")
+        self.api_mode = api_mode
+        self.max_output_tokens = max_output_tokens
+
+    def _thinking_level(self, *, probe: bool) -> str:
+        minimal_models = {
+            "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite",
+            "gemini-3.1-flash-lite", "gemini-3-flash-preview",
+        }
+        model = self.model.removeprefix("models/")
+        return "minimal" if probe and model in minimal_models else "low"
+
+    def _content_config(self, *, probe: bool) -> dict[str, Any]:
+        model = self.model.removeprefix("models/")
+        thinking = (
+            {"thinkingBudget": 0 if probe else 1024}
+            if model.startswith("gemini-2.5-flash") else
+            {"thinkingLevel": self._thinking_level(probe=probe)}
+        )
+        config: dict[str, Any] = {"thinkingConfig": thinking}
+        if not probe:
+            config.update(responseMimeType="application/json", maxOutputTokens=self.max_output_tokens)
+        return config
+
     def _url(self) -> str:
         assert self.base_url is not None
+        if self.api_mode == "generate_content":
+            model = quote(self.model.removeprefix("models/"), safe="")
+            return f"{self.base_url}/models/{model}:generateContent"
         return f"{self.base_url}/interactions"
 
     def _headers(self) -> dict[str, str]:
         return {"x-goog-api-key": str(self.api_key), "Content-Type": "application/json"}
 
     def _payload(self, images: list[ImageAsset], instruction: str) -> dict[str, Any]:
+        if self.api_mode == "generate_content":
+            parts = [{"text": instruction}, *[{
+                "inlineData": {
+                    "data": base64.b64encode(image.data).decode("ascii"),
+                    "mimeType": image.media_type,
+                },
+            } for image in images]]
+            return {
+                "systemInstruction": {"parts": [{"text": COMMON_SYSTEM_PROMPT}]},
+                "contents": [{"role": "user", "parts": parts}],
+                "generationConfig": self._content_config(probe=False),
+            }
         content: list[dict[str, Any]] = [{"type": "text", "text": instruction}]
         content.extend({
             "type": "image",
@@ -472,7 +521,10 @@ class GeminiProvider(ExternalVisionProvider):
             "system_instruction": COMMON_SYSTEM_PROMPT,
             "input": content,
             "store": False,
-            "generation_config": {"thinking_level": "low"},
+            "generation_config": {
+                "thinking_level": self._thinking_level(probe=False),
+                "max_output_tokens": self.max_output_tokens,
+            },
             # Gemini 3.x is tuned for its default temperature. Forcing a low
             # value can degrade or loop structured responses, so leave it unset.
             "response_format": {
@@ -486,6 +538,34 @@ class GeminiProvider(ExternalVisionProvider):
         }
 
     def _extract_text(self, response: dict[str, Any]) -> str:
+        if self.api_mode == "generate_content":
+            feedback = response.get("promptFeedback", {})
+            if feedback.get("blockReason"):
+                raise AIProviderError(
+                    ProviderErrorCode.INVALID_IMAGE,
+                    "Gemini заблокировал запрос своими фильтрами. Попробуйте другой снимок или эскиз.",
+                    False,
+                )
+            candidate = response["candidates"][0]
+            finish_reason = candidate.get("finishReason")
+            if finish_reason in {"SAFETY", "RECITATION", "LANGUAGE", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII"}:
+                raise AIProviderError(
+                    ProviderErrorCode.INVALID_IMAGE,
+                    "Gemini заблокировал разбор своими фильтрами. Попробуйте другой снимок или эскиз.",
+                    False,
+                )
+            if finish_reason != "STOP":
+                raise AIProviderError(
+                    ProviderErrorCode.INVALID_SCHEMA,
+                    "Gemini не завершил разбор или исчерпал лимит выходных токенов. "
+                    "Неполный ответ не принят — повторите анализ.",
+                    False,
+                )
+            texts = [part["text"] for part in candidate["content"]["parts"]
+                     if "text" in part and not part.get("thought")]
+            if not texts:
+                raise TypeError("missing model output text")
+            return "".join(texts)
         if response.get("status") in {
             "incomplete", "budget_exceeded", "cancelled", "in_progress", "queued", "requires_action",
         }:
@@ -503,15 +583,18 @@ class GeminiProvider(ExternalVisionProvider):
         raise TypeError("missing model output text")
 
     def _probe_payload(self) -> dict[str, Any]:
+        if self.api_mode == "generate_content":
+            return {
+                "contents": [{"role": "user", "parts": [{"text": "Ответь только словом OK."}]}],
+                "generationConfig": self._content_config(probe=True),
+            }
         return {
             "model": self.model,
             "input": "Ответь только словом OK.",
             "store": False,
-            # Gemini 3.x counts hidden thought tokens against max_output_tokens.
-            # A tiny hard limit can therefore end the request before model_output
-            # is emitted. Minimal thinking keeps this health check cheap without
-            # risking an empty, status=incomplete response.
-            "generation_config": {"thinking_level": "minimal"},
+            # Use only levels supported by this model, without a tiny token cap
+            # that could consume the whole output budget on hidden thoughts.
+            "generation_config": {"thinking_level": self._thinking_level(probe=True)},
         }
 
 
@@ -579,6 +662,8 @@ def build_provider_registry(settings: Settings, image_store: LocalImageStore) ->
             model=settings.qwen_model,
         ),
         "gemini": GeminiProvider(
+            api_mode=settings.gemini_api_mode,
+            max_output_tokens=settings.gemini_max_output_tokens,
             image_store=image_store,
             timeout_seconds=settings.ai_timeout_seconds,
             max_attempts=settings.ai_max_attempts,

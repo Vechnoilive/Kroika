@@ -39,6 +39,7 @@ def _png() -> bytes:
 
 def _provider(provider_class, tmp_path: Path, transport):
     return provider_class(
+        **({"api_mode": "interactions"} if provider_class is GeminiProvider else {}),
         image_store=LocalImageStore(tmp_path / "images"),
         api_key="server-only-secret",
         base_url="https://example.invalid/v1",
@@ -103,7 +104,7 @@ def test_provider_checks_are_text_only_for_qwen_and_gemini(tmp_path: Path) -> No
     assert qwen_payloads[0]["max_tokens"] == 8
     assert '"type": "image"' not in gemini_serialized
     assert gemini_payloads[0]["store"] is False
-    assert gemini_payloads[0]["generation_config"]["thinking_level"] == "minimal"
+    assert gemini_payloads[0]["generation_config"]["thinking_level"] == "low"
     assert "max_output_tokens" not in gemini_payloads[0]["generation_config"]
     assert "temperature" not in gemini_payloads[0]["generation_config"]
 

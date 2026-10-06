@@ -66,6 +66,8 @@ class Settings:
     gemini_api_key: str | None = None
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
     gemini_model: str = "gemini-3.8-flash"
+    gemini_api_mode: str = "generate_content"
+    gemini_max_output_tokens: int = 16384
     ai_timeout_seconds: float = 300.0
     ai_max_attempts: int = 3
     max_image_bytes: int = 10 * 1024 * 1024
@@ -99,6 +101,8 @@ class Settings:
                 "GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta"
             ),
             gemini_model=_string("GEMINI_MODEL", "gemini-3.8-flash"),
+            gemini_api_mode=_string("GEMINI_API_MODE", "generate_content").lower(),
+            gemini_max_output_tokens=_integer("GEMINI_MAX_OUTPUT_TOKENS", 16384),
             ai_timeout_seconds=_float("KROIKA_AI_TIMEOUT_SECONDS", 300.0),
             ai_max_attempts=_integer("KROIKA_AI_MAX_ATTEMPTS", 3),
             max_image_bytes=_integer("KROIKA_MAX_IMAGE_BYTES", 10 * 1024 * 1024),
@@ -125,6 +129,10 @@ class Settings:
             )
         if self.log_level not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
             raise ValueError("KROIKA_LOG_LEVEL содержит неподдерживаемое значение")
+        if self.gemini_api_mode not in {"generate_content", "interactions"}:
+            raise ValueError("GEMINI_API_MODE должен быть generate_content или interactions")
+        if not 1024 <= self.gemini_max_output_tokens <= 65536:
+            raise ValueError("GEMINI_MAX_OUTPUT_TOKENS должен быть от 1024 до 65536")
         if not 1 <= self.ai_max_attempts <= 3:
             raise ValueError("KROIKA_AI_MAX_ATTEMPTS должен быть от 1 до 3")
         if not math.isfinite(self.ai_timeout_seconds) or not (

@@ -14,7 +14,7 @@ request_id_context: ContextVar[str | None] = ContextVar("request_id", default=No
 class JsonFormatter(logging.Formatter):
     _allowed = (
         "request_id", "method", "route", "status_code", "duration_ms",
-        "provider_id", "attempt", "max_attempts", "upstream_status", "upstream_code",
+        "provider_id", "model", "api_mode", "attempt", "max_attempts", "upstream_status", "upstream_code",
         "error_code", "error_type", "retryable", "retry_delay_seconds", "timeout_seconds",
     )
 
