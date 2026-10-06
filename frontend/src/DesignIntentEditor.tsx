@@ -1,5 +1,6 @@
 import {useState} from 'react';
 import {DESIGN_ELEMENT_NAMES, finalizeDesignIntent, reevaluateDesignIntent} from './designIntent';
+import {matchingModule} from './designModules';
 import type {
   DesignElementType,
   DesignLocation,
@@ -38,19 +39,21 @@ function manualId(prefix: string) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function modelingHint(item: Element): string | null {
-  if (item.type === 'pleat') return 'Для центральной складки: глубина обязательна, длина контрольных линий — по желанию.';
-  if (item.type === 'gather') return 'Для сборки: ширина — сколько добавить к срезу, длина контрольной линии — по желанию.';
-  if (item.type === 'flounce') return 'Для кругового волана по низу заполните глубину.';
-  if (item.type === 'waistband') return 'Для отдельного прямого пояса заполните ширину готового пояса.';
-  if (item.type === 'belt') return 'Для отдельного прямого ремня заполните ширину и полную длину.';
-  if (item.type === 'cuff') return 'Для прямой манжеты укажите готовую ширину; длина соединения берётся со среза рукава.';
-  if (item.type === 'collar') return 'Для стойки укажите готовую высоту; длина строится точно по горловине.';
-  if (item.type === 'pocket') return 'Для парных накладных карманов укажите ширину и глубину.';
-  if (item.type === 'yoke') return 'Для парной прямой кокетки юбки: расположение «талия», 2 детали, укажите глубину.';
-  if (item.type === 'panel') return 'Для равных панелей: расположение «всё изделие», количество 2–6 на половину; размеры оставьте пустыми.';
-  if (item.type === 'dart') return 'Для переноса талиевой вытачки в боковую: вариант shaped, 2 симметричные, ширина — переносимый раствор.';
-  return null;
+function modelingHint(item: Element, spec: GarmentSpec): string | null {
+  const module = matchingModule('element', item, spec, false);
+  if (!module?.dimensions) return null;
+  const labels: Record<string, string> = {
+    width: 'ширина', length: 'длина', depth: 'глубина', spacing: 'расстояние',
+  };
+  const describe = (dimensions: typeof module.dimensions.required) => Object.entries(dimensions)
+    .map(([field, bounds]) => {
+      const max = bounds[1] === 'skirt_length_minus_20'
+        ? spec.parameters.skirt.length_from_waist_mm - 20 : bounds[1];
+      return `${labels[field]} ${bounds[0] / 10}–${max / 10} см`;
+    }).join(', ');
+  const required = describe(module.dimensions.required);
+  const optional = describe(module.dimensions.optional);
+  return `${module.title_ru}. ${required ? `Обязательно: ${required}. ` : ''}${optional ? `По желанию: ${optional}. ` : ''}Остальные размеры оставьте пустыми.`;
 }
 
 export function DesignIntentEditor({
@@ -173,6 +176,8 @@ export function DesignIntentEditor({
         {intent.elements.map((item, index) => {
           const included = item.included !== false;
           const dimensions = item.dimensions_mm ?? EMPTY_DIMENSIONS;
+          const needsDimensions = item.support_status === 'planned'
+            && matchingModule('element', item, spec, false) !== undefined;
           return (
             <article className={`design-review-card${included ? '' : ' design-review-card--excluded'}`} key={item.source_element_id}>
               <header>
@@ -181,7 +186,7 @@ export function DesignIntentEditor({
                   <small>{item.evidence_ru}</small>
                 </div>
                 <span className={`design-support design-support--${item.support_status}`}>
-                  {SUPPORT_LABELS[item.support_status]}
+                  {needsDimensions ? 'Проверьте размеры' : SUPPORT_LABELS[item.support_status]}
                 </span>
               </header>
               <label className="review-check">
@@ -205,7 +210,7 @@ export function DesignIntentEditor({
               </div>
               <fieldset className="dimension-fields" disabled={!included}>
                 <legend>Параметры построения, см — заполняйте только известные</legend>
-                {modelingHint(item) && <p className="field-hint">{modelingHint(item)}</p>}
+                {modelingHint(item, spec) && <p className="field-hint">{modelingHint(item, spec)}</p>}
                 {([
                   ['width', 'Ширина'], ['length', 'Длина'], ['depth', 'Глубина'], ['spacing', 'Расстояние'],
                 ] as Array<[Dimension, string]>).map(([key, label]) => (
@@ -261,7 +266,7 @@ export function DesignIntentEditor({
         })}
       </div>}
 
-      {intent.status === 'partial' && <div className="notice notice--warning"><strong>Проверка сохранится, но построение останется закрытым</strong><span>Одна или несколько подтверждённых деталей пока не имеют геометрического модуля. Они не будут потеряны или заменены молча.</span></div>}
+      {intent.status === 'partial' && <div className="notice notice--warning"><strong>Проверка сохранится, но построение останется закрытым</strong><span>Для включённых деталей нужно проверить параметры или реализовать геометрию. Мерки можно вводить и сохранять уже сейчас.</span></div>}
       {error && <div className="inline-error" role="alert">{error}</div>}
       <button className="secondary-button review-save" type="button" disabled={busy} onClick={() => void saveReview()}>{busy ? 'Сохраняем проверку…' : 'Сохранить проверку деталей'}</button>
     </section>

@@ -1,31 +1,12 @@
+import {moduleIds} from './designModules';
 import type {ProjectDocument} from './types';
 
 type JsonObject = Record<string, any>;
 
-const STAGE18_MODELING_MODULES = new Set([
-  'adjustable_straight_waistband_v1',
-  'center_pleat_v1',
-  'waist_gather_allowance_v1',
-  'circular_hem_flounce_v1',
-  'straight_belt_v1',
-]);
-
-const STAGE19_ELEMENT_MODULES = new Set([
-  'sleeve_cuff_band_v1',
-  'stand_collar_v1',
-  'paired_patch_pocket_v1',
-]);
-
-const STAGE19_LAYER_MODULES = new Set([
-  'skirt_full_lining_v1',
-  'skirt_overlay_layer_v1',
-]);
-
-const STAGE21_TOPOLOGY_MODULES = new Set([
-  'paired_straight_skirt_yoke_v1',
-  'paired_equal_skirt_panels_v1',
-  'front_waist_to_side_dart_v1',
-]);
+const STAGE18_MODELING_MODULES = moduleIds('modeling');
+const STAGE19_ELEMENT_MODULES = moduleIds('composite_element');
+const STAGE19_LAYER_MODULES = moduleIds('composite_layer');
+const STAGE21_TOPOLOGY_MODULES = moduleIds('topology');
 
 function coverageContract(garment: JsonObject): JsonObject | null {
   const intent = garment.design_intent;
@@ -212,15 +193,7 @@ export async function buildEngineRequest(project: ProjectDocument): Promise<Json
     input_hash: '0'.repeat(64),
     pattern_method: source.pattern_method,
     body_measurements: project.body_measurements,
-    garment_spec: project.garment_spec.design_intent
-      ? {
-          ...project.garment_spec,
-          design_intent: {
-            ...project.garment_spec.design_intent,
-            coverage_schema_version: '1.0.0',
-          },
-        }
-      : project.garment_spec,
+    garment_spec: project.garment_spec,
     fit_settings: source.fit_settings,
     fabric_properties: source.fabric_properties,
   };

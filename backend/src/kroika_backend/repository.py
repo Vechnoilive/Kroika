@@ -14,6 +14,7 @@ from uuid import uuid4
 
 from kroika_contracts.semantic import validate_project
 from kroika_contracts.measurements import validate_measurement_profile
+from kroika_contracts.hashing import compute_input_hash
 
 from .errors import AppError
 
@@ -72,6 +73,39 @@ class SQLiteRepository:
 
     def __init__(self, database_path: Path):
         self.database_path = database_path
+
+    @staticmethod
+    def _check_generation_inputs(
+        project: dict[str, Any], request: dict[str, Any], expected_revision: int | None,
+    ) -> None:
+        if expected_revision is not None and project['revision'] != expected_revision:
+            raise AppError(
+                409, 'PROJECT_REVISION_CONFLICT',
+                'Проект изменён в другой вкладке. Обновите его перед построением.',
+            )
+        if (project['garment_spec']['selection_status'] != 'confirmed'
+                or project['body_measurements']['status'] != 'ready'
+                or project['fit_settings']['status'] != 'confirmed'
+                or project['fabric_properties']['status'] != 'confirmed'):
+            raise AppError(
+                409, 'GENERATION_INPUTS_STALE',
+                'В сохранённом проекте не завершено подтверждение входов. '
+                'Проверьте фасон, мерки и настройки перед построением.',
+            )
+        if compute_input_hash(project) != compute_input_hash(request):
+            raise AppError(
+                409, 'GENERATION_INPUTS_STALE',
+                'Параметры построения отличаются от сохранённого проекта. '
+                'Сохраните изменения и повторите построение.',
+            )
+
+    def check_generation_inputs(
+        self, request: dict[str, Any], expected_revision: int | None = None,
+    ) -> None:
+        project = self.get_project(request['project_id'])
+        if project is None:
+            raise AppError(404, 'PROJECT_NOT_FOUND', 'Сначала сохраните проект.')
+        self._check_generation_inputs(project, request, expected_revision)
 
     @staticmethod
     def _make_private(path: Path, mode: int) -> None:
@@ -698,6 +732,7 @@ class SQLiteRepository:
         self,
         result: dict[str, Any],
         input_snapshot: dict[str, Any] | None = None,
+        expected_revision: int | None = None,
     ) -> dict[str, Any]:
         """Attach an existing immutable result to the current matching inputs."""
 
@@ -709,8 +744,10 @@ class SQLiteRepository:
             ).fetchone()
             if row is None:
                 raise AppError(404, "PROJECT_NOT_FOUND", "Сначала сохраните проект.")
-            self._store_generation_input_snapshot(connection, result, input_snapshot)
             project = _load(row["payload"])
+            if input_snapshot is not None:
+                self._check_generation_inputs(project, input_snapshot, expected_revision)
+            self._store_generation_input_snapshot(connection, result, input_snapshot)
             if (project.get("latest_generation") or {}).get("generation_id") == result["generation_id"]:
                 return deepcopy(result)
             project["latest_generation"] = deepcopy(result)
@@ -751,10 +788,18 @@ class SQLiteRepository:
         self,
         result: dict[str, Any],
         input_snapshot: dict[str, Any] | None = None,
+        expected_revision: int | None = None,
     ) -> dict[str, Any]:
         project_id = result["project_id"]
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
+            current = connection.execute(
+                "SELECT payload FROM projects WHERE project_id = ?", (project_id,),
+            ).fetchone()
+            if current is None:
+                raise AppError(404, 'PROJECT_NOT_FOUND', 'Сначала сохраните проект.')
+            if input_snapshot is not None:
+                self._check_generation_inputs(_load(current['payload']), input_snapshot, expected_revision)
             existing = connection.execute(
                 "SELECT payload FROM generations "
                 "WHERE project_id = ? AND input_hash = ? AND engine_version = ?",

@@ -22,6 +22,9 @@ test = [
 where = ["src"]
 include = ["kroika_contracts*"]
 
+[tool.setuptools.package-data]
+kroika_contracts = ["design_modules.json"]
+
 [tool.ruff]
 target-version = "py312"
 line-length = 100

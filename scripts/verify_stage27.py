@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run only the manual geometry editor checks introduced at stage 27."""
+"""Run the current geometry editor and design-module workflow checks."""
 
 from __future__ import annotations
 
@@ -26,6 +26,7 @@ environment["PYTHONPATH"] = os.pathsep.join([
 commands = [
     ([sys.executable, "-m", "pytest", "-q",
       "tests/test_stage27_manual_geometry.py",
+      "tests/test_design_module_workflow.py",
       "tests/test_verify_support.py"], ROOT),
     ([sys.executable, "-m", "ruff", "check",
       "pattern-engine/src/kroika_pattern_engine/manual_edit.py",
@@ -34,7 +35,11 @@ commands = [
       "backend/src/kroika_backend/manual_editing.py",
       "backend/src/kroika_backend/models.py",
       "backend/src/kroika_backend/repository.py",
+      "src/kroika_contracts/design_modules.py",
+      "src/kroika_contracts/hashing.py",
+      "src/kroika_contracts/semantic.py",
       "tests/test_stage27_manual_geometry.py",
+      "tests/test_design_module_workflow.py",
       "tests/test_verify_support.py",
       "scripts/start_local.py",
       "scripts/verify_all.py",

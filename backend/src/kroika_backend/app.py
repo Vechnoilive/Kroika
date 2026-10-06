@@ -550,16 +550,19 @@ def create_app(
         return result
 
     @app.post("/api/v1/patterns/generate", tags=["patterns"])
-    def generate_pattern(request_document: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    def generate_pattern(
+        request_document: dict[str, Any] = Body(...),
+        if_match: int | None = Header(None, alias="If-Match", ge=1),
+    ) -> dict[str, Any]:
         validate_engine_request(request_document)
-        _project_or_404(repository, request_document["project_id"])
+        repository.check_generation_inputs(request_document, if_match)
         existing = repository.get_generation_by_hash(
             request_document["project_id"],
             request_document["input_hash"],
             pattern_engine.engine_version,
         )
         if existing is not None:
-            return repository.activate_generation(existing, request_document)
+            return repository.activate_generation(existing, request_document, if_match)
         result = pattern_engine.generate(request_document)
         validate_document("pattern-engine-result", result)
         validate_validation_report(result["validation_report"])
@@ -569,7 +572,7 @@ def create_app(
                 500, "ENGINE_RESULT_MISMATCH",
                 "Движок вернул несогласованный результат. Проект не был изменён.",
             )
-        return repository.record_generation(result, request_document)
+        return repository.record_generation(result, request_document, if_match)
 
     @app.get("/api/v1/patterns/{generation_id}/validation", tags=["patterns"])
     def get_validation(generation_id: UUID) -> dict[str, Any]:

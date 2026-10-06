@@ -1,3 +1,4 @@
+import {matchingModule} from './designModules';
 import type {
   DesignElementType,
   GarmentDesignIntent,
@@ -11,241 +12,28 @@ import type {
 type Support = {status: 'supported'; moduleId: string} | {status: 'planned'; moduleId: null};
 type IntentElement = GarmentDesignIntent['elements'][number];
 
-const EMPTY_DIMENSIONS = {width: null, length: null, depth: null, spacing: null};
-
 function elementSupport(
-  element: VisualDesignElement | IntentElement,
-  spec: GarmentSpec,
+  element: VisualDesignElement | IntentElement, spec: GarmentSpec,
 ): Support {
-  const garment = spec.garment_type;
-  const dimensions = 'dimensions_mm' in element
-    ? element.dimensions_mm ?? EMPTY_DIMENSIONS
-    : EMPTY_DIMENSIONS;
-  const onlyDimensions = (
-    required: Partial<Record<keyof typeof EMPTY_DIMENSIONS, [number, number]>>,
-    optional: Partial<Record<keyof typeof EMPTY_DIMENSIONS, [number, number]>> = {},
-  ) => Object.entries(dimensions).every(([key, value]) => {
-    const bounds = required[key as keyof typeof EMPTY_DIMENSIONS];
-    if (bounds) return typeof value === 'number' && Number.isFinite(value)
-      && value >= bounds[0] && value <= bounds[1];
-    const optionalBounds = optional[key as keyof typeof EMPTY_DIMENSIONS];
-    return optionalBounds
-      ? value === null || (typeof value === 'number' && Number.isFinite(value)
-        && value >= optionalBounds[0] && value <= optionalBounds[1])
-      : value === null;
-  });
-  const skirtBased = ['dress', 'sundress', 'skirt'].includes(garment);
-  const markerMax = spec.parameters.skirt.length_from_waist_mm - 20;
-
-  if (element.type === 'pleat'
-      && skirtBased
-      && ['knife', 'box', 'inverted'].includes(element.variant)
-      && element.location === 'skirt_front'
-      && element.construction === 'integrated'
-      && element.count === 1
-      && onlyDimensions({depth: [5, 80]}, {length: [30, markerMax]})) {
-    return {status: 'supported', moduleId: 'center_pleat_v1'};
-  }
-  if (element.type === 'gather'
-      && skirtBased
-      && ['gathered', 'soft'].includes(element.variant)
-      && element.location === 'skirt_front'
-      && element.construction === 'integrated'
-      && element.count === 1
-      && onlyDimensions({width: [20, 600]}, {length: [30, markerMax]})) {
-    return {status: 'supported', moduleId: 'waist_gather_allowance_v1'};
-  }
-  if (element.type === 'flounce'
-      && skirtBased
-      && element.variant === 'circular'
-      && element.location === 'hem'
-      && element.construction === 'separate_piece'
-      && element.count === 1
-      && onlyDimensions({depth: [30, 400]})) {
-    return {status: 'supported', moduleId: 'circular_hem_flounce_v1'};
-  }
-  if (element.type === 'waistband'
-      && ['skirt', 'trousers', 'shorts'].includes(garment)
-      && element.variant === 'straight'
-      && element.location === 'waist'
-      && element.construction === 'separate_piece'
-      && onlyDimensions({width: [25, 100]})) {
-    return {status: 'supported', moduleId: 'adjustable_straight_waistband_v1'};
-  }
-  if (element.type === 'belt'
-      && element.variant === 'straight'
-      && element.location === 'waist'
-      && element.construction === 'separate_piece'
-      && element.count === 1
-      && onlyDimensions({width: [15, 150], length: [300, 2500]})) {
-    return {status: 'supported', moduleId: 'straight_belt_v1'};
-  }
-  if (element.type === 'cuff'
-      && ['blouse', 'shirt'].includes(garment)
-      && element.variant === 'straight'
-      && element.location === 'sleeve'
-      && element.construction === 'separate_piece'
-      && element.count === 2
-      && element.symmetry === 'symmetric'
-      && onlyDimensions({width: [25, 120]})) {
-    return {status: 'supported', moduleId: 'sleeve_cuff_band_v1'};
-  }
-  if (element.type === 'collar'
-      && ['dress', 'sundress', 'top', 'blouse', 'vest'].includes(garment)
-      && element.variant === 'stand'
-      && element.location === 'neckline'
-      && element.construction === 'separate_piece'
-      && element.count === 1
-      && element.symmetry === 'symmetric'
-      && onlyDimensions({width: [20, 80]})) {
-    return {status: 'supported', moduleId: 'stand_collar_v1'};
-  }
-  if (element.type === 'pocket'
-      && skirtBased
-      && element.variant === 'patch'
-      && element.location === 'skirt_front'
-      && element.construction === 'applied'
-      && element.count === 2
-      && element.symmetry === 'symmetric'
-      && onlyDimensions({width: [80, 220], depth: [80, 260]})) {
-    return {status: 'supported', moduleId: 'paired_patch_pocket_v1'};
-  }
-  if (element.type === 'yoke'
-      && skirtBased
-      && element.variant === 'straight'
-      && element.location === 'waist'
-      && element.construction === 'separate_piece'
-      && element.count === 2
-      && element.symmetry === 'symmetric'
-      && onlyDimensions({depth: [60, 300]})) {
-    return {status: 'supported', moduleId: 'paired_straight_skirt_yoke_v1'};
-  }
-  if (element.type === 'panel'
-      && skirtBased
-      && element.variant === 'straight'
-      && element.location === 'full_garment'
-      && element.construction === 'separate_piece'
-      && typeof element.count === 'number'
-      && Number.isInteger(element.count)
-      && element.count >= 2 && element.count <= 6
-      && element.symmetry === 'symmetric'
-      && onlyDimensions({})) {
-    return {status: 'supported', moduleId: 'paired_equal_skirt_panels_v1'};
-  }
-  if (element.type === 'dart'
-      && ['dress', 'sundress', 'top', 'blouse', 'shirt', 'vest'].includes(garment)
-      && element.variant === 'shaped'
-      && element.location === 'bodice_front'
-      && element.construction === 'integrated'
-      && element.count === 2
-      && element.symmetry === 'symmetric'
-      && onlyDimensions({width: [1, 30]})) {
-    return {status: 'supported', moduleId: 'front_waist_to_side_dart_v1'};
-  }
-  if (Object.values(dimensions).some((value) => value !== null)) {
-    return {status: 'planned', moduleId: null};
-  }
-  if (element.type === 'closure') {
-    const configured = spec.parameters.closure;
-    const locationMatches = (
-      (configured.location === 'center_back' && element.location === 'bodice_back')
-      || (configured.location === 'center_front'
-        && ['bodice_front', 'trouser_front'].includes(element.location))
-      || (configured.location === 'side' && element.location === 'waist')
-    );
-    if (element.variant === configured.type && locationMatches) {
-      return {status: 'supported', moduleId: 'bounded_closure'};
-    }
-    return {status: 'planned', moduleId: null};
-  }
-  if (element.type === 'waistband'
-      && ['skirt', 'trousers', 'shorts'].includes(garment)
-      && element.variant === 'straight'
-      && element.location === 'waist'
-      && element.construction === 'separate_piece') {
-    return {status: 'supported', moduleId: 'straight_waistband'};
-  }
-  if (element.type === 'dart' && element.variant === 'standard') {
-    const upper = ['dress', 'sundress', 'top', 'blouse', 'shirt', 'vest'];
-    const locationMatches = (
-      (upper.includes(garment) && ['bodice_front', 'bodice_back'].includes(element.location))
-      || (garment === 'skirt' && ['skirt_front', 'skirt_back'].includes(element.location))
-      || (['trousers', 'shorts'].includes(garment)
-        && ['trouser_front', 'trouser_back'].includes(element.location))
-    );
-    if (locationMatches) return {status: 'supported', moduleId: 'base_dart_shaping'};
-  }
-  if (element.type === 'princess_seam'
-      && garment === 'jacket'
-      && element.location === 'bodice_front') {
-    return {status: 'supported', moduleId: 'jacket_princess_seam'};
-  }
-  if (element.type === 'collar'
-      && element.location === 'neckline'
-      && ((garment === 'shirt' && element.variant === 'shirt')
-        || (garment === 'jacket' && element.variant === 'notched'))) {
-    return {status: 'supported', moduleId: 'bounded_collar'};
-  }
-  if (element.type === 'pocket'
-      && ((garment === 'jacket' && element.variant === 'patch'
-        && element.location === 'bodice_front')
-        || (['trousers', 'shorts'].includes(garment) && element.variant === 'slash'
-          && element.location === 'trouser_front'))) {
-    return {status: 'supported', moduleId: 'bounded_pocket'};
-  }
-  if (element.type === 'vent' && element.variant === 'single'
-      && garment === 'jacket' && element.location === 'bodice_back') {
-    return {status: 'supported', moduleId: 'jacket_back_vent'};
-  }
-  return {status: 'planned', moduleId: null};
+  const module = matchingModule('element', element, spec);
+  return module ? {status: 'supported', moduleId: module.id} : {status: 'planned', moduleId: null};
 }
 
 function layerSupport(layer: VisualDesignLayer, spec: GarmentSpec): Support {
-  if (layer.role === 'main') return {status: 'supported', moduleId: 'main_fabric_layer'};
-  if (layer.role === 'lining' && spec.garment_type === 'jacket') {
-    return {status: 'supported', moduleId: 'jacket_full_lining'};
-  }
-  const skirtBased = ['dress', 'sundress', 'skirt'].includes(spec.garment_type);
-  const liningCoverage = spec.garment_type === 'skirt'
-    ? ['full', 'skirt'].includes(layer.coverage)
-    : layer.coverage === 'skirt';
-  if (layer.role === 'lining'
-      && skirtBased
-      && liningCoverage
-      && layer.opacity === 'opaque'
-      && ['crisp', 'medium', 'fluid'].includes(layer.drape)) {
-    return {status: 'supported', moduleId: 'skirt_full_lining_v1'};
-  }
-  if (layer.role === 'overlay'
-      && skirtBased
-      && layer.coverage === 'skirt'
-      && layer.opacity !== 'unknown'
-      && layer.drape !== 'unknown') {
-    return {status: 'supported', moduleId: 'skirt_overlay_layer_v1'};
-  }
-  return {status: 'planned', moduleId: null};
+  const module = matchingModule('layer', layer, spec);
+  return module ? {status: 'supported', moduleId: module.id} : {status: 'planned', moduleId: null};
 }
 
 function proportionsSupport(
-  proportions: VisualProportions,
+  proportions: VisualProportions, spec: GarmentSpec,
 ): {status: 'supported' | 'planned' | 'needs_confirmation'; moduleId: string | null} {
-  const values = [
-    proportions.waist_position,
-    proportions.volume,
-    proportions.hem_shape,
-    proportions.asymmetry,
-  ];
-  if (values.includes('unknown')) return {status: 'needs_confirmation', moduleId: null};
-  const supported = (
-    proportions.waist_position === 'natural'
-    && ['fitted', 'regular'].includes(proportions.volume)
-    && proportions.hem_shape === 'straight'
-    && proportions.asymmetry === 'no'
-  );
-  return supported
-    ? {status: 'supported', moduleId: 'bounded_visual_proportions'}
-    : {status: 'planned', moduleId: null};
+  if ([proportions.waist_position, proportions.volume, proportions.hem_shape, proportions.asymmetry]
+      .includes('unknown')) return {status: 'needs_confirmation', moduleId: null};
+  const module = matchingModule('proportions', proportions, spec);
+  return module ? {status: 'supported', moduleId: module.id} : {status: 'planned', moduleId: null};
 }
+
+const EMPTY_DIMENSIONS = {width: null, length: null, depth: null, spacing: null};
 
 export function buildDesignIntent(
   analysis: StyleAnalysis,
@@ -416,7 +204,7 @@ export function reevaluateDesignIntent(
     }),
     proportions: intent.proportions.confirmed_by_user === true
       ? (() => {
-          const support = proportionsSupport(intent.proportions);
+          const support = proportionsSupport(intent.proportions, spec);
           return {...intent.proportions, support_status: support.status, module_id: support.moduleId};
         })()
       : {...intent.proportions, support_status: 'needs_confirmation', module_id: null},

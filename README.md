@@ -122,7 +122,7 @@ Windows PowerShell:
 .venv\Scripts\python.exe scripts\verify_stage27.py
 ```
 
-Команда запускает только новые проверки этапа 27: неизменяемые ручные версии, ограничения геометрии, редактор, frontend test, typecheck и production-сборку. Тесты прошлых этапов и live AI этой командой не запускаются; полная историческая регрессия остаётся отдельной командой `scripts/verify_all.py`.
+Команда запускает текущие проверки: неизменяемые ручные версии, ограничения геометрии, редактор, передачу волана до PDF, защиту от устаревших входов, независимый ввод мерок, typecheck и production-сборку. Полная историческая регрессия остаётся отдельной командой `scripts/verify_all.py`.
 
 ## Документы
 
@@ -136,6 +136,7 @@ Windows PowerShell:
 | [REFERENCE_CALCULATIONS.md](docs/REFERENCE_CALCULATIONS.md) | Три пошаговых вычислительных листа |
 | [UPSTREAM_BLOCK_AUDIT.md](docs/UPSTREAM_BLOCK_AUDIT.md) | Фактический запуск исходных заготовок и измеренные швы |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Модули, границы данных, hash и API |
+| [DESIGN_MODULE_WORKFLOW.md](docs/DESIGN_MODULE_WORKFLOW.md) | Единый реестр поддержки, независимые мерки и защита генерации |
 | [AI_PROVIDERS.md](docs/AI_PROVIDERS.md) | Единый интерфейс и безопасная граница AI |
 | [PROJECT_MIGRATIONS.md](docs/PROJECT_MIGRATIONS.md) | Политика версий и миграций проектов |
 | [LOCAL_SETUP.md](docs/LOCAL_SETUP.md) | Запуск на Windows, macOS, Linux и через Docker |

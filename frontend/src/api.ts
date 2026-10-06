@@ -207,6 +207,7 @@ export const api = {
   generatePattern: async (project: ProjectDocument) =>
     request<PatternEngineResult>('/api/v1/patterns/generate', {
       method: 'POST',
+      headers: {'If-Match': String(project.revision)},
       body: JSON.stringify(await buildEngineRequest(project)),
     }),
   patternPreviewUrl: (generationId: string, layers?: PatternLayer[]) => {

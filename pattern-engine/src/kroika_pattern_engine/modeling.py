@@ -7,6 +7,8 @@ from dataclasses import dataclass, replace
 import math
 from typing import Any, Mapping
 
+from kroika_contracts.design_modules import STAGE18_MODELING_MODULES as STAGE18_MODULES
+
 from .blocks import BlockConstructionError
 from .geometry import (
     AffineTransform,
@@ -20,13 +22,6 @@ from .geometry import (
 )
 
 
-STAGE18_MODULES = frozenset({
-    "adjustable_straight_waistband_v1",
-    "center_pleat_v1",
-    "waist_gather_allowance_v1",
-    "circular_hem_flounce_v1",
-    "straight_belt_v1",
-})
 MODULE_ORDER = {
     "center_pleat_v1": 10,
     "waist_gather_allowance_v1": 10,

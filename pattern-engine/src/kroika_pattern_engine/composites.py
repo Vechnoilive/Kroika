@@ -7,19 +7,12 @@ from dataclasses import dataclass, replace
 import math
 from typing import Any, Mapping
 
+from kroika_contracts.design_modules import STAGE19_ELEMENT_MODULES, STAGE19_LAYER_MODULES
+
 from .blocks import BlockConstructionError
 from .geometry import Contour, LineSegment, Point, contour_from_data, contour_to_data
 
 
-STAGE19_ELEMENT_MODULES = frozenset({
-    "sleeve_cuff_band_v1",
-    "stand_collar_v1",
-    "paired_patch_pocket_v1",
-})
-STAGE19_LAYER_MODULES = frozenset({
-    "skirt_full_lining_v1",
-    "skirt_overlay_layer_v1",
-})
 STAGE19_MODULES = STAGE19_ELEMENT_MODULES | STAGE19_LAYER_MODULES
 
 ELEMENT_ORDER = {

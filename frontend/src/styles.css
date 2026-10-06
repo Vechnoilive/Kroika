@@ -51,6 +51,8 @@ button:disabled { cursor: not-allowed; }
 .step--active .step__number { border-color: var(--peach); background: var(--peach); color: white; box-shadow: 0 0 0 5px #fcebe5; }
 .step--done { color: var(--green); }
 .step--done .step__number { border-color: #8cbda9; color: var(--green); }
+.step--available { color: var(--ink); }
+.step--available .step__number { border-color: var(--muted); }
 .privacy-note { display: flex; gap: 11px; margin-top: 35px; padding: 16px; border-radius: 16px; background: #f2eee9; color: #675d69; }
 .privacy-note > span { color: var(--green); font-size: 18px; }
 .privacy-note p { display: grid; gap: 4px; margin: 0; font-size: 11px; line-height: 1.5; }

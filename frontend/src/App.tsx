@@ -100,7 +100,7 @@ export function Step({
 }: {
   number: WorkflowStep;
   title: string;
-  state: 'done' | 'active' | 'locked';
+  state: 'done' | 'active' | 'available' | 'locked';
   onSelect?: () => void;
 }) {
   const content = <><span className="step__number">{state === 'done' ? '✓' : number}</span><span>{title}</span></>;
@@ -392,9 +392,9 @@ export default function App() {
   const [repairStep, setRepairStep] = useState<RevisitableWorkflowStep | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  function remember(updated: ProjectDocument) {
+  function remember(updated: ProjectDocument, preserveStep = false) {
     setProject(updated);
-    setRepairStep(null);
+    if (!preserveStep) setRepairStep(null);
     localStorage.setItem(LAST_PROJECT_KEY, updated.project_id);
     setProjects((items) => {
       const summary = projectSummary(updated);
@@ -516,7 +516,14 @@ export default function App() {
 
   async function saveProject(candidate: ProjectDocument): Promise<ProjectDocument> {
     const updated = await api.replaceProject(candidate);
-    remember(updated);
+    const confirmed = (candidate.garment_spec.selection_status === 'confirmed'
+        && project?.garment_spec.selection_status !== 'confirmed')
+      || (candidate.body_measurements.status === 'ready'
+        && project?.body_measurements.status !== 'ready'
+        && candidate.garment_spec.selection_status === 'confirmed')
+      || (candidate.fit_settings.status === 'confirmed'
+        && project?.fit_settings.status !== 'confirmed');
+    remember(updated, !confirmed);
     return updated;
   }
 
@@ -650,8 +657,10 @@ export default function App() {
           <ol>
             {WORKFLOW_TITLES.map((title, index) => {
               const number = (index + 1) as WorkflowStep;
-              const state = activeStep === number ? 'active' : number <= naturalStep ? 'done' : 'locked';
-              const canNavigate = Boolean(project) && number <= naturalStep && number !== activeStep;
+              const available = number <= naturalStep || number === 4;
+              const state = activeStep === number ? 'active'
+                : number <= naturalStep ? 'done' : available ? 'available' : 'locked';
+              const canNavigate = Boolean(project) && available && number !== activeStep;
               return <Step key={title} number={number} title={title} state={state} onSelect={canNavigate ? () => navigateToStep(number) : undefined} />;
             })}
           </ol>
@@ -700,7 +709,10 @@ export default function App() {
 
               {activeStep === 2 && <VisionAnalyzer projectId={project.project_id} onComplete={saveAnalysis} />}
               {activeStep === 3 && analysis && <StyleEditor project={project} analysis={analysis as StyleAnalysis} providerName={analysisProvider} acceptance={currentAcceptance} onSave={saveProject} onDirtyChange={setHasUnsavedChanges} />}
-              {activeStep === 4 && <MeasurementWizard key={`${project.project_id}-${project.garment_spec.confirmed_at}`} project={project} onSaveProject={saveMeasurements} onDirtyChange={setHasUnsavedChanges} />}
+              {activeStep === 4 && <>
+                {project.garment_spec.selection_status !== 'confirmed' && <div className="notice"><strong>Мерки можно заполнить заранее</strong><span>Они сохранятся, пока вы проверяете фасон и дополнительные детали. Перед построением нужно подтвердить фасон.</span></div>}
+                <MeasurementWizard key={`${project.project_id}-${project.garment_spec.garment_type}-${project.garment_spec.parameters.sleeve.type}`} project={project} onSaveProject={saveMeasurements} onDirtyChange={setHasUnsavedChanges} />
+              </>}
               {activeStep === 5 && <ConstructionEditor project={project} onSave={saveProject} onDirtyChange={setHasUnsavedChanges} />}
               {activeStep === 6 && (
                 <section className="generation-card" aria-labelledby="generation-title"><div className="action-card__icon" aria-hidden="true">06</div><div><p className="eyebrow">Все входы подтверждены</p><h2 id="generation-title">Построить выкройку?</h2><p>Формульный движок создаст детали из сохранённых мерок, фасона, ткани и прибавок, затем проверит геометрию.</p><ul><li>{GARMENT_NAMES[project.garment_spec.garment_type]} · {garmentConstruction}</li><li>{garmentLength}</li><li>Стабильная тканая ткань · пробный статус</li><li>Экспертная проверка и макет: ещё не пройдены</li></ul><button className="primary-button" onClick={() => void generatePattern()} disabled={busy}>{busy ? 'Строим и проверяем…' : 'Построить выкройку'} <span aria-hidden="true">→</span></button></div></section>

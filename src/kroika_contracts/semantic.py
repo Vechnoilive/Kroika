@@ -7,44 +7,11 @@ from typing import Any, Mapping
 
 from .contract_io import validate_document
 from .hashing import compute_input_hash
-
-
-STAGE18_MODELING_MODULES = frozenset({
-    'adjustable_straight_waistband_v1',
-    'center_pleat_v1',
-    'waist_gather_allowance_v1',
-    'circular_hem_flounce_v1',
-    'straight_belt_v1',
-})
-
-STAGE19_ELEMENT_MODULES = frozenset({
-    'sleeve_cuff_band_v1',
-    'stand_collar_v1',
-    'paired_patch_pocket_v1',
-})
-
-STAGE19_LAYER_MODULES = frozenset({
-    'skirt_full_lining_v1',
-    'skirt_overlay_layer_v1',
-})
-
-STAGE21_TOPOLOGY_MODULES = frozenset({
-    'paired_straight_skirt_yoke_v1',
-    'paired_equal_skirt_panels_v1',
-    'front_waist_to_side_dart_v1',
-})
-
-FIXED_ELEMENT_MODULES = frozenset({
-    'bounded_closure',
-    'straight_waistband',
-    'base_dart_shaping',
-    'jacket_princess_seam',
-    'bounded_collar',
-    'bounded_pocket',
-    'jacket_back_vent',
-})
-
-FIXED_LAYER_MODULES = frozenset({'main_fabric_layer', 'jacket_full_lining'})
+from .design_modules import (
+    STAGE18_MODELING_MODULES, STAGE19_ELEMENT_MODULES, STAGE19_LAYER_MODULES,
+    STAGE21_TOPOLOGY_MODULES, FIXED_ELEMENT_MODULES, FIXED_LAYER_MODULES,
+    module_matches,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,290 +32,40 @@ def _add(issues: list[SemanticIssue], code: str, pointer: str, message: str) -> 
     issues.append(SemanticIssue(code, pointer, message))
 
 
-def _modeling_dimensions_match(
-    item: Mapping[str, Any],
-    required: Mapping[str, tuple[float, float]],
-    optional: Mapping[str, tuple[float, float]] | None = None,
-) -> bool:
-    dimensions = item.get('dimensions_mm')
-    if not isinstance(dimensions, Mapping):
-        return False
-    optional = optional or {}
-    for key in ('width', 'length', 'depth', 'spacing'):
-        value = dimensions.get(key)
-        bounds = required.get(key)
-        if bounds is not None:
-            if (isinstance(value, bool) or not isinstance(value, (int, float))
-                    or not bounds[0] <= float(value) <= bounds[1]):
-                return False
-        elif key in optional:
-            optional_bounds = optional[key]
-            if value is not None and (
-                isinstance(value, bool) or not isinstance(value, (int, float))
-                or not optional_bounds[0] <= float(value) <= optional_bounds[1]
-            ):
-                return False
-        elif value is not None:
-            return False
-    return True
-
-
 def _stage18_module_matches(item: Mapping[str, Any], spec: Mapping[str, Any]) -> bool:
-    module_id = item.get('module_id')
-    garment = spec['garment_type']
-    skirt_based = garment in {'dress', 'sundress', 'skirt'}
-    marker_max = float(spec['parameters']['skirt']['length_from_waist_mm']) - 20.0
-    common = (
-        module_id == 'center_pleat_v1'
-        and skirt_based
-        and item['type'] == 'pleat'
-        and item['variant'] in {'knife', 'box', 'inverted'}
-        and item['location'] == 'skirt_front'
-        and item['construction'] == 'integrated'
-        and item['count'] == 1
-        and _modeling_dimensions_match(
-            item, {'depth': (5.0, 80.0)}, {'length': (30.0, marker_max)}
-        )
+    return item.get('module_id') in STAGE18_MODELING_MODULES and module_matches(
+        item.get('module_id'), item, spec, kind='element',
     )
-    gather = (
-        module_id == 'waist_gather_allowance_v1'
-        and skirt_based
-        and item['type'] == 'gather'
-        and item['variant'] in {'gathered', 'soft'}
-        and item['location'] == 'skirt_front'
-        and item['construction'] == 'integrated'
-        and item['count'] == 1
-        and _modeling_dimensions_match(
-            item, {'width': (20.0, 600.0)}, {'length': (30.0, marker_max)}
-        )
-    )
-    flounce = (
-        module_id == 'circular_hem_flounce_v1'
-        and skirt_based
-        and item['type'] == 'flounce'
-        and item['variant'] == 'circular'
-        and item['location'] == 'hem'
-        and item['construction'] == 'separate_piece'
-        and item['count'] == 1
-        and _modeling_dimensions_match(item, {'depth': (30.0, 400.0)})
-    )
-    waistband = (
-        module_id == 'adjustable_straight_waistband_v1'
-        and garment in {'skirt', 'trousers', 'shorts'}
-        and item['type'] == 'waistband'
-        and item['variant'] == 'straight'
-        and item['location'] == 'waist'
-        and item['construction'] == 'separate_piece'
-        and _modeling_dimensions_match(item, {'width': (25.0, 100.0)})
-    )
-    belt = (
-        module_id == 'straight_belt_v1'
-        and item['type'] == 'belt'
-        and item['variant'] == 'straight'
-        and item['location'] == 'waist'
-        and item['construction'] == 'separate_piece'
-        and item['count'] == 1
-        and _modeling_dimensions_match(
-            item, {'width': (15.0, 150.0), 'length': (300.0, 2500.0)}
-        )
-    )
-    return common or gather or flounce or waistband or belt
 
 
 def _stage19_element_matches(item: Mapping[str, Any], spec: Mapping[str, Any]) -> bool:
-    module_id = item.get('module_id')
-    garment = spec['garment_type']
-    cuff = (
-        module_id == 'sleeve_cuff_band_v1'
-        and garment in {'blouse', 'shirt'}
-        and item['type'] == 'cuff'
-        and item['variant'] == 'straight'
-        and item['location'] == 'sleeve'
-        and item['construction'] == 'separate_piece'
-        and item['count'] == 2
-        and item['symmetry'] == 'symmetric'
-        and _modeling_dimensions_match(item, {'width': (25.0, 120.0)})
+    return item.get('module_id') in STAGE19_ELEMENT_MODULES and module_matches(
+        item.get('module_id'), item, spec, kind='element',
     )
-    collar = (
-        module_id == 'stand_collar_v1'
-        and garment in {'dress', 'sundress', 'top', 'blouse', 'vest'}
-        and item['type'] == 'collar'
-        and item['variant'] == 'stand'
-        and item['location'] == 'neckline'
-        and item['construction'] == 'separate_piece'
-        and item['count'] == 1
-        and item['symmetry'] == 'symmetric'
-        and _modeling_dimensions_match(item, {'width': (20.0, 80.0)})
-    )
-    pocket = (
-        module_id == 'paired_patch_pocket_v1'
-        and garment in {'dress', 'sundress', 'skirt'}
-        and item['type'] == 'pocket'
-        and item['variant'] == 'patch'
-        and item['location'] == 'skirt_front'
-        and item['construction'] == 'applied'
-        and item['count'] == 2
-        and item['symmetry'] == 'symmetric'
-        and _modeling_dimensions_match(
-            item, {'width': (80.0, 220.0), 'depth': (80.0, 260.0)}
-        )
-    )
-    return cuff or collar or pocket
 
 
 def _stage21_module_matches(item: Mapping[str, Any], spec: Mapping[str, Any]) -> bool:
-    module_id = item.get('module_id')
-    garment = spec['garment_type']
-    skirt_based = garment in {'dress', 'sundress', 'skirt'}
-    yoke = (
-        module_id == 'paired_straight_skirt_yoke_v1'
-        and skirt_based
-        and item['type'] == 'yoke'
-        and item['variant'] == 'straight'
-        and item['location'] == 'waist'
-        and item['construction'] == 'separate_piece'
-        and item['count'] == 2
-        and item['symmetry'] == 'symmetric'
-        and _modeling_dimensions_match(item, {'depth': (60.0, 300.0)})
+    return item.get('module_id') in STAGE21_TOPOLOGY_MODULES and module_matches(
+        item.get('module_id'), item, spec, kind='element',
     )
-    panels = (
-        module_id == 'paired_equal_skirt_panels_v1'
-        and skirt_based
-        and item['type'] == 'panel'
-        and item['variant'] == 'straight'
-        and item['location'] == 'full_garment'
-        and item['construction'] == 'separate_piece'
-        and isinstance(item['count'], int)
-        and not isinstance(item['count'], bool)
-        and 2 <= item['count'] <= 6
-        and item['symmetry'] == 'symmetric'
-        and _modeling_dimensions_match(item, {})
-    )
-    dart = (
-        module_id == 'front_waist_to_side_dart_v1'
-        and garment in {'dress', 'sundress', 'top', 'blouse', 'shirt', 'vest'}
-        and item['type'] == 'dart'
-        and item['variant'] == 'shaped'
-        and item['location'] == 'bodice_front'
-        and item['construction'] == 'integrated'
-        and item['count'] == 2
-        and item['symmetry'] == 'symmetric'
-        and _modeling_dimensions_match(item, {'width': (1.0, 30.0)})
-    )
-    return yoke or panels or dart
 
 
 def _fixed_element_module_matches(item: Mapping[str, Any], spec: Mapping[str, Any]) -> bool:
-    module_id = item.get('module_id')
-    garment = spec['garment_type']
-    closure = spec['parameters']['closure']
-    closure_location = (
-        (closure['location'] == 'center_back' and item['location'] == 'bodice_back')
-        or (
-            closure['location'] == 'center_front'
-            and item['location'] in {'bodice_front', 'trouser_front'}
-        )
-        or (closure['location'] == 'side' and item['location'] == 'waist')
+    return item.get('module_id') in FIXED_ELEMENT_MODULES and module_matches(
+        item.get('module_id'), item, spec, kind='element',
     )
-    if module_id == 'bounded_closure':
-        return (
-            item['type'] == 'closure'
-            and item['variant'] == closure['type']
-            and closure_location
-        )
-    if module_id == 'straight_waistband':
-        return (
-            garment in {'skirt', 'trousers', 'shorts'}
-            and item['type'] == 'waistband'
-            and item['variant'] == 'straight'
-            and item['location'] == 'waist'
-            and item['construction'] == 'separate_piece'
-        )
-    if module_id == 'base_dart_shaping':
-        upper = {'dress', 'sundress', 'top', 'blouse', 'shirt', 'vest'}
-        location_matches = (
-            (garment in upper and item['location'] in {'bodice_front', 'bodice_back'})
-            or (garment == 'skirt' and item['location'] in {'skirt_front', 'skirt_back'})
-            or (
-                garment in {'trousers', 'shorts'}
-                and item['location'] in {'trouser_front', 'trouser_back'}
-            )
-        )
-        return item['type'] == 'dart' and item['variant'] == 'standard' and location_matches
-    if module_id == 'jacket_princess_seam':
-        return (
-            garment == 'jacket'
-            and item['type'] == 'princess_seam'
-            and item['location'] == 'bodice_front'
-        )
-    if module_id == 'bounded_collar':
-        return (
-            item['type'] == 'collar'
-            and item['location'] == 'neckline'
-            and (
-                (garment == 'shirt' and item['variant'] == 'shirt')
-                or (garment == 'jacket' and item['variant'] == 'notched')
-            )
-        )
-    if module_id == 'bounded_pocket':
-        return (
-            item['type'] == 'pocket'
-            and (
-                (
-                    garment == 'jacket'
-                    and item['variant'] == 'patch'
-                    and item['location'] == 'bodice_front'
-                )
-                or (
-                    garment in {'trousers', 'shorts'}
-                    and item['variant'] == 'slash'
-                    and item['location'] == 'trouser_front'
-                )
-            )
-        )
-    if module_id == 'jacket_back_vent':
-        return (
-            garment == 'jacket'
-            and item['type'] == 'vent'
-            and item['variant'] == 'single'
-            and item['location'] == 'bodice_back'
-        )
-    return False
 
 
 def _fixed_layer_module_matches(item: Mapping[str, Any], spec: Mapping[str, Any]) -> bool:
-    if item.get('module_id') == 'main_fabric_layer':
-        return item['role'] == 'main'
-    if item.get('module_id') == 'jacket_full_lining':
-        return spec['garment_type'] == 'jacket' and item['role'] == 'lining'
-    return False
+    return item.get('module_id') in FIXED_LAYER_MODULES and module_matches(
+        item.get('module_id'), item, spec, kind='layer',
+    )
 
 
 def _stage19_layer_matches(item: Mapping[str, Any], spec: Mapping[str, Any]) -> bool:
-    module_id = item.get('module_id')
-    garment = spec['garment_type']
-    lining_coverage = (
-        item['coverage'] in {'full', 'skirt'}
-        if garment == 'skirt'
-        else item['coverage'] == 'skirt'
+    return item.get('module_id') in STAGE19_LAYER_MODULES and module_matches(
+        item.get('module_id'), item, spec, kind='layer',
     )
-    lining = (
-        module_id == 'skirt_full_lining_v1'
-        and garment in {'dress', 'sundress', 'skirt'}
-        and item['role'] == 'lining'
-        and lining_coverage
-        and item['opacity'] == 'opaque'
-        and item['drape'] in {'crisp', 'medium', 'fluid'}
-    )
-    overlay = (
-        module_id == 'skirt_overlay_layer_v1'
-        and garment in {'dress', 'sundress', 'skirt'}
-        and item['role'] == 'overlay'
-        and item['coverage'] == 'skirt'
-        and item['opacity'] in {'opaque', 'semi_transparent', 'transparent'}
-        and item['drape'] in {'crisp', 'medium', 'fluid'}
-    )
-    return lining or overlay
 
 
 def _measurement_issues(
@@ -642,11 +359,8 @@ def _validate_design_intent(
         _add(issues, 'DESIGN_PROPORTIONS_EXCLUDED', '/garment_spec/design_intent/proportions',
              'Пропорции изделия нельзя исключить из проверки.')
     if proportions.get('module_id') == 'bounded_visual_proportions':
-        supported_proportions = (
-            proportions['waist_position'] == 'natural'
-            and proportions['volume'] in {'fitted', 'regular'}
-            and proportions['hem_shape'] == 'straight'
-            and proportions['asymmetry'] == 'no'
+        supported_proportions = module_matches(
+            'bounded_visual_proportions', proportions, spec, kind='proportions',
         )
         if proportions['support_status'] != 'supported' or not supported_proportions:
             _add(

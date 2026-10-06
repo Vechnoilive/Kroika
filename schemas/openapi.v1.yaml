@@ -521,6 +521,12 @@ paths:
     post:
       operationId: generatePattern
       summary: Запустить детерминированное построение
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: Ревизия сохранённого проекта; параметры запроса должны совпадать с проектом
+          schema: {type: integer, minimum: 1}
       requestBody:
         required: true
         content:
@@ -534,6 +540,8 @@ paths:
             application/json:
               schema:
                 $ref: ./v1/pattern-engine-result.schema.json
+        '409':
+          $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/ContractError'
   /api/v1/patterns/{generation_id}/validation:

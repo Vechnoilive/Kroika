@@ -1,0 +1,842 @@
+{
+  "registry_version": "1.0.0",
+  "unit": "mm",
+  "modules": [
+    {
+      "id": "center_pleat_v1",
+      "group": "modeling",
+      "kind": "element",
+      "title_ru": "Центральная складка",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "pleat"
+          ],
+          "variant": [
+            "knife",
+            "box",
+            "inverted"
+          ],
+          "location": [
+            "skirt_front"
+          ],
+          "construction": [
+            "integrated"
+          ],
+          "count": [
+            1
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "depth": [
+            5,
+            80
+          ]
+        },
+        "optional": {
+          "length": [
+            30,
+            "skirt_length_minus_20"
+          ]
+        }
+      }
+    },
+    {
+      "id": "waist_gather_allowance_v1",
+      "group": "modeling",
+      "kind": "element",
+      "title_ru": "Сборка по талии",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "gather"
+          ],
+          "variant": [
+            "gathered",
+            "soft"
+          ],
+          "location": [
+            "skirt_front"
+          ],
+          "construction": [
+            "integrated"
+          ],
+          "count": [
+            1
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            20,
+            600
+          ]
+        },
+        "optional": {
+          "length": [
+            30,
+            "skirt_length_minus_20"
+          ]
+        }
+      }
+    },
+    {
+      "id": "circular_hem_flounce_v1",
+      "group": "modeling",
+      "kind": "element",
+      "title_ru": "Круговой волан по низу",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "flounce"
+          ],
+          "variant": [
+            "circular"
+          ],
+          "location": [
+            "hem"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "depth": [
+            30,
+            400
+          ]
+        },
+        "optional": {}
+      }
+    },
+    {
+      "id": "adjustable_straight_waistband_v1",
+      "group": "modeling",
+      "kind": "element",
+      "title_ru": "Прямой пояс с заданной шириной",
+      "rules": [
+        {
+          "garment_type": [
+            "skirt",
+            "trousers",
+            "shorts"
+          ],
+          "type": [
+            "waistband"
+          ],
+          "variant": [
+            "straight"
+          ],
+          "location": [
+            "waist"
+          ],
+          "construction": [
+            "separate_piece"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            25,
+            100
+          ]
+        },
+        "optional": {}
+      }
+    },
+    {
+      "id": "straight_belt_v1",
+      "group": "modeling",
+      "kind": "element",
+      "title_ru": "Прямой ремень",
+      "rules": [
+        {
+          "type": [
+            "belt"
+          ],
+          "variant": [
+            "straight"
+          ],
+          "location": [
+            "waist"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            15,
+            150
+          ],
+          "length": [
+            300,
+            2500
+          ]
+        },
+        "optional": {}
+      }
+    },
+    {
+      "id": "sleeve_cuff_band_v1",
+      "group": "composite_element",
+      "kind": "element",
+      "title_ru": "Прямая манжета",
+      "rules": [
+        {
+          "garment_type": [
+            "blouse",
+            "shirt"
+          ],
+          "type": [
+            "cuff"
+          ],
+          "variant": [
+            "straight"
+          ],
+          "location": [
+            "sleeve"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            2
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            25,
+            120
+          ]
+        },
+        "optional": {}
+      }
+    },
+    {
+      "id": "stand_collar_v1",
+      "group": "composite_element",
+      "kind": "element",
+      "title_ru": "Воротник-стойка",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "vest"
+          ],
+          "type": [
+            "collar"
+          ],
+          "variant": [
+            "stand"
+          ],
+          "location": [
+            "neckline"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            20,
+            80
+          ]
+        },
+        "optional": {}
+      }
+    },
+    {
+      "id": "paired_patch_pocket_v1",
+      "group": "composite_element",
+      "kind": "element",
+      "title_ru": "Парные накладные карманы",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "pocket"
+          ],
+          "variant": [
+            "patch"
+          ],
+          "location": [
+            "skirt_front"
+          ],
+          "construction": [
+            "applied"
+          ],
+          "count": [
+            2
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            80,
+            220
+          ],
+          "depth": [
+            80,
+            260
+          ]
+        },
+        "optional": {}
+      }
+    },
+    {
+      "id": "paired_straight_skirt_yoke_v1",
+      "group": "topology",
+      "kind": "element",
+      "title_ru": "Прямая кокетка юбки",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "yoke"
+          ],
+          "variant": [
+            "straight"
+          ],
+          "location": [
+            "waist"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            2
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "depth": [
+            60,
+            300
+          ]
+        },
+        "optional": {}
+      }
+    },
+    {
+      "id": "paired_equal_skirt_panels_v1",
+      "group": "topology",
+      "kind": "element",
+      "title_ru": "Равные панели юбки",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "panel"
+          ],
+          "variant": [
+            "straight"
+          ],
+          "location": [
+            "full_garment"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {},
+        "optional": {}
+      }
+    },
+    {
+      "id": "front_waist_to_side_dart_v1",
+      "group": "topology",
+      "kind": "element",
+      "title_ru": "Перенос вытачки в боковой шов",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest"
+          ],
+          "type": [
+            "dart"
+          ],
+          "variant": [
+            "shaped"
+          ],
+          "location": [
+            "bodice_front"
+          ],
+          "construction": [
+            "integrated"
+          ],
+          "count": [
+            2
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            1,
+            30
+          ]
+        },
+        "optional": {}
+      }
+    },
+    {
+      "id": "bounded_closure",
+      "group": "fixed_element",
+      "kind": "element",
+      "title_ru": "Застёжка основы",
+      "rules": [
+        {
+          "type": [
+            "closure"
+          ],
+          "configured_closure": true
+        }
+      ],
+      "dimensions": {
+        "required": {},
+        "optional": {}
+      }
+    },
+    {
+      "id": "straight_waistband",
+      "group": "fixed_element",
+      "kind": "element",
+      "title_ru": "Пояс основы",
+      "rules": [
+        {
+          "garment_type": [
+            "skirt",
+            "trousers",
+            "shorts"
+          ],
+          "type": [
+            "waistband"
+          ],
+          "variant": [
+            "straight"
+          ],
+          "location": [
+            "waist"
+          ],
+          "construction": [
+            "separate_piece"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {},
+        "optional": {}
+      }
+    },
+    {
+      "id": "base_dart_shaping",
+      "group": "fixed_element",
+      "kind": "element",
+      "title_ru": "Вытачки основы",
+      "rules": [
+        {
+          "type": [
+            "dart"
+          ],
+          "variant": [
+            "standard"
+          ],
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest"
+          ],
+          "location": [
+            "bodice_front",
+            "bodice_back"
+          ]
+        },
+        {
+          "type": [
+            "dart"
+          ],
+          "variant": [
+            "standard"
+          ],
+          "garment_type": [
+            "skirt"
+          ],
+          "location": [
+            "skirt_front",
+            "skirt_back"
+          ]
+        },
+        {
+          "type": [
+            "dart"
+          ],
+          "variant": [
+            "standard"
+          ],
+          "garment_type": [
+            "trousers",
+            "shorts"
+          ],
+          "location": [
+            "trouser_front",
+            "trouser_back"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {},
+        "optional": {}
+      }
+    },
+    {
+      "id": "jacket_princess_seam",
+      "group": "fixed_element",
+      "kind": "element",
+      "title_ru": "Рельеф жакета",
+      "rules": [
+        {
+          "garment_type": [
+            "jacket"
+          ],
+          "type": [
+            "princess_seam"
+          ],
+          "location": [
+            "bodice_front"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {},
+        "optional": {}
+      }
+    },
+    {
+      "id": "bounded_collar",
+      "group": "fixed_element",
+      "kind": "element",
+      "title_ru": "Воротник основы",
+      "rules": [
+        {
+          "garment_type": [
+            "shirt"
+          ],
+          "type": [
+            "collar"
+          ],
+          "variant": [
+            "shirt"
+          ],
+          "location": [
+            "neckline"
+          ]
+        },
+        {
+          "garment_type": [
+            "jacket"
+          ],
+          "type": [
+            "collar"
+          ],
+          "variant": [
+            "notched"
+          ],
+          "location": [
+            "neckline"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {},
+        "optional": {}
+      }
+    },
+    {
+      "id": "bounded_pocket",
+      "group": "fixed_element",
+      "kind": "element",
+      "title_ru": "Карманы основы",
+      "rules": [
+        {
+          "garment_type": [
+            "jacket"
+          ],
+          "type": [
+            "pocket"
+          ],
+          "variant": [
+            "patch"
+          ],
+          "location": [
+            "bodice_front"
+          ]
+        },
+        {
+          "garment_type": [
+            "trousers",
+            "shorts"
+          ],
+          "type": [
+            "pocket"
+          ],
+          "variant": [
+            "slash"
+          ],
+          "location": [
+            "trouser_front"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {},
+        "optional": {}
+      }
+    },
+    {
+      "id": "jacket_back_vent",
+      "group": "fixed_element",
+      "kind": "element",
+      "title_ru": "Шлица жакета",
+      "rules": [
+        {
+          "garment_type": [
+            "jacket"
+          ],
+          "type": [
+            "vent"
+          ],
+          "variant": [
+            "single"
+          ],
+          "location": [
+            "bodice_back"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {},
+        "optional": {}
+      }
+    },
+    {
+      "id": "main_fabric_layer",
+      "group": "fixed_layer",
+      "kind": "layer",
+      "title_ru": "Основная ткань",
+      "rules": [
+        {
+          "role": [
+            "main"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "jacket_full_lining",
+      "group": "fixed_layer",
+      "kind": "layer",
+      "title_ru": "Подкладка жакета",
+      "rules": [
+        {
+          "garment_type": [
+            "jacket"
+          ],
+          "role": [
+            "lining"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "skirt_full_lining_v1",
+      "group": "composite_layer",
+      "kind": "layer",
+      "title_ru": "Подкладка юбки",
+      "rules": [
+        {
+          "garment_type": [
+            "skirt"
+          ],
+          "role": [
+            "lining"
+          ],
+          "coverage": [
+            "full",
+            "skirt"
+          ],
+          "opacity": [
+            "opaque"
+          ],
+          "drape": [
+            "crisp",
+            "medium",
+            "fluid"
+          ]
+        },
+        {
+          "garment_type": [
+            "dress",
+            "sundress"
+          ],
+          "role": [
+            "lining"
+          ],
+          "coverage": [
+            "skirt"
+          ],
+          "opacity": [
+            "opaque"
+          ],
+          "drape": [
+            "crisp",
+            "medium",
+            "fluid"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "skirt_overlay_layer_v1",
+      "group": "composite_layer",
+      "kind": "layer",
+      "title_ru": "Накладной слой юбки",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "role": [
+            "overlay"
+          ],
+          "coverage": [
+            "skirt"
+          ],
+          "opacity": [
+            "opaque",
+            "semi_transparent",
+            "transparent"
+          ],
+          "drape": [
+            "crisp",
+            "medium",
+            "fluid"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bounded_visual_proportions",
+      "group": "proportions",
+      "kind": "proportions",
+      "title_ru": "Пропорции основы",
+      "rules": [
+        {
+          "waist_position": [
+            "natural"
+          ],
+          "volume": [
+            "fitted",
+            "regular"
+          ],
+          "hem_shape": [
+            "straight"
+          ],
+          "asymmetry": [
+            "no"
+          ]
+        }
+      ]
+    }
+  ]
+}

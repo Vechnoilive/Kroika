@@ -7,6 +7,8 @@ from dataclasses import dataclass, replace
 import math
 from typing import Any, Mapping
 
+from kroika_contracts.design_modules import STAGE21_TOPOLOGY_MODULES
+
 from .blocks import BlockConstructionError
 from .geometry import (
     ArcSegment,
@@ -20,11 +22,6 @@ from .geometry import (
 )
 
 
-STAGE21_TOPOLOGY_MODULES = frozenset({
-    "paired_straight_skirt_yoke_v1",
-    "paired_equal_skirt_panels_v1",
-    "front_waist_to_side_dart_v1",
-})
 MODULE_ORDER = {
     "front_waist_to_side_dart_v1": 10,
     "paired_straight_skirt_yoke_v1": 20,

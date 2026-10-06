@@ -5,32 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 from typing import Any, Mapping
-
-
-STAGE18_MODELING_MODULES = frozenset({
-    'adjustable_straight_waistband_v1',
-    'center_pleat_v1',
-    'waist_gather_allowance_v1',
-    'circular_hem_flounce_v1',
-    'straight_belt_v1',
-})
-
-STAGE19_ELEMENT_MODULES = frozenset({
-    'sleeve_cuff_band_v1',
-    'stand_collar_v1',
-    'paired_patch_pocket_v1',
-})
-
-STAGE19_LAYER_MODULES = frozenset({
-    'skirt_full_lining_v1',
-    'skirt_overlay_layer_v1',
-})
-
-STAGE21_TOPOLOGY_MODULES = frozenset({
-    'paired_straight_skirt_yoke_v1',
-    'paired_equal_skirt_panels_v1',
-    'front_waist_to_side_dart_v1',
-})
+from .design_modules import (
+    STAGE18_MODELING_MODULES, STAGE19_ELEMENT_MODULES, STAGE19_LAYER_MODULES,
+    STAGE21_TOPOLOGY_MODULES,
+)
 
 
 def _modeling_elements(garment: Mapping[str, Any]) -> list[dict[str, Any]]:
