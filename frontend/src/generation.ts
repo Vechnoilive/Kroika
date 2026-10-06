@@ -137,6 +137,7 @@ export function canonicalGenerationPayload(request: JsonObject): JsonObject {
   const details: JsonObject = {};
   for (const [group, moduleGroup] of [['elements', 'detail_element'], ['layers', 'detail_layer']]) {
     const modules = moduleIds(moduleGroup);
+    if (group === 'elements') for (const id of moduleIds('advanced_element')) modules.add(id);
     const keys = group === 'elements'
       ? ['source_element_id', 'type', 'variant', 'location', 'construction', 'count', 'dimensions_mm', 'module_id']
       : ['source_layer_id', 'role', 'coverage', 'opacity', 'drape', 'module_id'];
@@ -152,10 +153,14 @@ export function canonicalGenerationPayload(request: JsonObject): JsonObject {
   }
   const hasDetails = Object.keys(details).length > 0;
   if (hasDetails) garmentSpec.details = details;
+  const proportions = garment.design_intent?.proportions;
+  const advancedProportions = proportions?.support_status === 'supported' && proportions?.module_id === 'parametric_visual_proportions_v1';
+  const hasAdvanced = advancedProportions || (details.elements ?? []).some((item: JsonObject) => moduleIds('advanced_element').has(item.module_id));
+  if (advancedProportions) garmentSpec.proportions = Object.fromEntries(['waist_position', 'volume', 'hem_shape', 'asymmetry', 'waist_shift_mm', 'waist_level_circumference_mm', 'back_waist_level_arc_mm', 'hem_delta_mm'].map((key) => [key, proportions[key] ?? null]));
   if (coverage) garmentSpec.coverage_contract = coverage;
   const hasComposites = compositeElements.length > 0 || compositeLayers.length > 0;
   return {
-    hash_contract_version: hasDetails ? '1.5.0' : topologyElements.length > 0
+    hash_contract_version: hasAdvanced ? '1.6.0' : hasDetails ? '1.5.0' : topologyElements.length > 0
       ? '1.4.0'
       : coverage ? '1.3.0'
       : hasComposites

@@ -24,6 +24,7 @@ FIXED_ELEMENT_MODULES = module_ids('fixed_element')
 FIXED_LAYER_MODULES = module_ids('fixed_layer')
 DETAIL_ELEMENT_MODULES = module_ids('detail_element')
 DETAIL_LAYER_MODULES = module_ids('detail_layer')
+ADVANCED_ELEMENT_MODULES = module_ids('advanced_element')
 
 
 def _rule_matches(
@@ -62,6 +63,11 @@ def module_matches(
         return False
     if not any(_rule_matches(rule, item, spec) for rule in module['rules']):
         return False
+    if kind == 'proportions' and module_id == 'bounded_visual_proportions':
+        return all(item.get(key) is None for key in (
+            'waist_shift_mm', 'waist_level_circumference_mm', 'back_waist_level_arc_mm', 'hem_delta_mm'))
+    if kind == 'proportions' and module_id == 'parametric_visual_proportions_v1':
+        return proportion_dimensions_match(item, spec, check_dimensions=check_dimensions)
     if kind != 'element' or not check_dimensions:
         return True
     dimensions = item.get('dimensions_mm') or {}
@@ -91,3 +97,34 @@ def matching_module(
 ) -> str | None:
     return next((module['id'] for module in MODULES
                  if module_matches(module['id'], item, spec, kind=kind)), None)
+
+
+def proportion_dimensions_match(item: Mapping[str, Any], spec: Mapping[str, Any], *, check_dimensions: bool = True) -> bool:
+    def bounded(key: str, low: float, high: float) -> bool:
+        value = item.get(key)
+        return (not isinstance(value, bool) and isinstance(value, (int, float))
+                and math.isfinite(value) and low <= value <= high)
+    shifted = item.get('waist_position') != 'natural'
+    if shifted:
+        if spec['garment_type'] not in {'dress', 'sundress'}:
+            return False
+        if check_dimensions and not (bounded('waist_shift_mm', 10, 100)
+                and bounded('waist_level_circumference_mm', 400, 1800)
+                and bounded('back_waist_level_arc_mm', 100, 1000)):
+            return False
+        if check_dimensions and item['back_waist_level_arc_mm'] >= item['waist_level_circumference_mm']:
+            return False
+    elif check_dimensions and any(item.get(k) is not None for k in (
+            'waist_shift_mm', 'waist_level_circumference_mm', 'back_waist_level_arc_mm')):
+        return False
+    shaped = item.get('hem_shape') != 'straight'
+    if shaped:
+        if spec['garment_type'] not in {'dress', 'sundress', 'skirt'}:
+            return False
+        if check_dimensions and not bounded('hem_delta_mm', 20, 250):
+            return False
+        if item['hem_shape'] == 'asymmetric' and item['asymmetry'] != 'yes':
+            return False
+    elif check_dimensions and item.get('hem_delta_mm') is not None:
+        return False
+    return True

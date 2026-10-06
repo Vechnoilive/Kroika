@@ -175,6 +175,10 @@ export interface GarmentDesignIntent {
     module_id: string | null;
   }>;
   proportions: VisualProportions & {
+    waist_shift_mm?: number | null;
+    waist_level_circumference_mm?: number | null;
+    back_waist_level_arc_mm?: number | null;
+    hem_delta_mm?: number | null;
     confirmed_by_user?: boolean;
     support_status: 'supported' | 'planned' | 'needs_confirmation' | 'excluded';
     module_id: string | null;

@@ -8,14 +8,14 @@ from typing import Any, Mapping
 from .design_modules import (
     STAGE18_MODELING_MODULES, STAGE19_ELEMENT_MODULES, STAGE19_LAYER_MODULES,
     STAGE21_TOPOLOGY_MODULES,
-    DETAIL_ELEMENT_MODULES, DETAIL_LAYER_MODULES,
+    DETAIL_ELEMENT_MODULES, DETAIL_LAYER_MODULES, ADVANCED_ELEMENT_MODULES,
 )
 
 
 def _detail_inputs(garment: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]]:
     intent = garment.get('design_intent') or {}
     result: dict[str, list[dict[str, Any]]] = {}
-    for group, modules in [('elements', DETAIL_ELEMENT_MODULES), ('layers', DETAIL_LAYER_MODULES)]:
+    for group, modules in [('elements', DETAIL_ELEMENT_MODULES | ADVANCED_ELEMENT_MODULES), ('layers', DETAIL_LAYER_MODULES)]:
         keys = (['source_element_id', 'type', 'variant', 'location', 'construction', 'count',
                  'dimensions_mm', 'module_id'] if group == 'elements'
                 else ['source_layer_id', 'role', 'coverage', 'opacity', 'drape', 'module_id'])
@@ -174,6 +174,12 @@ def canonical_generation_payload(request: Mapping[str, Any]) -> dict[str, Any]:
     details = _detail_inputs(garment)
     if details:
         garment_payload['details'] = details
+    proportions = (garment.get('design_intent') or {}).get('proportions') or {}
+    advanced_proportions = proportions.get('module_id') == 'parametric_visual_proportions_v1' and proportions.get('support_status') == 'supported'
+    if advanced_proportions:
+        garment_payload['proportions'] = {key: proportions.get(key) for key in (
+            'waist_position', 'volume', 'hem_shape', 'asymmetry', 'waist_shift_mm',
+            'waist_level_circumference_mm', 'back_waist_level_arc_mm', 'hem_delta_mm')}
     if modeling_elements:
         garment_payload['modeling_elements'] = modeling_elements
     if topology_elements:
@@ -187,7 +193,9 @@ def canonical_generation_payload(request: Mapping[str, Any]) -> dict[str, Any]:
     has_composites = bool(composite_elements or composite_layers)
     return {
         'hash_contract_version': (
-            '1.5.0' if details
+            '1.6.0' if advanced_proportions or any(
+                item['module_id'] in ADVANCED_ELEMENT_MODULES for item in details.get('elements', []))
+            else '1.5.0' if details
             else '1.4.0' if topology_elements
             else '1.3.0' if coverage_contract is not None
             else '1.2.0' if has_composites

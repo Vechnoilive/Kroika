@@ -897,7 +897,9 @@ def _assemble_upper(request: Mapping[str, Any], blocks: BaseBlockSet) -> Garment
             front_armhole_length_mm=blocks.controls["front_armhole_length_mm"],
             back_armhole_length_mm=blocks.controls["back_armhole_length_mm"],
             upper_arm_circumference_mm=_measurement(request, "upper_arm_circumference"),
-            upper_arm_ease_mm=request["fit_settings"]["wearing_ease_mm"]["upper_arm"],
+            upper_arm_ease_mm=(request["fit_settings"]["wearing_ease_mm"]["upper_arm"]
+                               + request["fit_settings"]["design_ease_mm"]["upper_arm"]),
+            match_cap_halves=request["fit_settings"]["design_ease_mm"]["upper_arm"] > 0,
             sleeve_length_mm=float(spec["parameters"]["sleeve"]["length_mm"]),
             wrist_circumference_mm=_measurement(request, "wrist_circumference"),
             hand_circumference_mm=_measurement(request, "hand_circumference"),
@@ -1110,7 +1112,8 @@ def _assemble_jacket(request: Mapping[str, Any], blocks: BaseBlockSet) -> Garmen
         front_armhole_length_mm=blocks.controls["front_armhole_length_mm"],
         back_armhole_length_mm=blocks.controls["back_armhole_length_mm"],
         upper_arm_circumference_mm=_measurement(request, "upper_arm_circumference"),
-        upper_arm_ease_mm=request["fit_settings"]["wearing_ease_mm"]["upper_arm"],
+        upper_arm_ease_mm=(request["fit_settings"]["wearing_ease_mm"]["upper_arm"]
+                               + request["fit_settings"]["design_ease_mm"]["upper_arm"]),
         sleeve_length_mm=float(parameters["sleeve"]["length_mm"]),
         wrist_circumference_mm=_measurement(request, "wrist_circumference"),
         hand_circumference_mm=_measurement(request, "hand_circumference"),

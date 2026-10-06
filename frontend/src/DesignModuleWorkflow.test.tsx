@@ -54,6 +54,39 @@ afterEach(() => {
 });
 
 describe('design modules and independent measurement entry', () => {
+  it('adds crossed draping and persists its measured fullness in the hash', async () => {
+    const project = reviewedProject();
+    const onSave = vi.fn(async (candidate: ProjectDocument) => ({...candidate, revision: candidate.revision + 1}));
+    render(<StyleEditor project={project} analysis={analysis} providerName="Gemini" onSave={onSave} />);
+    await userEvent.selectOptions(screen.getByLabelText('Добавить деталь из каталога'), 'crossed_bodice_drape_v1');
+    await userEvent.click(screen.getByRole('button', {name: 'Добавить выбранную деталь'}));
+    await userEvent.type(screen.getByLabelText('Ширина детали 2, см'), '5');
+    await userEvent.type(screen.getByLabelText('Глубина детали 2, см'), '10');
+    await userEvent.type(screen.getByLabelText('Расстояние детали 2, см'), '3');
+    await userEvent.click(screen.getAllByLabelText('Я проверил(а) эту деталь по фотографии')[1]);
+    await userEvent.click(screen.getByRole('button', {name: 'Сохранить проверку деталей'}));
+    await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+    const saved = onSave.mock.calls[0][0];
+    expect(saved.garment_spec.design_intent?.elements[1]).toMatchObject({module_id: 'crossed_bodice_drape_v1', count: 2, dimensions_mm: {width: 50, depth: 100, spacing: 30}});
+    expect(canonicalGenerationPayload(await buildEngineRequest(saved)).hash_contract_version).toBe('1.6.0');
+  });
+
+  it('keeps measured arcs at a raised waist through saving', async () => {
+    const project = reviewedProject();
+    const onSave = vi.fn(async (candidate: ProjectDocument) => ({...candidate, revision: candidate.revision + 1}));
+    render(<StyleEditor project={project} analysis={analysis} providerName="Gemini" onSave={onSave} />);
+    await userEvent.selectOptions(screen.getByLabelText('Линия талии'), 'high');
+    await userEvent.type(screen.getByLabelText('Смещение линии талии, см'), '3');
+    await userEvent.type(screen.getByLabelText('Обхват на новой линии талии, см'), '80');
+    await userEvent.type(screen.getByLabelText('Задняя дуга на новой линии талии, см'), '40');
+    await userEvent.click(screen.getByLabelText('Я проверил(а) пропорции'));
+    await userEvent.click(screen.getByRole('button', {name: 'Сохранить проверку деталей'}));
+    await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+    const saved = onSave.mock.calls[0][0];
+    expect(saved.garment_spec.design_intent?.proportions).toMatchObject({module_id: 'parametric_visual_proportions_v1', waist_shift_mm: 30, waist_level_circumference_mm: 800, back_waist_level_arc_mm: 400});
+    expect(canonicalGenerationPayload(await buildEngineRequest(saved)).hash_contract_version).toBe('1.6.0');
+  });
+
   it('adds a peplum from the catalog and includes its sizes in the saved request', async () => {
     const project = reviewedProject();
     const onSave = vi.fn(async (candidate: ProjectDocument) => ({...candidate, revision: candidate.revision + 1}));

@@ -254,8 +254,8 @@ def build_trouser_blocks(request: Mapping[str, Any]) -> TrouserBlockSet:
     waistband_width = _style_number(parameters, "waistband_width_mm")
     fly_length = _style_number(parameters, "fly_length_mm")
     pocket_opening = _style_number(parameters, "pocket_opening_mm")
-    waist_ease = float(request["fit_settings"]["wearing_ease_mm"]["waist"])
-    hip_ease = float(request["fit_settings"]["wearing_ease_mm"]["hips"])
+    waist_ease = float(request["fit_settings"]["wearing_ease_mm"]["waist"]) + float(request["fit_settings"]["design_ease_mm"]["waist"])
+    hip_ease = float(request["fit_settings"]["wearing_ease_mm"]["hips"]) + float(request["fit_settings"]["design_ease_mm"]["hips"])
 
     measured_rise = outside_leg - inseam
     if abs(measured_rise - sitting_height) > 70.0:

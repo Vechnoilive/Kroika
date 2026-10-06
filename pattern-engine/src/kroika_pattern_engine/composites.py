@@ -78,7 +78,7 @@ def apply_composite_transformations(
     result = deepcopy(dict(pattern))
     original_piece_count = len(result["pieces"])
     original_pair_count = len(result["seam_pairs"])
-    operations: list[dict[str, Any]] = []
+    operations: list[dict[str, Any]] = list(result.get("composite_operations", []))
     intent = request.get("garment_spec", {}).get("design_intent")
     elements = intent.get("elements", []) if isinstance(intent, Mapping) else []
     layers = intent.get("layers", []) if isinstance(intent, Mapping) else []

@@ -167,6 +167,7 @@
       "required": ["id", "first_piece_id", "first_segment_ids", "second_piece_id", "second_segment_ids", "first_length_reduction_mm", "second_length_reduction_mm", "allowed_ease_mm", "tolerance_mm"],
       "properties": {
         "id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "second_instance": {"type": "string", "enum": ["primary", "mirror"]},
         "copy_pairing": {"type": "string", "enum": ["mirrored_copies"]},
         "first_piece_id": {"type": "string"},
         "first_segment_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}},
@@ -201,15 +202,16 @@
         "operation_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
         "source_kind": {"type": "string", "enum": ["element", "layer"]},
         "source_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
-        "kind": {"type": "string", "enum": ["cuff", "collar", "patch_pocket", "lining", "overlay", "sash", "tie", "ruffle", "flounce", "peplum", "interfacing"]},
+        "kind": {"type": "string", "enum": ["cuff", "collar", "patch_pocket", "lining", "overlay", "sash", "tie", "ruffle", "flounce", "peplum", "interfacing", "drape", "off_shoulder", "cascade", "proportions"]},
         "module_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
-        "formula_id": {"type": "string", "pattern": "^(M19|D02)-[A-Z][0-9]{2}$"},
+        "formula_id": {"type": "string", "pattern": "^(M19|D02|A03)-[A-Z][0-9]{2}$"},
         "target_piece_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}},
-        "added_piece_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}},
-        "interface_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}},
+        "added_piece_ids": {"type": "array", "minItems": 0, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}},
+        "interface_ids": {"type": "array", "minItems": 0, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}},
         "parameters_mm": {"type": "object", "additionalProperties": {"type": "number"}},
         "invariant_residual_mm": {"type": "number", "minimum": 0}
-      }
+      },
+      "allOf": [{"if": {"properties": {"kind": {"const": "proportions"}}}, "else": {"properties": {"added_piece_ids": {"minItems": 1}, "interface_ids": {"minItems": 1}}}}]
     },
     "topology_operation": {
       "type": "object",

@@ -11,7 +11,7 @@ from .design_modules import (
     STAGE18_MODELING_MODULES, STAGE19_ELEMENT_MODULES, STAGE19_LAYER_MODULES,
     STAGE21_TOPOLOGY_MODULES, FIXED_ELEMENT_MODULES, FIXED_LAYER_MODULES,
     module_matches,
-    DETAIL_ELEMENT_MODULES, DETAIL_LAYER_MODULES,
+    DETAIL_ELEMENT_MODULES, DETAIL_LAYER_MODULES, ADVANCED_ELEMENT_MODULES,
 )
 
 
@@ -223,7 +223,7 @@ def _validate_design_intent(
                      'Включённая деталь не может иметь статус excluded.')
             dimensions = item.get('dimensions_mm') if group == 'elements' else None
             module_id = item.get('module_id')
-            if module_id in DETAIL_ELEMENT_MODULES | DETAIL_LAYER_MODULES:
+            if module_id in DETAIL_ELEMENT_MODULES | DETAIL_LAYER_MODULES | ADVANCED_ELEMENT_MODULES:
                 if item['support_status'] != 'supported' or not module_matches(
                     module_id, item, spec, kind='element' if group == 'elements' else 'layer',
                 ):
@@ -365,9 +365,9 @@ def _validate_design_intent(
     if proportions['support_status'] == 'excluded':
         _add(issues, 'DESIGN_PROPORTIONS_EXCLUDED', '/garment_spec/design_intent/proportions',
              'Пропорции изделия нельзя исключить из проверки.')
-    if proportions.get('module_id') == 'bounded_visual_proportions':
+    if proportions.get('module_id') in {'bounded_visual_proportions', 'parametric_visual_proportions_v1'}:
         supported_proportions = module_matches(
-            'bounded_visual_proportions', proportions, spec, kind='proportions',
+            proportions['module_id'], proportions, spec, kind='proportions',
         )
         if proportions['support_status'] != 'supported' or not supported_proportions:
             _add(

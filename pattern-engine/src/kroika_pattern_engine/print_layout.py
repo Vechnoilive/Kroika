@@ -181,7 +181,8 @@ def notch_geometry(
     source = next(
         (
             segment
-            for segment in placed.piece["seam_contour"]["segments"]
+            for path in [placed.piece["seam_contour"], *placed.piece["internal_paths"]]
+            for segment in path["segments"]
             if segment["id"] == notch["segment_id"]
         ),
         None,

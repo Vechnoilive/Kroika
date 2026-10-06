@@ -68,7 +68,10 @@ def _path(pid: str, segments: list, closed: bool = False) -> dict[str, Any]:
 
 
 def _find(pattern: Mapping[str, Any], pid: str) -> dict[str, Any]:
-    return next(piece for piece in pattern["pieces"] if piece["id"] == pid)
+    target = next((piece for piece in pattern["pieces"] if piece["id"] == pid), None)
+    if target is None:
+        raise _error("Не найдена основа для дополнительной детали.", pid, "DETAIL_TARGET_MISSING")
+    return target
 
 
 def _quantity(target: Mapping[str, Any]) -> int:

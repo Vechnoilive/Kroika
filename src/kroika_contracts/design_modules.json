@@ -1,5 +1,5 @@
 {
-  "registry_version": "1.1.0",
+  "registry_version": "1.2.0",
   "unit": "mm",
   "modules": [
     {
@@ -1471,6 +1471,204 @@
           "sleeve_type": [
             "short",
             "long"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "crossed_bodice_drape_v1",
+      "group": "advanced_element",
+      "kind": "element",
+      "title_ru": "Перекрёстная драпировка: ширина концов, добавка на сборку, отступ от бока",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top"
+          ],
+          "type": [
+            "drape"
+          ],
+          "variant": [
+            "soft"
+          ],
+          "location": [
+            "bodice_front"
+          ],
+          "construction": [
+            "layered"
+          ],
+          "count": [
+            2
+          ],
+          "symmetry": [
+            "symmetric"
+          ],
+          "sleeve_type": [
+            "sleeveless"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            30,
+            100
+          ],
+          "depth": [
+            40,
+            240
+          ],
+          "spacing": [
+            25,
+            70
+          ]
+        },
+        "optional": {}
+      }
+    },
+    {
+      "id": "off_shoulder_bands_v1",
+      "group": "advanced_element",
+      "kind": "element",
+      "title_ru": "Открытые плечи: ширина полос, длина вокруг руки, высота верха над подмышкой",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top"
+          ],
+          "type": [
+            "strap"
+          ],
+          "variant": [
+            "shaped"
+          ],
+          "location": [
+            "shoulder"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            2
+          ],
+          "symmetry": [
+            "symmetric"
+          ],
+          "sleeve_type": [
+            "sleeveless"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            30,
+            80
+          ],
+          "length": [
+            180,
+            600
+          ],
+          "depth": [
+            10,
+            70
+          ]
+        },
+        "optional": {}
+      }
+    },
+    {
+      "id": "vertical_cascade_flounce_v1",
+      "group": "advanced_element",
+      "kind": "element",
+      "title_ru": "Каскадный волан: длина крепления от талии, глубина, отступ от центра",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "flounce"
+          ],
+          "variant": [
+            "soft"
+          ],
+          "location": [
+            "skirt_front"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1
+          ],
+          "symmetry": [
+            "single",
+            "asymmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "length": [
+            200,
+            1400
+          ],
+          "depth": [
+            60,
+            300
+          ],
+          "spacing": [
+            20,
+            70
+          ]
+        },
+        "optional": {}
+      }
+    },
+    {
+      "id": "parametric_visual_proportions_v1",
+      "group": "proportions",
+      "kind": "proportions",
+      "title_ru": "Параметрические пропорции и посадка",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt",
+            "top",
+            "blouse",
+            "shirt",
+            "vest",
+            "trousers",
+            "shorts"
+          ],
+          "waist_position": [
+            "natural",
+            "high",
+            "low"
+          ],
+          "volume": [
+            "fitted",
+            "regular",
+            "relaxed",
+            "voluminous"
+          ],
+          "hem_shape": [
+            "straight",
+            "curved",
+            "asymmetric"
+          ],
+          "asymmetry": [
+            "no",
+            "yes"
           ]
         }
       ]

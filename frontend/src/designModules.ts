@@ -43,6 +43,8 @@ export function matchingModule(
   const source = item as Item;
   return DESIGN_MODULES.find((module) => {
     if (module.kind !== kind || !module.rules.some((rule) => ruleMatches(rule, source, spec))) return false;
+    if (kind === 'proportions' && module.id === 'bounded_visual_proportions') return ['waist_shift_mm', 'waist_level_circumference_mm', 'back_waist_level_arc_mm', 'hem_delta_mm'].every((key) => source[key] == null);
+    if (kind === 'proportions' && module.id === 'parametric_visual_proportions_v1') return proportionDimensionsMatch(source, spec, checkDimensions);
     if (kind !== 'element' || !checkDimensions) return true;
     const dimensions = (source.dimensions_mm ?? {}) as Item;
     return DIMENSIONS.every((field) => {
@@ -56,4 +58,16 @@ export function matchingModule(
       return bounds[0] <= value && value <= maximum;
     });
   });
+}
+
+function proportionDimensionsMatch(item: Item, spec: GarmentSpec, checkDimensions = true): boolean {
+  const bounded = (key: string, min: number, max: number) => typeof item[key] === 'number' && Number.isFinite(item[key]) && min <= (item[key] as number) && (item[key] as number) <= max;
+  const waistKeys = ['waist_shift_mm', 'waist_level_circumference_mm', 'back_waist_level_arc_mm'];
+  if (item.waist_position !== 'natural') {
+    if (!['dress', 'sundress'].includes(spec.garment_type) || (checkDimensions && (!bounded(waistKeys[0], 10, 100) || !bounded(waistKeys[1], 400, 1800) || !bounded(waistKeys[2], 100, 1000) || (item[waistKeys[2]] as number) >= (item[waistKeys[1]] as number)))) return false;
+  } else if (checkDimensions && waistKeys.some((key) => item[key] != null)) return false;
+  if (item.hem_shape !== 'straight') {
+    if (!['dress', 'sundress', 'skirt'].includes(spec.garment_type) || (checkDimensions && !bounded('hem_delta_mm', 20, 250)) || (item.hem_shape === 'asymmetric' && item.asymmetry !== 'yes')) return false;
+  } else if (checkDimensions && item.hem_delta_mm != null) return false;
+  return true;
 }

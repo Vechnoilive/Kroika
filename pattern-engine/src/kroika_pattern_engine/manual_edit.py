@@ -8,6 +8,7 @@ import math
 from typing import Any, Mapping, Sequence
 
 from .allowances import apply_seam_allowances
+from .advanced import validate_advanced_placements
 from .details import validate_detail_placements
 from .geometry import GeometryError, contour_from_data, validate_simple_contour
 
@@ -118,7 +119,8 @@ def _validate_piece(piece: Mapping[str, Any]) -> None:
             f"После правки площадь детали «{piece['name_ru']}» стала слишком малой.",
             f"/pattern/pieces/{piece_id}/seam_contour",
         )
-    segments = {segment.id: segment for segment in contour.segments}
+    segments = {segment.id: segment for path in [piece["seam_contour"], *piece.get("internal_paths", [])]
+                for segment in contour_from_data(path).segments}
     for notch in piece.get("notches", ()):
         segment = segments.get(str(notch.get("segment_id")))
         distance = float(notch.get("distance_from_start_mm", -1))
@@ -245,6 +247,7 @@ def apply_manual_edits(
     }
     try:
         validate_detail_placements(result)
+        validate_advanced_placements(result)
         printable = apply_seam_allowances(result, input_snapshot)
     except ValueError as error:
         raise ManualEditError(

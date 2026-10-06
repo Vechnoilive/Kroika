@@ -770,8 +770,9 @@ def build_one_piece_sleeve(
     hand_circumference_mm: float,
     sleeve_balance_mm: float,
     cap_ease_mm: float = 0.0,
+    match_cap_halves: bool = False,
 ) -> SleeveBlock:
-    """Draft a symmetric one-piece sleeve and solve cap height by seam length."""
+    """Draft a one-piece sleeve and solve its explicit cap connections."""
 
     numbers = {
         "front_armhole_length_mm": front_armhole_length_mm,
@@ -803,20 +804,20 @@ def build_one_piece_sleeve(
         )
     half_width = flat_biceps_width / 2.0
 
-    def cap(height: float) -> tuple[CubicBezier, CubicBezier]:
+    def cap(height: float, apex_x: float = 0.0) -> tuple[CubicBezier, CubicBezier]:
         left = Point(-half_width, 0.0)
-        top = Point(0.0, height)
+        top = Point(apex_x, height)
         right = Point(half_width, 0.0)
         front = CubicBezier(
             left,
             Point(-half_width, height * 0.50),
-            Point(-half_width * 0.52, height),
+            Point(-half_width * .52 if apex_x == 0 else -half_width + (apex_x + half_width) * .48, height),
             top,
             "sleeve_cap_front",
         )
         back = CubicBezier(
             top,
-            Point(half_width * 0.48, height),
+            Point(half_width * .48 if apex_x == 0 else apex_x + (half_width - apex_x) * .48, height),
             Point(half_width, height * 0.56),
             right,
             "sleeve_cap_back",
@@ -841,7 +842,40 @@ def build_one_piece_sleeve(
         else:
             high = middle
     cap_height = (low + high) / 2.0
-    front_cap, back_cap = cap(cap_height)
+    apex_x = 0.0
+    if match_cap_halves:
+        front_target = front_armhole_length_mm + cap_ease_mm * front_armhole_length_mm / (target - cap_ease_mm)
+        back_target = target - front_target
+        # Solve height and lateral apex together. Biceps and wrist widths,
+        # and therefore the paired underarm seams, remain unchanged.
+        for _ in range(24):
+            fc, bc = cap(cap_height, apex_x)
+            rf, rb = fc.length_mm - front_target, bc.length_mm - back_target
+            if max(abs(rf), abs(rb)) < 1e-7:
+                break
+            step = .001
+            fh, bh = cap(cap_height + step, apex_x)
+            fx, bx = cap(cap_height, apex_x + step)
+            j11, j21 = (fh.length_mm - fc.length_mm) / step, (bh.length_mm - bc.length_mm) / step
+            j12, j22 = (fx.length_mm - fc.length_mm) / step, (bx.length_mm - bc.length_mm) / step
+            det = j11 * j22 - j12 * j21
+            if abs(det) < 1e-10:
+                break
+            dh, dx = (rf * j22 - rb * j12) / det, (j11 * rb - j21 * rf) / det
+            for damping in (1., .5, .25, .125, .0625):
+                h, x = cap_height - damping * dh, apex_x - damping * dx
+                if h <= .001 or abs(x) >= half_width * .85:
+                    continue
+                nf, nb = cap(h, x)
+                if max(abs(nf.length_mm - front_target), abs(nb.length_mm - back_target)) < max(abs(rf), abs(rb)):
+                    cap_height, apex_x = h, x
+                    break
+            else:
+                break
+        fc, bc = cap(cap_height, apex_x)
+        if max(abs(fc.length_mm - front_target), abs(bc.length_mm - back_target)) > .001:
+            raise BlockConstructionError("SLEEVE_CAP_HALVES_SOLVER", "Не удалось согласовать переднюю и заднюю части оката. Проверьте прибавку по руке.", "/fit_settings/design_ease_mm/upper_arm")
+    front_cap, back_cap = cap(cap_height, apex_x)
     actual = front_cap.length_mm + back_cap.length_mm
 
     flat_wrist_width = max(wrist_circumference_mm, hand_circumference_mm) / 2.0
