@@ -11,6 +11,7 @@ from .allowances import apply_seam_allowances
 from .advanced import validate_advanced_placements
 from .details import validate_detail_placements
 from .geometry import GeometryError, contour_from_data, validate_simple_contour
+from .validation import validate_pattern_assembly, validate_export_coverage
 
 
 MAX_POINT_MOVE_MM = 50.0
@@ -248,6 +249,8 @@ def apply_manual_edits(
     try:
         validate_detail_placements(result)
         validate_advanced_placements(result)
+        validate_pattern_assembly(result)
+        validate_export_coverage(result)
         printable = apply_seam_allowances(result, input_snapshot)
     except ValueError as error:
         raise ManualEditError(

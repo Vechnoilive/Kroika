@@ -6,7 +6,9 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from kroika_contracts.design_modules import FIXED_ELEMENT_MODULES, FIXED_LAYER_MODULES
 from .blocks import BlockConstructionError
+from .validation import validate_export_coverage
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,7 +32,12 @@ def compile_design_coverage(
 
     result = deepcopy(dict(pattern))
     index = _geometry_index(result)
+    index["operation_ids"] = {
+        op["operation_id"] for key in ("modeling_operations", "topology_operations", "composite_operations")
+        for op in result.get(key, [])
+    }
     catalogue: dict[str, dict[str, set[str]]] = {}
+    sources: dict[str, dict[str, dict[str, set[str]]]] = {}
 
     def add(
         module_id: str,
@@ -56,6 +63,16 @@ def compile_design_coverage(
         evidence["path_ids"].update(path_ids or [])
         evidence["segment_ids"].update(segment_ids or [])
         evidence["operation_ids"].update(operation_ids or [])
+        if source_ids:
+            for source_id in source_ids:
+                scoped = sources.setdefault(module_id, {}).setdefault(source_id, {
+                    key: set() for key in index
+                })
+                for key, values in {
+                    "piece_ids": piece_ids, "seam_pair_ids": seam_pair_ids,
+                    "path_ids": path_ids, "segment_ids": segment_ids, "operation_ids": operation_ids,
+                }.items():
+                    scoped[key].update(values or [])
 
     core_pieces = sorted(
         piece_id for piece_id in index["piece_ids"]
@@ -147,6 +164,10 @@ def compile_design_coverage(
                 "segment_ids": sorted(evidence["segment_ids"]),
                 "operation_ids": sorted(evidence["operation_ids"]),
             },
+            "source_evidence": {
+                source: {key: sorted(values) for key, values in scoped.items()}
+                for source, scoped in sorted(sources.get(module_id, {}).items())
+            },
         })
 
     available = {entry["module_id"] for entry in modules}
@@ -160,11 +181,26 @@ def compile_design_coverage(
             "/garment_spec/design_intent",
         )
 
+    intent = request.get("garment_spec", {}).get("design_intent") or {}
+    fixed = FIXED_ELEMENT_MODULES | FIXED_LAYER_MODULES | {"bounded_visual_proportions"}
+    for group, id_key in (("elements", "source_element_id"), ("layers", "source_layer_id")):
+        for item in intent.get(group, []):
+            if item.get("included") is False or item.get("support_status") != "supported":
+                continue
+            module_id, source_id = item.get("module_id"), item[id_key]
+            if module_id not in fixed and source_id not in sources.get(module_id, {}):
+                raise BlockConstructionError(
+                    "DESIGN_COVERAGE_EVIDENCE_MISSING",
+                    "Для включённой детали нет собственного геометрического результата.",
+                    f"/garment_spec/design_intent/{group}/{source_id}",
+                )
+
     result["design_coverage"] = {
         "schema_version": "1.0.0",
         "modules": modules,
         "physical_validation_required": True,
     }
+    validate_export_coverage(result)
     return DesignCoverageResult(result, len(modules), len(required))
 
 

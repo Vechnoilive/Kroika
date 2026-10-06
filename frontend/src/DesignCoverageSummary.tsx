@@ -54,9 +54,9 @@ export function DesignCoverageSummary({
       <ul className="coverage-list">
         {report.entries.map((entry) => {
           const count = evidenceCount(entry.evidence);
-          const evidenceIds = entry.evidence
-            ? Object.values(entry.evidence).flat()
-            : [];
+          const pieces = entry.evidence?.piece_ids.map((id) => (
+            pattern.pieces.find((piece) => piece.id === id)?.name_ru ?? id
+          )) ?? [];
           return (
             <li key={`${entry.sourceKind}-${entry.sourceId}`} className={`coverage-entry coverage-entry--${entry.decision}`}>
               <div>
@@ -68,8 +68,9 @@ export function DesignCoverageSummary({
               </div>
               {count > 0 && (
                 <details>
-                  <summary>Доказательств: {count}</summary>
-                  <code>{evidenceIds.join(', ')}</code>
+                  <summary>Показать состав: {count}</summary>
+                  {pieces.length > 0 && <p>Лекала: {pieces.join('; ')}.</p>}
+                  <p>Соединений: {entry.evidence?.seam_pair_ids.length ?? 0}; линий: {entry.evidence?.path_ids.length ?? 0}; операций: {entry.evidence?.operation_ids.length ?? 0}.</p>
                 </details>
               )}
             </li>

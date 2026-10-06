@@ -164,7 +164,7 @@ def apply_modeling_transformations(
             else:
                 allowance = _required_dimension(dimensions, "width", source_id)
                 piece = _piece(result, target_id, source_id)
-                waist_length = _segment_length(piece, "front_skirt_waist")
+                waist_length = _segment_length(piece, _skirt_top_id(piece))
                 gathered_cut_length_mm(waist_length, allowance)
                 marker_kind = "gather"
                 formula_id = "M18-G01"
@@ -239,11 +239,19 @@ def apply_modeling_transformations(
     )
 
 
+def _skirt_top_id(piece: Mapping[str, Any]) -> str:
+    return next(
+        edge["id"] for edge in piece["seam_contour"]["segments"]
+        if edge["id"] in {"front_skirt_waist", "front_skirt_yoke_join"}
+    )
+
+
 def _extend_center(
     pattern: dict[str, Any], piece_id: str, allowance_mm: float, marker_kind: str,
     marker_length_mm: object, source_id: str, variant: str,
 ) -> None:
     piece = _piece(pattern, piece_id, source_id)
+    top_id = _skirt_top_id(piece)
     contour = contour_from_data(piece["seam_contour"])
     center = contour.segments[0]
     if not isinstance(center, LineSegment) or not center.id.endswith("_center"):
@@ -310,7 +318,7 @@ def _extend_center(
     })
     for pair in pattern["seam_pairs"]:
         for side in ("first", "second"):
-            if pair[f"{side}_piece_id"] == piece_id and "front_skirt_waist" in pair[f"{side}_segment_ids"]:
+            if pair[f"{side}_piece_id"] == piece_id and top_id in pair[f"{side}_segment_ids"]:
                 pair[f"{side}_segment_ids"].append(waist_connector_id)
                 pair[f"{side}_length_reduction_mm"] = round(
                     float(pair[f"{side}_length_reduction_mm"]) + allowance, 6

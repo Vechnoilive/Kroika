@@ -299,6 +299,14 @@ def _mirror_edge(edge: dict, prefix: str = "mirror_") -> dict:
     return out
 
 
+def prepare_advanced_foundation(pattern: Mapping[str, Any], request: Mapping[str, Any]) -> dict:
+    """Unfold the foundation before dependent layers and neckline details are copied."""
+    result = deepcopy(dict(pattern))
+    if any(item["module_id"] == "crossed_bodice_drape_v1" for item in _active(request)):
+        _unfold_front(result)
+    return result
+
+
 def _unfold_front(pattern: dict) -> dict:
     target = _find(pattern, "front_bodice")
     if not target["cut_on_fold"]:
@@ -421,7 +429,7 @@ def _anchor(
 
 def _drape(pattern: dict, item: Mapping[str, Any]) -> None:
     source, d = item["source_element_id"], item["dimensions_mm"]
-    target = _unfold_front(pattern)
+    target = _find(pattern, "front_bodice")
     contour = contour_from_data(target["seam_contour"])
     w, extra, inset = d["width"], d["depth"], d["spacing"]
     waist = next(e for e in contour.segments if e.id == "front_waist")
@@ -681,15 +689,6 @@ def apply_advanced_details(
     before, pairs = len(result["pieces"]), len(result["seam_pairs"])
     for item in _active(request):
         if item["module_id"] == "crossed_bodice_drape_v1":
-            # Overlay/interfacing should not silently stay as a half pattern.
-            if any(
-                p["id"] in {"overlay_front_bodice", "interfacing_front_bodice"}
-                for p in result["pieces"]
-            ):
-                raise _error(
-                    "Для драпировки используйте основной лиф; отдельный слой переда пока не совместим с разворотом.",
-                    item["source_element_id"],
-                )
             _drape(result, item)
         elif item["module_id"] == "off_shoulder_bands_v1":
             _bands(result, item)

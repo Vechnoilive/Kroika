@@ -339,18 +339,12 @@ def _validate_design_intent(
             'circular_hem_flounce_v1', 'paired_patch_pocket_v1',
         }
     }
-    incompatible_layers = {
-        item.get('module_id')
-        for item in intent['layers']
-        if item.get('included') is not False
-        and item.get('module_id') in {'skirt_full_lining_v1', 'skirt_overlay_layer_v1'}
-    }
-    if skirt_topology and (incompatible_skirt_modules or incompatible_layers):
+    if 'paired_equal_skirt_panels_v1' in skirt_topology and incompatible_skirt_modules:
         _add(
             issues, 'DESIGN_TOPOLOGY_PIPELINE_CONFLICT',
             '/garment_spec/design_intent',
-            'Кокетки и панели пока нельзя совмещать со складкой, сборкой, воланом, '
-            'накладными карманами или дополнительным слоем юбки.',
+            'Панельное членение пока нельзя совмещать со складкой, сборкой, '
+            'воланом или накладными карманами.',
         )
 
     included_main = [

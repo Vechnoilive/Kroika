@@ -16,7 +16,11 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 
 from .geometry import curve_from_data, curve_points
-from .print_layout import PatternLayout, PlacedPiece, Tile, TilePlan, layout_pattern, make_tile_plan, notch_geometry
+from .print_layout import (
+    PatternLayout, PlacedPiece, Tile, TilePlan, layout_pattern, make_tile_plan,
+    notch_geometry, instruction_lines,
+)
+from .validation import validate_export_coverage
 
 
 @dataclass(frozen=True, slots=True)
@@ -312,6 +316,13 @@ def _draw_tile_content(
         document.setFont(regular_font, 6)
         suffix = " · СГИБ" if piece["cut_on_fold"] else ""
         document.drawCentredString(center[0] * mm, (center[1] - 4) * mm, f"Крой: {piece['cut_quantity']}{suffix}")
+        document.setFont(regular_font, 7)
+        for index, (_annotation_id, line) in enumerate(instruction_lines(piece, placed.width_mm)):
+            position = _page_point(plan, tile, (
+                placed.offset_x_mm,
+                placed.offset_y_mm + placed.height_mm + 6 + index * 3.2,
+            ))
+            document.drawString(position[0] * mm, position[1] * mm, line)
 
     if not production_allowed:
         document.setFillColor(Color(0.72, 0.25, 0.2, alpha=0.10))
@@ -337,6 +348,7 @@ def _validated_plan(
     if not all(piece.get("cutting_contour") for piece in pattern.get("pieces", ())):
         raise PDFRenderError("PDF нельзя построить без линий среза всех деталей.")
     try:
+        validate_export_coverage(pattern)
         layout = layout_pattern(pattern)
         plan = make_tile_plan(layout, spec)
     except (KeyError, TypeError, ValueError) as error:

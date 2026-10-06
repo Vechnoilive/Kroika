@@ -435,7 +435,9 @@ def _panelize_skirt(
         "allowed_ease_mm": round(abs(front_length - back_length), 9),
         "tolerance_mm": 1.0,
     })
-    for operation in pattern.get("modeling_operations", []):
+    for operation in [
+        *pattern.get("modeling_operations", []), *pattern.get("composite_operations", []),
+    ]:
         targets: list[str] = []
         for piece_id in operation.get("target_piece_ids", []):
             targets.extend(replacement_targets.get(piece_id, [piece_id]))

@@ -279,7 +279,12 @@
           "type": "array", "uniqueItems": true,
           "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}
         },
-        "evidence": {"$ref": "#/$defs/design_coverage_evidence"}
+        "evidence": {"$ref": "#/$defs/design_coverage_evidence"},
+        "source_evidence": {
+          "type": "object",
+          "propertyNames": {"pattern": "^[a-z][a-z0-9_-]*$"},
+          "additionalProperties": {"$ref": "#/$defs/design_coverage_evidence"}
+        }
       }
     },
     "design_coverage_evidence": {

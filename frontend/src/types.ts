@@ -643,6 +643,7 @@ export interface DesignCoverageCatalogue {
     module_id: string;
     source_ids: string[];
     evidence: DesignCoverageEvidence;
+    source_evidence?: Record<string, DesignCoverageEvidence>;
   }>;
   physical_validation_required: true;
 }

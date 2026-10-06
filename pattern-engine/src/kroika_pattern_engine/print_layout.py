@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
+import textwrap
 from typing import Any, Mapping
 
 from .geometry import contour_from_data, curve_from_data, curve_points
@@ -36,6 +37,21 @@ class PatternLayout:
     pieces: tuple[PlacedPiece, ...]
     width_mm: float
     height_mm: float
+
+
+def instruction_lines(piece: Mapping[str, Any], width_mm: float) -> list[tuple[str, str]]:
+    """Wrap sewing notes into a reserved block below the cutting geometry."""
+    width = max(12, min(100, int(width_mm / 1.5)))
+    return [
+        (annotation["id"], line)
+        for annotation in piece.get("annotations", [])
+        for line in textwrap.wrap(annotation["text_ru"], width=width, break_long_words=True)
+    ]
+
+
+def instruction_height_mm(piece: Mapping[str, Any], width_mm: float) -> float:
+    lines = instruction_lines(piece, width_mm)
+    return 8 + len(lines) * 3.2 if lines else 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,7 +117,10 @@ def layout_pattern(
     bounds = [piece_bounds(piece) for piece in pieces]
     rows = math.ceil(len(pieces) / columns)
     widths = [item[2] - item[0] for item in bounds]
-    heights = [item[3] - item[1] for item in bounds]
+    heights = [
+        item[3] - item[1] + instruction_height_mm(piece, widths[index])
+        for index, (piece, item) in enumerate(zip(pieces, bounds, strict=True))
+    ]
     column_widths = [
         max((widths[index] for index in range(column, len(pieces), columns)), default=0.0)
         for column in range(columns)

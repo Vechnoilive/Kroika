@@ -8,7 +8,8 @@ from collections.abc import Collection
 from typing import Any, Mapping
 
 from .geometry import curve_from_data, curve_points
-from .print_layout import PlacedPiece, layout_pattern, notch_geometry
+from .print_layout import PlacedPiece, layout_pattern, notch_geometry, instruction_lines
+from .validation import validate_export_coverage
 
 
 class SVGRenderError(ValueError):
@@ -79,6 +80,7 @@ def render_pattern_svg(
         raise SVGRenderError(f"Неизвестные слои SVG: {', '.join(sorted(unknown))}.")
 
     try:
+        validate_export_coverage(pattern)
         layout = layout_pattern(pattern)
     except (KeyError, TypeError, ValueError) as error:
         raise SVGRenderError("Не удалось разместить детали на общем листе.") from error
@@ -142,7 +144,7 @@ def render_pattern_svg(
             fragments.append(f'<path class="seam" data-layer="seam" d="{_path_data(piece["seam_contour"], placed, header_height)}"/>')
         if "internal" in layers:
             for path in piece.get("internal_paths", ()):
-                fragments.append(f'<path class="internal" data-layer="internal" d="{_path_data(path, placed, header_height)}"/>')
+                fragments.append(f'<path class="internal" data-layer="internal" data-path="{escape(str(path["id"]))}" d="{_path_data(path, placed, header_height)}"/>')
         if "fold" in layers:
             for fold_path in _fold_paths(placed, header_height):
                 fragments.append(f'<path class="fold" data-layer="fold" d="{fold_path}"/>')
@@ -161,6 +163,13 @@ def render_pattern_svg(
         if "labels" in layers:
             fragments.append(f'<text class="label" data-layer="labels" text-anchor="middle" x="{_fmt(center_x)}" y="{_fmt(center_y)}">{name}</text>')
             fragments.append(f'<text class="meta" data-layer="labels" text-anchor="middle" x="{_fmt(center_x)}" y="{_fmt(center_y + 8)}">{escape(meta)}</text>')
+            for index, (annotation_id, line) in enumerate(instruction_lines(piece, placed.width_mm)):
+                y = header_height + placed.offset_y_mm + placed.height_mm + 6 + index * 3.2
+                fragments.append(
+                    f'<text data-layer="labels" data-annotation="{escape(annotation_id)}" '
+                    f'x="{_fmt(placed.offset_x_mm)}" y="{_fmt(y)}" '
+                    f'font-size="2.5" fill="#302b32">{escape(line)}</text>'
+                )
         if "dimensions" in layers:
             dimensions = f"{_fmt(placed.width_mm)} × {_fmt(placed.height_mm)} мм"
             fragments.append(f'<text class="dimension" data-layer="dimensions" text-anchor="middle" x="{_fmt(center_x)}" y="{_fmt(center_y + 16)}">{dimensions}</text>')

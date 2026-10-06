@@ -115,7 +115,7 @@ def apply_composite_transformations(
             kind="overlay" if role == "overlay" else "lining",
             module_id=str(layer["module_id"]),
             formula_id="M19-L02" if role == "overlay" else "M19-L01",
-            target_piece_ids=["front_skirt", "back_skirt"],
+            target_piece_ids=[pid.removeprefix(f"{role}_") for pid in added_piece_ids],
             added_piece_ids=added_piece_ids,
             interface_ids=interface_ids,
             parameters_mm={},
@@ -202,14 +202,21 @@ def apply_composite_transformations(
 def _add_skirt_layer(
     pattern: dict[str, Any], role: str, source_id: str, *, include_flounces: bool,
 ) -> tuple[list[str], list[str]]:
-    source_piece_ids = ["front_skirt", "back_skirt"]
+    source_piece_ids = sorted(
+        piece["id"] for piece in pattern["pieces"]
+        if piece["id"] in {"front_skirt", "back_skirt", "front_skirt_yoke", "back_skirt_yoke"}
+        or (piece["id"].startswith(("front_skirt_panel_", "back_skirt_panel_")))
+    )
     if include_flounces:
         source_piece_ids.extend(sorted(
             piece["id"] for piece in pattern["pieces"]
             if piece["id"].startswith(("front_skirt_", "back_skirt_"))
             and piece["id"].endswith("_flounce")
         ))
-    if not all(_has_piece(pattern, piece_id) for piece_id in source_piece_ids):
+    if not source_piece_ids or not all(
+        any(pid.startswith(f"{prefix}_skirt") for pid in source_piece_ids)
+        for prefix in ("front", "back")
+    ):
         raise _layer_error(
             "COMPOSITE_LAYER_TARGET_MISSING",
             "Для юбочного слоя нужны детали переднего и заднего полотнища.",
@@ -250,18 +257,14 @@ def _add_skirt_layer(
         pattern["seam_pairs"].append(cloned_pair)
         interface_ids.append(cloned_pair["id"])
 
-    for source_piece_id in ("front_skirt", "back_skirt"):
+    for source_piece_id in source_piece_ids:
         source_piece = _piece(pattern, source_piece_id, source_id, source_kind="layers")
         waist_ids = [
             segment["id"] for segment in source_piece["seam_contour"]["segments"]
             if segment["id"].endswith("_waist")
         ]
         if not waist_ids:
-            raise _layer_error(
-                "COMPOSITE_LAYER_WAIST_MISSING",
-                "Для закрепления слоя не найден срез талии.",
-                source_id,
-            )
+            continue
         pair_id = f"{role}_{source_piece_id}_waist_attachment"
         pattern["seam_pairs"].append(_seam_pair(
             pair_id,
@@ -380,7 +383,16 @@ def _add_stand_collar(
             [f"{piece_id}_back_neckline"],
         ),
     ))
-    return piece_id, [front_pair, back_pair], front_length, back_length
+    if any(edge["id"] == "mirror_front_neckline" for edge in front["seam_contour"]["segments"]):
+        mirrored_pair = deepcopy(pattern["seam_pairs"][-2])
+        mirrored_pair["id"] += "_mirror"
+        mirrored_pair["first_segment_ids"] = ["mirror_front_neckline"]
+        mirrored_pair["second_instance"] = "mirror"
+        pattern["seam_pairs"].append(mirrored_pair)
+    interface_ids = [front_pair, back_pair]
+    if any(edge["id"] == "mirror_front_neckline" for edge in front["seam_contour"]["segments"]):
+        interface_ids.append(f"{front_pair}_mirror")
+    return piece_id, interface_ids, front_length, back_length
 
 
 def _add_patch_pocket(

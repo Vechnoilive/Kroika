@@ -7,7 +7,9 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
-from .advanced import prepare_proportions, apply_silhouette, apply_advanced_details
+from .advanced import (
+    prepare_proportions, apply_silhouette, apply_advanced_details, prepare_advanced_foundation,
+)
 from .assembly import assemble_garment
 from .allowances import apply_seam_allowances
 from .blocks import (
@@ -26,6 +28,7 @@ from .garment_catalogue import garment_acceptance
 from .geometry import run_core_diagnostics
 from .modeling import apply_modeling_transformations
 from .topology import apply_topology_transformations
+from .validation import validate_pattern_assembly
 
 
 def _utc_now() -> datetime:
@@ -36,7 +39,7 @@ class GeometryPatternEngine:
     """Build a bounded experimental garment and return an auditable report."""
 
     engine_id = "kroika-geometry"
-    engine_version = "0.14.0"
+    engine_version = "0.15.0"
 
     def __init__(self, clock: Callable[[], datetime] = _utc_now):
         self._clock = clock
@@ -78,11 +81,25 @@ class GeometryPatternEngine:
             else:
                 blocks = build_base_blocks(request)
             assembly = assemble_garment(request, blocks)
-            modeling = apply_modeling_transformations(apply_silhouette(assembly.pattern, request), request)
-            topology = apply_topology_transformations(modeling.pattern, request)
-            composite = apply_composite_transformations(topology.pattern, request)
+            silhouette = apply_silhouette(assembly.pattern, request)
+            yoke_first = any(
+                item.get("included") is not False
+                and item.get("module_id") == "paired_straight_skirt_yoke_v1"
+                for item in (request["garment_spec"].get("design_intent") or {}).get("elements", [])
+            )
+            if yoke_first:
+                topology = apply_topology_transformations(silhouette, request)
+                modeling = apply_modeling_transformations(topology.pattern, request)
+                foundation = modeling.pattern
+            else:
+                modeling = apply_modeling_transformations(silhouette, request)
+                topology = apply_topology_transformations(modeling.pattern, request)
+                foundation = topology.pattern
+            foundation = prepare_advanced_foundation(foundation, request)
+            composite = apply_composite_transformations(foundation, request)
             details = apply_detail_transformations(composite.pattern, request)
             advanced = apply_advanced_details(details.pattern, request)
+            final_residual = validate_pattern_assembly(advanced.pattern)
             coverage = compile_design_coverage(advanced.pattern, source_request)
             printable_pattern = apply_seam_allowances(coverage.pattern, request)
         except BlockConstructionError as error:
@@ -138,6 +155,14 @@ class GeometryPatternEngine:
             base_piece_count = 2 if garment_type in {"skirt", "trousers", "shorts"} else 4
             sleeved = garment_type in {"blouse", "shirt", "jacket"}
             checks.extend([
+                {
+                    "id": "engine.final_assembly",
+                    "status": "passed",
+                    "message_ru": "Итоговые контуры, надсечки, операции и все соединения проверены после сборки модулей.",
+                    "measured_value": final_residual,
+                    "limit_value": 1.0,
+                    "unit": "mm",
+                },
                 {
                     "id": "engine.advanced.interfaces",
                     "status": "passed" if advanced.applied_count else "not_run",

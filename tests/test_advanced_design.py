@@ -267,15 +267,18 @@ def test_false_asymmetry_and_outside_cascade_return_reviewable_errors():
         validate_advanced_placements(pattern)
 
 
-def test_off_shoulder_overlay_copies_new_top_and_drape_conflict_is_explicit():
+def test_off_shoulder_overlay_and_drape_copy_the_final_foundation():
     layer = _layer("overlay", "overlay", "bodice", "semi_transparent", "bodice_overlay_layer_v1")
     req = request([elements()[1]], [layer])
     generate(req)
     req = request(elements()[:2], [layer])
-    req["input_hash"] = compute_input_hash(req)
-    result = GeometryPatternEngine().generate(req)
-    assert result["status"] == "rejected"
-    assert "отдельный слой" in result["validation_report"]["issues"][0]["message_ru"]
+    pattern = generate(req)
+    pieces = {p["id"]: p for p in pattern["pieces"]}
+    assert pieces["overlay_front_bodice"]["cut_quantity"] == 1
+    assert not pieces["overlay_front_bodice"]["cut_on_fold"]
+    assert len(pieces["overlay_front_bodice"]["seam_contour"]["segments"]) == len(
+        pieces["front_bodice"]["seam_contour"]["segments"]
+    )
 
 
 def test_advanced_hash_matches_actual_frontend_function():

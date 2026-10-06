@@ -57,12 +57,20 @@ export function buildDesignCoverage(
     included: boolean,
     supportStatus: string,
     moduleId: string | null,
+    sourceId: string,
   ): {decision: CoverageDecision; evidence: DesignCoverageEvidence | null} => {
     if (!included || supportStatus === 'excluded') {
       return {decision: 'excluded_by_user', evidence: null};
     }
-    const proof = moduleId ? modules.get(moduleId)?.evidence : null;
-    if (supportStatus === 'supported' && proof && evidenceCount(proof) > 0) {
+    const module = moduleId ? modules.get(moduleId) : undefined;
+    const scoped = module?.source_evidence && Object.keys(module.source_evidence).length > 0;
+    const proof = scoped ? module.source_evidence?.[sourceId]
+      : (module && (module.source_ids.length === 0 || module.source_ids.includes(sourceId))
+        ? module.evidence : null);
+    const hasGeometry = proof && (
+      proof.piece_ids.length + proof.seam_pair_ids.length + proof.path_ids.length + proof.segment_ids.length > 0
+    );
+    if (supportStatus === 'supported' && proof && hasGeometry) {
       return {decision: 'compiled', evidence: proof};
     }
     return {decision: 'missing_evidence', evidence: proof ?? null};
@@ -70,7 +78,7 @@ export function buildDesignCoverage(
 
   for (const element of intent.elements) {
     const status = decisionFor(
-      element.included !== false, element.support_status, element.module_id,
+      element.included !== false, element.support_status, element.module_id, element.source_element_id,
     );
     entries.push({
       sourceKind: 'element',
@@ -84,7 +92,7 @@ export function buildDesignCoverage(
   }
 
   for (const layer of intent.layers) {
-    const status = decisionFor(layer.included !== false, layer.support_status, layer.module_id);
+    const status = decisionFor(layer.included !== false, layer.support_status, layer.module_id, layer.source_layer_id);
     entries.push({
       sourceKind: 'layer',
       sourceId: layer.source_layer_id,
@@ -97,7 +105,7 @@ export function buildDesignCoverage(
   }
 
   const proportionsStatus = decisionFor(
-    true, intent.proportions.support_status, intent.proportions.module_id,
+    true, intent.proportions.support_status, intent.proportions.module_id, 'visual_proportions',
   );
   entries.push({
     sourceKind: 'proportions',
