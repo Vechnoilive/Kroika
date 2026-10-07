@@ -186,7 +186,7 @@
       "properties": {
         "operation_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
         "source_element_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
-        "kind": {"type": "string", "enum": ["pleat", "gather", "flounce", "waistband", "belt", "hem_adjustment"]},
+        "kind": {"type": "string", "enum": ["pleat", "gather", "flounce", "waistband", "belt", "hem_adjustment", "tuck", "decorative_seam"]},
         "module_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
         "formula_id": {"type": "string", "pattern": "^M18-[A-Z][0-9]{2}$"},
         "target_piece_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}},

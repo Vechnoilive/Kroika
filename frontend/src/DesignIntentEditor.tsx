@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import {DESIGN_ELEMENT_NAMES, finalizeDesignIntent, reevaluateDesignIntent} from './designIntent';
-import {DESIGN_MODULES, matchingModule} from './designModules';
+import {applicableRule, DESIGN_MODULES, matchingModule, moduleDiagnosis} from './designModules';
 import {isBackQuestion} from './backDesign';
 import type {
   DesignElementType,
@@ -80,18 +80,16 @@ export function DesignIntentEditor({
   const [catalogModule, setCatalogModule] = useState('');
   const catalog = DESIGN_MODULES.filter((module) => module.kind === 'element'
     && Object.keys(module.dimensions?.required ?? {}).length > 0
-    && module.rules.some((rule) => (!rule.garment_type || rule.garment_type.includes(spec.garment_type))
-      && (!rule.sleeve_type || rule.sleeve_type.includes(spec.parameters.sleeve.type))));
+    && applicableRule(module, spec));
 
   function addCatalogElement() {
     const module = catalog.find((entry) => entry.id === catalogModule);
     if (!module) return;
-    const rule = module.rules.find((entry) => (!entry.garment_type || entry.garment_type.includes(spec.garment_type))
-      && (!entry.sleeve_type || entry.sleeve_type.includes(spec.parameters.sleeve.type)))!;
+    const rule = applicableRule(module, spec)!;
     const element: Element = {
       source_element_id: manualId('catalog'), type: rule.type[0] as Element['type'],
       variant: rule.variant[0] as Element['variant'], location: rule.location[0] as Element['location'],
-      construction: rule.construction[0] as Element['construction'], count: rule.count[0] as number,
+      construction: rule.construction[0] as Element['construction'], count: (rule.count?.[0] ?? 1) as number,
       symmetry: (rule.symmetry?.[0] ?? 'symmetric') as Element['symmetry'], description_ru: module.title_ru,
       confidence: 1, evidence_ru: 'Добавлено пользователем из каталога деталей.',
       requires_confirmation: false, included: true, confirmed_by_user: false,
@@ -111,6 +109,27 @@ export function DesignIntentEditor({
       elements: intent.elements.map((item) => (
         item.source_element_id === sourceId ? {...item, ...update} : item
       )),
+    });
+  }
+
+  function selectConstruction(item: Element, moduleId: string) {
+    const module = DESIGN_MODULES.find((entry) => entry.id === moduleId);
+    if (!module) return;
+    const rule = applicableRule(module, spec);
+    if (!rule) return;
+    const choose = (key: 'type' | 'variant' | 'location' | 'construction' | 'count' | 'symmetry', fallback?: unknown) =>
+      rule[key]?.includes(item[key]) ? item[key] : rule[key]?.[0] ?? fallback;
+    const dimensions: NonNullable<Element['dimensions_mm']> = {...EMPTY_DIMENSIONS};
+    for (const key of Object.keys(dimensions) as Dimension[]) {
+      if (module.dimensions && (key in module.dimensions.required || key in module.dimensions.optional)) {
+        dimensions[key] = item.dimensions_mm?.[key] ?? null;
+      }
+    }
+    updateElement(item.source_element_id, {
+      type: choose('type') as Element['type'], variant: choose('variant') as Element['variant'],
+      location: choose('location') as Element['location'], construction: choose('construction') as Element['construction'],
+      count: choose('count', item.count ?? 1) as number, symmetry: choose('symmetry', item.symmetry) as Element['symmetry'],
+      dimensions_mm: dimensions, confirmed_by_user: false,
     });
   }
 
@@ -184,7 +203,7 @@ export function DesignIntentEditor({
   const reviewLabel = intent.review_status === 'confirmed'
     ? 'Проверка сохранена'
     : intent.status === 'needs_confirmation' ? 'Ждёт вашей проверки'
-      : intent.status === 'partial' ? 'Проверено, нужны модули' : 'Готово к подтверждению';
+      : intent.status === 'partial' ? 'Есть ограничения построения' : 'Готово к подтверждению';
 
   return (
     <section className="design-intent" aria-labelledby="design-intent-title">
@@ -210,8 +229,10 @@ export function DesignIntentEditor({
         {intent.elements.map((item, index) => {
           const included = item.included !== false;
           const dimensions = item.dimensions_mm ?? EMPTY_DIMENSIONS;
-          const needsDimensions = item.support_status === 'planned'
-            && matchingModule('element', item, spec, false) !== undefined;
+          const diagnosis = moduleDiagnosis('element', item, spec);
+          const recipes = DESIGN_MODULES.filter((module) => module.kind === 'element'
+            && applicableRule(module, spec)
+            && (item.type === 'other' || module.rules.some((rule) => rule.type?.includes(item.type))));
           return (
             <article className={`design-review-card${included ? '' : ' design-review-card--excluded'}`} key={item.source_element_id}>
               <header>
@@ -220,7 +241,7 @@ export function DesignIntentEditor({
                   <small>{item.evidence_ru}</small>
                 </div>
                 <span className={`design-support design-support--${item.support_status}`}>
-                  {needsDimensions ? 'Проверьте размеры' : SUPPORT_LABELS[item.support_status]}
+                  {diagnosis.label}
                 </span>
               </header>
               <label className="review-check">
@@ -234,6 +255,17 @@ export function DesignIntentEditor({
                 />
                 <span>Эта деталь действительно есть на изделии</span>
               </label>
+              {included && diagnosis.reasons.length > 0 && <div className="field-hint" aria-label={`Причина блокировки детали ${index + 1}`}>
+                {diagnosis.module && <p>Доступная конструкция: {diagnosis.module.title_ru}.</p>}
+                <ul>{diagnosis.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+              </div>}
+              {included && recipes.length > 0 && <label className="field-hint"><span>Выбрать готовую конструкцию</span>
+                <select aria-label={`Выбрать конструкцию детали ${index + 1}`} value="" onChange={(event) => selectConstruction(item, event.target.value)}>
+                  <option value="">Выберите, если соответствует фотографии</option>
+                  {recipes.map((module) => <option key={module.id} value={module.id}>{module.title_ru}</option>)}
+                </select>
+                <small>Выбор задаёт вариант, расположение, конструкцию, количество и симметрию. Неиспользуемые размеры очищаются. После выбора проверьте деталь по фотографии.</small>
+              </label>}
               <div className="design-review-grid">
                 <label><span>Название и описание</span><input aria-label={`Описание детали ${index + 1}`} disabled={!included} maxLength={240} value={item.description_ru} onChange={(event) => updateElement(item.source_element_id, {description_ru: event.target.value, confirmed_by_user: false})} /></label>
                 <label><span>Тип детали</span><select aria-label={`Тип детали ${index + 1}`} disabled={!included} value={item.type} onChange={(event) => updateElement(item.source_element_id, {type: event.target.value as DesignElementType, confirmed_by_user: false})}>{ELEMENT_TYPES.map((value) => <option value={value} key={value}>{DESIGN_ELEMENT_NAMES[value]}</option>)}</select></label>
@@ -241,6 +273,7 @@ export function DesignIntentEditor({
                 <label><span>Расположение</span><select aria-label={`Расположение детали ${index + 1}`} disabled={!included} value={item.location} onChange={(event) => updateElement(item.source_element_id, {location: event.target.value as DesignLocation, confirmed_by_user: false})}>{LOCATIONS.map((value) => <option value={value} key={value}>{value}</option>)}</select></label>
                 <label><span>Конструкция</span><select aria-label={`Конструкция детали ${index + 1}`} disabled={!included} value={item.construction} onChange={(event) => updateElement(item.source_element_id, {construction: event.target.value as Element['construction'], confirmed_by_user: false})}><option value="integrated">Цельнокроеная</option><option value="separate_piece">Отдельная деталь</option><option value="applied">Настрочная</option><option value="layered">Слой</option><option value="unknown">Не знаю</option></select></label>
                 <label><span>Количество</span><input aria-label={`Количество детали ${index + 1}`} disabled={!included} type="number" min="1" max="32" value={item.count ?? ''} onChange={(event) => updateElement(item.source_element_id, {count: event.target.value === '' ? null : Number(event.target.value), confirmed_by_user: false})} /></label>
+                <label><span>Симметрия</span><select aria-label={`Симметрия детали ${index + 1}`} disabled={!included} value={item.symmetry} onChange={(event) => updateElement(item.source_element_id, {symmetry: event.target.value as Element['symmetry'], confirmed_by_user: false})}><option value="symmetric">Симметричная</option><option value="asymmetric">Асимметричная</option><option value="single">Одиночная</option><option value="unknown">Не знаю</option></select></label>
               </div>
               <fieldset className="dimension-fields" disabled={!included}>
                 <legend>Параметры построения, см — заполняйте только известные</legend>
@@ -248,7 +281,7 @@ export function DesignIntentEditor({
                 {([
                   ['width', 'Ширина'], ['length', 'Длина'], ['depth', 'Глубина'], ['spacing', 'Расстояние'],
                 ] as Array<[Dimension, string]>).map(([key, label]) => (
-                  <label key={key}><span>{label}</span><input aria-label={`${label} детали ${index + 1}, см`} type="number" inputMode="decimal" min="0.1" max="1000" step="0.1" value={dimensions[key] === null ? '' : dimensions[key] / 10} onChange={(event) => setDimension(item, key, event.target.value)} /></label>
+                  <label key={key}><span>{label}</span><input aria-label={`${label} детали ${index + 1}, см`} type="number" inputMode="decimal" min="0.1" max="1000" step="0.1" value={dimensions[key] == null ? '' : dimensions[key] / 10} onChange={(event) => setDimension(item, key, event.target.value)} /></label>
                 ))}
               </fieldset>
               {included && <label className="review-check review-check--confirm"><input type="checkbox" checked={item.confirmed_by_user === true} onChange={(event) => updateElement(item.source_element_id, {confirmed_by_user: event.target.checked})} /><span>Я проверил(а) эту деталь по фотографии</span></label>}
@@ -261,9 +294,11 @@ export function DesignIntentEditor({
       <div className="design-review-list">
         {intent.layers.map((item, index) => {
           const included = item.included !== false;
+          const diagnosis = moduleDiagnosis('layer', item, spec);
           return (
             <article className={`design-review-card${included ? '' : ' design-review-card--excluded'}`} key={item.source_layer_id}>
-              <header><strong>Слой {index + 1}</strong><span className={`design-support design-support--${item.support_status}`}>{SUPPORT_LABELS[item.support_status]}</span></header>
+              <header><strong>Слой {index + 1}</strong><span className={`design-support design-support--${item.support_status}`}>{diagnosis.label}</span></header>
+              {included && diagnosis.reasons.length > 0 && <ul className="field-hint">{diagnosis.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>}
               <label className="review-check"><input type="checkbox" checked={included} disabled={item.role === 'main'} onChange={(event) => updateLayer(item.source_layer_id, {included: event.target.checked, confirmed_by_user: event.target.checked ? false : item.confirmed_by_user})} /><span>{item.role === 'main' ? 'Основной слой обязателен' : 'Этот слой действительно есть'}</span></label>
               <div className="design-review-grid">
                 <label><span>Назначение</span><select aria-label={`Назначение слоя ${index + 1}`} disabled={!included} value={item.role} onChange={(event) => updateLayer(item.source_layer_id, {role: event.target.value as Layer['role'], confirmed_by_user: false})}><option value="main">Основной</option><option value="lining">Подкладка</option><option value="interfacing">Прокладка</option><option value="overlay">Накладной</option></select></label>

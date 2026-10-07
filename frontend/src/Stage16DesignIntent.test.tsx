@@ -70,7 +70,8 @@ describe('stage 16 design intent and workflow navigation', () => {
     expect(screen.getByText('Деталь 1: Пояс')).toBeVisible();
     expect(screen.getByText('Деталь 2: Волан')).toBeVisible();
     expect(screen.getByLabelText('Назначение слоя 2')).toHaveValue('overlay');
-    expect(screen.getAllByText('Нужно подтвердить')).toHaveLength(5);
+    expect(screen.getAllByText('Нужно подтвердить')).toHaveLength(4);
+    expect(screen.getByText('Проверьте размеры')).toBeVisible();
 
     await userEvent.click(screen.getByRole('button', {name: /подтвердить фасон/i}));
     expect(await screen.findByRole('alert')).toHaveTextContent(/сначала проверьте детали, слои и пропорции/i);

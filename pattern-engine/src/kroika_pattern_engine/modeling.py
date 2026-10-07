@@ -10,7 +10,7 @@ from typing import Any, Mapping
 from kroika_contracts.design_modules import STAGE18_MODELING_MODULES as STAGE18_MODULES
 
 from .blocks import BlockConstructionError
-from .details import finish_edge_joins
+from .details import _crosses, _inside, finish_edge_joins
 from .geometry import (
     AffineTransform,
     ArcSegment,
@@ -19,6 +19,7 @@ from .geometry import (
     Point,
     contour_from_data,
     contour_to_data,
+    curve_points,
     validate_simple_contour,
 )
 
@@ -29,6 +30,8 @@ MODULE_ORDER = {
     "adjustable_straight_waistband_v1": 20,
     "circular_hem_flounce_v1": 30,
     "straight_belt_v1": 40,
+    "center_stitched_tuck_v1": 10,
+    "paired_straight_decorative_stitch_v1": 50,
 }
 
 
@@ -147,7 +150,7 @@ def apply_modeling_transformations(
         module_id = element.get("module_id")
         source_id = str(element["source_element_id"])
         dimensions = element.get("dimensions_mm") or {}
-        if module_id in {"center_pleat_v1", "waist_gather_allowance_v1"}:
+        if module_id in {"center_pleat_v1", "waist_gather_allowance_v1", "center_stitched_tuck_v1"}:
             target_id = "front_skirt"
             if target_id in occupied_targets:
                 raise _model_error(
@@ -156,7 +159,10 @@ def apply_modeling_transformations(
                     source_id,
                 )
             occupied_targets.add(target_id)
-            if module_id == "center_pleat_v1":
+            if module_id == "center_stitched_tuck_v1":
+                allowance = _required_dimension(dimensions, "depth", source_id)
+                marker_kind, formula_id = "tuck", "M18-T01"
+            elif module_id == "center_pleat_v1":
                 depth = _required_dimension(dimensions, "depth", source_id)
                 allowance = pleat_allowance_mm(str(element["variant"]), depth, 1)
                 marker_kind = "pleat"
@@ -202,6 +208,15 @@ def apply_modeling_transformations(
             operations.append(_operation(
                 source_id, "belt", module_id, "M18-B02", [piece_id],
                 {"finished_width": width, "finished_length": length},
+            ))
+        elif module_id == "paired_straight_decorative_stitch_v1":
+            target_id = "front_skirt" if element["location"] == "skirt_front" else "back_skirt"
+            length = _required_dimension(dimensions, "length", source_id)
+            spacing = _required_dimension(dimensions, "spacing", source_id)
+            _decorative_stitch(result, target_id, length, spacing, source_id)
+            operations.append(_operation(
+                source_id, "decorative_seam", module_id, "M18-S01", [target_id],
+                {"stitch_length": length, "center_spacing": spacing},
             ))
 
     garment_spec = request.get("garment_spec", {})
@@ -260,7 +275,8 @@ def _extend_center(
             "Для добавки ширины нужна прямая центральная линия детали.",
             source_id,
         )
-    allowance = _bounded(allowance_mm, 10.0, 600.0, "MODEL_ALLOWANCE_OUTSIDE_DOMAIN")
+    allowance = _bounded(allowance_mm, 2.0 if marker_kind == "tuck" else 10.0,
+                         600.0, "MODEL_ALLOWANCE_OUTSIDE_DOMAIN")
     shift = AffineTransform.translation(allowance, 0.0)
     translated = [segment.transformed(shift) for segment in contour.segments]
     old_center = translated[0]
@@ -285,7 +301,14 @@ def _extend_center(
         marker_length = _bounded(
             marker_length_mm, 30.0, total_length - 20.0, "MODEL_MARKER_LENGTH_OUTSIDE_DOMAIN"
         )
-    if marker_kind == "pleat":
+    if marker_kind == "tuck":
+        for suffix, x in (("fold", 0.0), ("stitch", allowance)):
+            path_id = f"{source_id}_tuck_{suffix}"
+            piece["internal_paths"].append(contour_to_data(Contour((LineSegment(
+                Point(x, center.start.y_mm), Point(x, center.start.y_mm - marker_length),
+                f"{path_id}_line",
+            ),), closed=False, id=path_id)))
+    elif marker_kind == "pleat":
         factor = 2 if variant == "knife" else 4
         for index in range(1, factor + 1):
             x = allowance * index / factor
@@ -311,6 +334,9 @@ def _extend_center(
     piece["annotations"].append({
         "id": f"{source_id}_modeling_note",
         "text_ru": (
+            f"Защип по сгибу переда: сложить по центру, строчить на {allowance:g} мм "
+            f"от сгиба на длину {marker_length:g} мм. Полный раствор {2 * allowance:g} мм."
+            if marker_kind == "tuck" else
             f"Модельная {'складка' if marker_kind == 'pleat' else 'сборка'}: "
             f"добавлено {allowance:.1f} мм; контрольные линии обязательны."
         ),
@@ -323,6 +349,85 @@ def _extend_center(
                 pair[f"{side}_length_reduction_mm"] = round(
                     float(pair[f"{side}_length_reduction_mm"]) + allowance, 6
                 )
+
+
+def _decorative_stitch(
+    pattern: dict[str, Any], piece_id: str, length: float, spacing: float, source_id: str,
+) -> None:
+    piece = _piece(pattern, piece_id, source_id)
+    contour = contour_from_data(piece["seam_contour"])
+    center = next((edge for edge in contour.segments if edge.id.endswith("_center")), None)
+    if not isinstance(center, LineSegment):
+        raise _model_error("MODEL_STITCH_CENTER_REQUIRED", "Нужен прямой центральный срез юбки.", source_id)
+    start_y = max(center.start.y_mm, center.end.y_mm)
+    line = LineSegment(Point(spacing, start_y), Point(spacing, start_y - length),
+                       f"{source_id}_decorative_stitch_line")
+    _validate_stitch_line(piece, line, source_id)
+    path_id = f"{source_id}_decorative_stitch"
+    piece["internal_paths"].append(contour_to_data(Contour((line,), closed=False, id=path_id)))
+    piece["annotations"].append({
+        "id": f"{source_id}_stitch_note", "position": [spacing, start_y - length / 2],
+        "text_ru": f"Две симметричные декоративные строчки: {length:g} мм от талии, отступ {spacing:g} мм от центра. Лекало по этой линии не разрезать.",
+    })
+
+
+def _validate_stitch_line(piece: Mapping[str, Any], line: LineSegment, source_id: str) -> None:
+    contour = contour_from_data(piece["seam_contour"])
+    spacing = line.start.x_mm
+    polygon = [point for edge in contour.segments for _, point in curve_points(edge, 0.05)[:-1]]
+    # The first point lies on the joining edge; all remaining samples must be inside.
+    if not all(_inside(line.point_at(i / 100), polygon) for i in range(1, 101)):
+        raise _model_error("MODEL_STITCH_OUTSIDE", "Строчка выходит за контур юбки. Измените длину или отступ.", source_id)
+    interior = LineSegment(line.point_at(1e-5), line.end)
+    if any(_crosses(interior, LineSegment(a, b))
+           for a, b in zip(polygon, polygon[1:] + polygon[:1])):
+        raise _model_error("MODEL_STITCH_OUTSIDE", "Строчка пересекает срез юбки. Измените длину или отступ.", source_id)
+    for path in piece["internal_paths"]:
+        if "dart" in path["id"]:
+            edges = contour_from_data(path).segments
+            points = [p for edge in edges for _, p in curve_points(edge, 0.05)[:-1]]
+            points.append(edges[-1].end)
+            if (any(_crosses(line, LineSegment(a, b)) for a, b in zip(points, points[1:]))
+                    or any(_inside(line.point_at(i / 100), points) for i in range(1, 101))):
+                raise _model_error("MODEL_STITCH_DART_CONFLICT", "Строчка пересекает раствор вытачки. Измените отступ.", source_id)
+        if path["id"].endswith("_tuck_stitch"):
+            tuck_line = contour_from_data(path).segments[0]
+            if spacing <= tuck_line.start.x_mm:
+                raise _model_error("MODEL_STITCH_TUCK_CONFLICT", "Строчка попадает в раствор защипа. Увеличьте отступ.", source_id)
+
+
+def validate_modeling_placements(pattern: Mapping[str, Any]) -> None:
+    """Keep modeled marks anchored after later operations, manual edits and before export."""
+    for operation in pattern.get("modeling_operations", []):
+        kind = operation["kind"]
+        if kind not in {"tuck", "decorative_seam"}:
+            continue
+        source = operation["source_element_id"]
+        piece = _piece(pattern, operation["target_piece_ids"][0], source)
+        contour = contour_from_data(piece["seam_contour"])
+        center = next((edge for edge in contour.segments if edge.id.endswith("_center")), None)
+        if not isinstance(center, LineSegment):
+            raise _model_error("MODEL_MARK_ANCHOR_MISSING", "Центральный срез для модельных линий отсутствует.", source)
+        parameters = operation["parameters_mm"]
+        marks = {f"{source}_decorative_stitch": parameters.get("center_spacing")} if kind == "decorative_seam" else {
+            f"{source}_tuck_fold": 0.0, f"{source}_tuck_stitch": parameters["added_width"],
+        }
+        length = parameters["stitch_length"] if kind == "decorative_seam" else parameters["marker_length"]
+        start_y = max(center.start.y_mm, center.end.y_mm)
+        for path_id, x in marks.items():
+            path = next((entry for entry in piece["internal_paths"] if entry["id"] == path_id), None)
+            if path is None:
+                raise _model_error("MODEL_MARK_MISSING", "Модельная линия отсутствует на лекале.", source)
+            segments = contour_from_data(path).segments
+            expected_start, expected_end = Point(x, start_y), Point(x, start_y - length)
+            if (len(segments) != 1 or not isinstance(segments[0], LineSegment)
+                    or segments[0].start.distance_to(expected_start) > 0.01
+                    or segments[0].end.distance_to(expected_end) > 0.01):
+                raise _model_error("MODEL_MARK_CHANGED", "Модельная линия больше не соответствует заданным размерам и центру детали.", source)
+            if kind == "decorative_seam":
+                _validate_stitch_line(piece, segments[0], source)
+            elif length > center.length_mm - 20:
+                raise _model_error("MODEL_MARKER_LENGTH_OUTSIDE_DOMAIN", "Защип выходит за рабочую длину юбки.", source)
 
 
 def _add_hem_flounces(

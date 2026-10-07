@@ -2,8 +2,8 @@ import registry from '../../src/kroika_contracts/design_modules.json';
 import type {GarmentSpec} from './types';
 
 type Bounds = [number, number | 'skirt_length_minus_20'];
-type Rule = Record<string, unknown[]> & {configured_closure?: boolean};
-interface DesignModule {
+export type Rule = Record<string, unknown[]> & {configured_closure?: boolean};
+export interface DesignModule {
   id: string;
   group: string;
   kind: string;
@@ -35,6 +35,70 @@ function ruleMatches(rule: Rule, item: Item, spec: GarmentSpec): boolean {
     if (field === 'count' && (typeof value !== 'number' || !Number.isInteger(value))) return false;
     return Array.isArray(allowed) && allowed.includes(value);
   });
+}
+
+export function applicableRule(module: DesignModule, spec: GarmentSpec): Rule | undefined {
+  return module.rules.find((rule) => (!rule.garment_type || rule.garment_type.includes(spec.garment_type))
+    && (!rule.sleeve_type || rule.sleeve_type.includes(spec.parameters.sleeve.type))
+    && rule.type?.length && rule.variant?.length && rule.location?.length && rule.construction?.length
+    && !rule.configured_closure);
+}
+
+const FIELD_NAMES: Record<string, string> = {
+  garment_type: 'вид изделия', sleeve_type: 'тип рукава', variant: 'вариант',
+  location: 'расположение', construction: 'конструкция', count: 'количество',
+  symmetry: 'симметрия', coverage: 'покрытие', opacity: 'прозрачность', drape: 'пластика',
+};
+const VALUE_NAMES: Record<string, string> = {
+  symmetric: 'симметричная', asymmetric: 'асимметричная', single: 'одиночная',
+  layered: 'слой', integrated: 'цельнокроеная', applied: 'настрочная',
+  separate_piece: 'отдельная деталь', bodice_front: 'перед лифа', bodice_back: 'спинка лифа',
+  skirt_front: 'перед юбки', skirt_back: 'спинка юбки', hem: 'низ', waist: 'талия',
+  sleeveless: 'без рукавов', soft: 'мягкая', straight: 'прямая', full: 'всё изделие',
+  skirt: 'юбка', bodice: 'лиф', opaque: 'непрозрачный', fluid: 'струящаяся', medium: 'средняя',
+};
+const DIMENSION_NAMES: Record<string, string> = {
+  width: 'Ширина', length: 'Длина', depth: 'Глубина', spacing: 'Расстояние',
+};
+
+/** Explain the nearest recipe without changing the photographic observations. */
+export function moduleDiagnosis(kind: string, item: object, spec: GarmentSpec): {
+  label: string; reasons: string[]; module?: DesignModule;
+} {
+  const source = item as Item;
+  if (source.included === false) return {label: 'Исключено вами', reasons: []};
+  const candidates = DESIGN_MODULES.filter((module) => module.kind === kind)
+    .flatMap((module) => module.rules.filter((rule) => kind === 'element'
+      ? rule.type?.includes(source.type) : rule.role?.includes(source.role)).map((rule) => {
+      const reasons = Object.entries(rule).flatMap(([field, allowed]) => {
+        if (field === 'type' || field === 'role') return [];
+        if (field === 'configured_closure') return ruleMatches({configured_closure: true} as Rule, source, spec)
+          ? [] : ['Согласуйте застёжку с настройками изделия.'];
+        const value = field === 'garment_type' ? spec.garment_type
+          : field === 'sleeve_type' ? spec.parameters.sleeve.type : source[field];
+        if (Array.isArray(allowed) && allowed.includes(value)) return [];
+        return [`${FIELD_NAMES[field] ?? field}: ${(Array.isArray(allowed) ? allowed : []).map((entry) => VALUE_NAMES[String(entry)] ?? String(entry)).join(' / ')}.`];
+      });
+      return {module, reasons};
+    })).sort((a, b) => a.reasons.length - b.reasons.length);
+  const supported = matchingModule(kind, item, spec);
+  if (supported) return {label: source.confirmed_by_user ? 'Будет учтено' : 'Нужно подтвердить', reasons: [], module: supported};
+  const structural = matchingModule(kind, item, spec, false);
+  if (structural?.dimensions && kind === 'element') {
+    const dimensions = (source.dimensions_mm ?? {}) as Item;
+    const reasons = DIMENSIONS.flatMap((field) => {
+      const bounds = structural.dimensions!.required[field] ?? structural.dimensions!.optional[field];
+      const value = dimensions[field];
+      if (value == null) return field in structural.dimensions!.required ? [`${DIMENSION_NAMES[field]}: укажите размер.`] : [];
+      if (!bounds) return [`${DIMENSION_NAMES[field]}: оставьте пустым для этой конструкции.`];
+      const maximum = bounds[1] === 'skirt_length_minus_20' ? spec.parameters.skirt.length_from_waist_mm - 20 : bounds[1];
+      return typeof value === 'number' && Number.isFinite(value) && value >= bounds[0] && value <= maximum
+        ? [] : [`${DIMENSION_NAMES[field]}: допустимо ${bounds[0] / 10}–${maximum / 10} см.`];
+    });
+    return {label: 'Проверьте размеры', reasons, module: structural};
+  }
+  return candidates.length ? {label: 'Проверьте конструкцию', ...candidates[0]}
+    : {label: 'Геометрия ещё не реализована', reasons: ['Выберите готовую конструкцию, если она соответствует фотографии.']};
 }
 
 export function matchingModule(

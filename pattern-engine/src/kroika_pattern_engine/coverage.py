@@ -109,10 +109,14 @@ def compile_design_coverage(
     for operation in result.get("modeling_operations", []):
         if not isinstance(operation, Mapping):
             continue
+        source_id = str(operation["source_element_id"])
+        suffixes = {"tuck": ("tuck_fold", "tuck_stitch"),
+                    "decorative_seam": ("decorative_stitch",)}
         add(
             str(operation["module_id"]),
-            source_ids=[str(operation["source_element_id"])],
+            source_ids=[source_id],
             piece_ids=[str(item) for item in operation.get("target_piece_ids", [])],
+            path_ids=[f"{source_id}_{suffix}" for suffix in suffixes.get(operation["kind"], ())],
             operation_ids=[str(operation["operation_id"])],
         )
 

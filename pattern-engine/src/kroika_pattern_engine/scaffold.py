@@ -40,7 +40,7 @@ class GeometryPatternEngine:
     """Build a bounded experimental garment and return an auditable report."""
 
     engine_id = "kroika-geometry"
-    engine_version = "0.16.0"
+    engine_version = "0.17.0"
 
     def __init__(self, clock: Callable[[], datetime] = _utc_now):
         self._clock = clock

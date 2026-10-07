@@ -336,15 +336,27 @@ def _validate_design_intent(
         for item in active
         if item.get('module_id') in {
             'center_pleat_v1', 'waist_gather_allowance_v1',
+            'center_stitched_tuck_v1', 'paired_straight_decorative_stitch_v1',
             'circular_hem_flounce_v1', 'paired_patch_pocket_v1',
         }
     }
+    if sum(item.get('module_id') in {
+        'center_pleat_v1', 'waist_gather_allowance_v1', 'center_stitched_tuck_v1',
+    } for item in active) > 1:
+        _add(issues, 'DESIGN_MODEL_TARGET_CONFLICT', '/garment_spec/design_intent/elements',
+             'Для центра переда юбки выберите одну добавку ширины: складку, сборку или защип.')
+    if 'paired_straight_skirt_yoke_v1' in skirt_topology and any(
+        item.get('module_id') in {'center_stitched_tuck_v1', 'paired_straight_decorative_stitch_v1'}
+        for item in active
+    ):
+        _add(issues, 'DESIGN_TOPOLOGY_PIPELINE_CONFLICT', '/garment_spec/design_intent',
+             'Защип и декоративная строчка пока строятся на юбке без кокетки.')
     if 'paired_equal_skirt_panels_v1' in skirt_topology and incompatible_skirt_modules:
         _add(
             issues, 'DESIGN_TOPOLOGY_PIPELINE_CONFLICT',
             '/garment_spec/design_intent',
             'Панельное членение пока нельзя совмещать со складкой, сборкой, '
-            'воланом или накладными карманами.',
+            'воланом, защипом, декоративной строчкой или накладными карманами.',
         )
 
     included_main = [

@@ -7,6 +7,7 @@ from typing import Any, Mapping
 
 from .blocks import BlockConstructionError
 from .geometry import GeometryError, contour_from_data, validate_simple_contour
+from .modeling import validate_modeling_placements
 
 
 def _fail(code: str, message: str, pointer: str) -> None:
@@ -39,6 +40,7 @@ def geometry_index(pattern: Mapping[str, Any]) -> dict[str, set[str]]:
 
 def validate_export_coverage(pattern: Mapping[str, Any]) -> None:
     """Reject missing printable evidence, including in a stored generation."""
+    validate_modeling_placements(pattern)
     index = geometry_index(pattern)
     for module in (pattern.get("design_coverage") or {}).get("modules", []):
         evidence_sets = [module["evidence"], *module.get("source_evidence", {}).values()]
@@ -60,6 +62,7 @@ def validate_export_coverage(pattern: Mapping[str, Any]) -> None:
 
 def validate_pattern_assembly(pattern: Mapping[str, Any]) -> float:
     """Check every final seam contour, notch and declared join after all modules."""
+    validate_modeling_placements(pattern)
     _unique([p["id"] for p in pattern["pieces"]], "/pattern/pieces")
     _unique([p["id"] for p in pattern.get("seam_pairs", [])], "/pattern/seam_pairs")
     pieces = {p["id"]: p for p in pattern["pieces"]}
