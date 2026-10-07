@@ -33,12 +33,14 @@ def content_response():
     ]}}]}
 
 
-def adapter(tmp_path, model="gemini-3.8-flash", mode="generate_content", transport=None):
+def adapter(tmp_path, model="gemini-3.8-flash", mode="generate_content", transport=None,
+            thinking_level="auto"):
     kwargs = {"transport": transport} if transport else {}
     return GeminiProvider(
         image_store=LocalImageStore(tmp_path / "images"),
         api_key="server-secret", base_url="https://example.invalid/v1beta",
-        model=model, api_mode=mode, timeout_seconds=600, max_attempts=1, **kwargs,
+        model=model, api_mode=mode, thinking_level=thinking_level,
+        timeout_seconds=600, max_attempts=1, **kwargs,
     )
 
 
@@ -65,6 +67,43 @@ def test_legacy_flash_uses_budget_in_generate_content(tmp_path):
     assert provider._payload([], "instruction")["generationConfig"]["thinkingConfig"] == {"thinkingBudget": 1024}
 
 
+@pytest.mark.parametrize("mode", ["generate_content", "interactions"])
+@pytest.mark.parametrize("model, level, expected", [
+    ("gemini-3.6-flash", "auto", "minimal"),
+    ("models/gemini-3.5-flash", "auto", "minimal"),
+    ("gemini-3.6-flash", "minimal", "minimal"),
+    ("gemini-3.6-flash", "low", "low"),
+    ("gemini-3.8-flash", "auto", "low"),
+    ("gemini-3.8-flash", "low", "low"),
+    ("vision-test", "auto", "low"),
+])
+def test_analysis_uses_selected_supported_thinking_level(tmp_path, mode, model, level, expected):
+    provider = adapter(tmp_path, model, mode, thinking_level=level)
+    payload = provider._payload([], "instruction")
+    if mode == "interactions":
+        config = payload["generation_config"]
+        assert config["thinking_level"] == expected
+        assert config["max_output_tokens"] == 16384
+    else:
+        config = payload["generationConfig"]
+        assert config["thinkingConfig"] == {"thinkingLevel": expected}
+        assert config["maxOutputTokens"] == 16384
+    if model.removeprefix("models/") in {"gemini-3.5-flash", "gemini-3.6-flash"}:
+        assert provider._thinking_level(probe=True) == "minimal"
+
+
+@pytest.mark.parametrize("model, level", [
+    ("gemini-3.6-flash", "off"), ("gemini-3.8-flash", "minimal"),
+    ("gemini-3.1-pro-preview", "minimal"), ("gemini-2.5-flash", "minimal"),
+])
+def test_invalid_thinking_configuration_fails_before_request(tmp_path, model, level):
+    with pytest.raises(ValueError, match="GEMINI_THINKING_LEVEL"):
+        Settings(database_path=tmp_path / "db", gemini_model=model,
+                 gemini_thinking_level=level).validate()
+    with pytest.raises(ValueError, match="GEMINI_THINKING_LEVEL"):
+        adapter(tmp_path, model, thinking_level=level)
+
+
 def test_generate_content_analyzes_front_and_back_with_strict_local_validation(tmp_path):
     captured = []
 
@@ -72,7 +111,7 @@ def test_generate_content_analyzes_front_and_back_with_strict_local_validation(t
         captured.append((url, headers, payload, timeout))
         return HTTPResult(200, content_response())
 
-    provider = adapter(tmp_path, transport=transport)
+    provider = adapter(tmp_path, model="gemini-3.6-flash", transport=transport)
     image = base64.b64encode((ROOT / "evaluation/stage10/images/synthetic-01.png").read_bytes()).decode()
     first = provider.image_store.save_base64(image, "image/png")
     back_image = base64.b64encode((ROOT / "evaluation/stage10/images/synthetic-02.png").read_bytes()).decode()
@@ -86,7 +125,7 @@ def test_generate_content_analyzes_front_and_back_with_strict_local_validation(t
     assert response.status_code == 200, response.text
     assert response.json() == example("example-ai-response.json")
     url, headers, payload, timeout = captured[0]
-    assert url == "https://example.invalid/v1beta/models/gemini-3.8-flash:generateContent"
+    assert url == "https://example.invalid/v1beta/models/gemini-3.6-flash:generateContent"
     assert headers["x-goog-api-key"] == "server-secret"
     assert timeout == 600
     parts = payload["contents"][0]["parts"]
@@ -99,7 +138,7 @@ def test_generate_content_analyzes_front_and_back_with_strict_local_validation(t
     assert '"image_number":2,"view":"back"' in parts[0]["text"]
     assert payload["generationConfig"] == {
         "responseMimeType": "application/json", "maxOutputTokens": 16384,
-        "thinkingConfig": {"thinkingLevel": "low"},
+        "thinkingConfig": {"thinkingLevel": "minimal"},
     }
     serialized = json.dumps(payload)
     for private_value in (request["project_id"], request["request_id"], first.image_ref, second.image_ref):
@@ -154,15 +193,28 @@ def test_invalid_api_settings_fail_before_request(tmp_path, mode, tokens):
 
 def test_selected_api_mode_and_output_budget_reach_registry(tmp_path, monkeypatch):
     monkeypatch.setenv("GEMINI_API_MODE", " interactions ")
+    monkeypatch.setenv("GEMINI_MODEL", " models/gemini-3.5-flash ")
+    monkeypatch.setenv("GEMINI_THINKING_LEVEL", " MINIMAL ")
     monkeypatch.setenv("GEMINI_MAX_OUTPUT_TOKENS", "32768")
     settings = Settings.from_env()
     settings.validate()
     assert settings.gemini_api_mode == "interactions"
     assert settings.gemini_max_output_tokens == 32768
+    selected = create_app(settings).state.provider_registry.providers["gemini"]
+    assert selected.thinking_level == "minimal"
+    assert selected._payload([], "instruction")["generation_config"]["thinking_level"] == "minimal"
     default = Settings(database_path=tmp_path / "db", image_storage_path=tmp_path / "images")
     selected = create_app(default).state.provider_registry.providers["gemini"]
     assert selected.api_mode == "generate_content"
     assert selected.max_output_tokens == 16384
+    assert selected.model == "gemini-3.6-flash"
+    assert selected.thinking_level == "auto"
+    assert selected._content_config(probe=False)["thinkingConfig"] == {"thinkingLevel": "minimal"}
+
+
+def test_blank_thinking_level_uses_auto(tmp_path, monkeypatch):
+    monkeypatch.setenv("GEMINI_THINKING_LEVEL", "  ")
+    assert Settings.from_env().gemini_thinking_level == "auto"
 
 
 def test_diagnostic_compares_models_without_keys_in_output(tmp_path, monkeypatch, capsys):

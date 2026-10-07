@@ -377,7 +377,7 @@ def test_stage10_configuration_normalizes_external_provider_environment(
     assert settings.enabled_ai_providers == ("mock", "gemini")
     assert settings.gemini_api_key == "secret-without-whitespace"
     assert settings.gemini_base_url == "https://generativelanguage.googleapis.com/v1beta"
-    assert settings.gemini_model == "gemini-3.8-flash"
+    assert settings.gemini_model == "gemini-3.6-flash"
 
 
 def test_stage10_runtime_contract_and_current_only_ci_are_wired(tmp_path: Path):

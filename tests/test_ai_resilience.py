@@ -135,7 +135,7 @@ def test_gemini_recovers_after_overload_and_honors_server_retry_delay(tmp_path):
     assert len(captured) == 3
     assert pauses == [15, 20]
     assert all(timeout == 600 for _, timeout in captured)
-    assert captured[0][0]["generation_config"] == {"thinking_level": "low", "max_output_tokens": 16384}
+    assert captured[0][0]["generation_config"] == {"thinking_level": "minimal", "max_output_tokens": 16384}
     assert captured[0][0]["store"] is False
 
 

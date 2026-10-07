@@ -21,7 +21,7 @@ from kroika_contracts.contract_io import ContractValidationError, validate_docum
 from kroika_contracts.ports import AIProvider, AIProviderError, ProviderErrorCode
 from kroika_contracts.semantic import SemanticContractError, validate_ai_analysis
 
-from .config import Settings
+from .config import GEMINI_MINIMAL_MODELS, Settings, validate_gemini_thinking
 from .image_store import ImageAsset, LocalImageStore
 from .logging_config import request_id_context
 from .mock_provider import MockVisionProvider
@@ -457,6 +457,7 @@ class GeminiProvider(ExternalVisionProvider):
 
     def __init__(
         self, *, api_mode: str = "generate_content", max_output_tokens: int = 16384,
+        thinking_level: str = "auto",
         **kwargs: Any,
     ):
         super().__init__(**kwargs)
@@ -464,16 +465,16 @@ class GeminiProvider(ExternalVisionProvider):
             raise ValueError("unsupported Gemini API mode")
         if not 1024 <= max_output_tokens <= 65536:
             raise ValueError("unsupported Gemini output token limit")
+        validate_gemini_thinking(self.model, thinking_level)
         self.api_mode = api_mode
         self.max_output_tokens = max_output_tokens
+        self.thinking_level = thinking_level
 
     def _thinking_level(self, *, probe: bool) -> str:
-        minimal_models = {
-            "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite",
-            "gemini-3.1-flash-lite", "gemini-3-flash-preview",
-        }
+        if not probe and self.thinking_level != "auto":
+            return self.thinking_level
         model = self.model.removeprefix("models/")
-        return "minimal" if probe and model in minimal_models else "low"
+        return "minimal" if model in GEMINI_MINIMAL_MODELS else "low"
 
     def _content_config(self, *, probe: bool) -> dict[str, Any]:
         model = self.model.removeprefix("models/")
@@ -664,6 +665,7 @@ def build_provider_registry(settings: Settings, image_store: LocalImageStore) ->
         "gemini": GeminiProvider(
             api_mode=settings.gemini_api_mode,
             max_output_tokens=settings.gemini_max_output_tokens,
+            thinking_level=settings.gemini_thinking_level,
             image_store=image_store,
             timeout_seconds=settings.ai_timeout_seconds,
             max_attempts=settings.ai_max_attempts,

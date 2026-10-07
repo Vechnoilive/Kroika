@@ -51,7 +51,7 @@ async def check_models(models: list[str], modes: list[str]) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--models", nargs="+", default=[
-        "gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite",
+        "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite",
     ])
     parser.add_argument("--api-modes", nargs="+", choices=["generate_content", "interactions"],
                         default=["generate_content", "interactions"])

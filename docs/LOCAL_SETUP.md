@@ -36,12 +36,23 @@ python3 scripts/start_local.py --no-browser
 ```powershell
 $env:KROIKA_AI_PROVIDER="gemini"
 $env:KROIKA_ENABLED_AI_PROVIDERS="mock,gemini"
-$env:GEMINI_API_KEY="ВСТАВЬТЕ_КЛЮЧ_ТОЛЬКО_ЗДЕСЬ"
+$key = Read-Host "Gemini API key" -AsSecureString
+$env:GEMINI_API_KEY = [System.Net.NetworkCredential]::new("", $key).Password
+Remove-Variable key
 $env:GEMINI_BASE_URL="https://generativelanguage.googleapis.com/v1beta"
-$env:GEMINI_MODEL="gemini-3.8-flash"
-$env:KROIKA_AI_TIMEOUT_SECONDS="120"
+$env:GEMINI_MODEL="gemini-3.6-flash"
+$env:GEMINI_API_MODE="generate_content"
+$env:GEMINI_THINKING_LEVEL="minimal"
+$env:GEMINI_MAX_OUTPUT_TOKENS="16384"
+$env:KROIKA_AI_TIMEOUT_SECONDS="600"
+$env:KROIKA_AI_MAX_ATTEMPTS="3"
 py -3.12 scripts/start_local.py
 ```
+
+Для альтернативной 3.5 Flash замените только `GEMINI_MODEL` на `gemini-3.5-flash`.
+HTTP 503/UNAVAILABLE от Google означает временную недоступность обработки запроса;
+увеличение таймаута не исправляет уже полученный отказ. Смена модели может помочь,
+но её доступность нужно проверить своим ключом и фото.
 
 После запуска Gemini можно проверить без отправки фото из второй PowerShell-консоли:
 

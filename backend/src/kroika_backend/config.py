@@ -9,6 +9,22 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
+GEMINI_MINIMAL_MODELS = frozenset({
+    "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite", "gemini-3-flash-preview",
+})
+
+
+def validate_gemini_thinking(model: str, level: str) -> None:
+    if level not in {"auto", "minimal", "low"}:
+        raise ValueError("GEMINI_THINKING_LEVEL должен быть auto, minimal или low")
+    if level == "minimal" and model.removeprefix("models/") not in GEMINI_MINIMAL_MODELS:
+        raise ValueError(
+            "GEMINI_THINKING_LEVEL=minimal не поддерживается выбранной моделью; "
+            "используйте auto или low"
+        )
+
+
 def _string(name: str, default: str) -> str:
     raw = os.getenv(name)
     normalized = raw.strip() if raw is not None else ""
@@ -65,8 +81,9 @@ class Settings:
     qwen_model: str = "qwen3-vl-plus"
     gemini_api_key: str | None = None
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
-    gemini_model: str = "gemini-3.8-flash"
+    gemini_model: str = "gemini-3.6-flash"
     gemini_api_mode: str = "generate_content"
+    gemini_thinking_level: str = "auto"
     gemini_max_output_tokens: int = 16384
     ai_timeout_seconds: float = 300.0
     ai_max_attempts: int = 3
@@ -100,8 +117,9 @@ class Settings:
             gemini_base_url=_string(
                 "GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta"
             ),
-            gemini_model=_string("GEMINI_MODEL", "gemini-3.8-flash"),
+            gemini_model=_string("GEMINI_MODEL", "gemini-3.6-flash"),
             gemini_api_mode=_string("GEMINI_API_MODE", "generate_content").lower(),
+            gemini_thinking_level=_string("GEMINI_THINKING_LEVEL", "auto").lower(),
             gemini_max_output_tokens=_integer("GEMINI_MAX_OUTPUT_TOKENS", 16384),
             ai_timeout_seconds=_float("KROIKA_AI_TIMEOUT_SECONDS", 300.0),
             ai_max_attempts=_integer("KROIKA_AI_MAX_ATTEMPTS", 3),
@@ -131,6 +149,7 @@ class Settings:
             raise ValueError("KROIKA_LOG_LEVEL содержит неподдерживаемое значение")
         if self.gemini_api_mode not in {"generate_content", "interactions"}:
             raise ValueError("GEMINI_API_MODE должен быть generate_content или interactions")
+        validate_gemini_thinking(self.gemini_model, self.gemini_thinking_level)
         if not 1024 <= self.gemini_max_output_tokens <= 65536:
             raise ValueError("GEMINI_MAX_OUTPUT_TOKENS должен быть от 1024 до 65536")
         if not 1 <= self.ai_max_attempts <= 3:
