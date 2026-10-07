@@ -20,7 +20,7 @@ function elementSupport(
   return module ? {status: 'supported', moduleId: module.id} : {status: 'planned', moduleId: null};
 }
 
-function layerSupport(layer: VisualDesignLayer, spec: GarmentSpec): Support {
+function layerSupport(layer: VisualDesignLayer | GarmentDesignIntent['layers'][number], spec: GarmentSpec): Support {
   const module = matchingModule('layer', layer, spec);
   return module ? {status: 'supported', moduleId: module.id} : {status: 'planned', moduleId: null};
 }
@@ -138,6 +138,7 @@ export function prepareDesignIntentForReview(
 
 function asVisualLayer(layer: GarmentDesignIntent['layers'][number]): VisualDesignLayer {
   return {
+    ...layer,
     layer_id: layer.source_layer_id,
     role: layer.role,
     coverage: layer.coverage,
@@ -201,7 +202,7 @@ export function reevaluateDesignIntent(
       if (layer.confirmed_by_user !== true) {
         return {...layer, included: true, support_status: 'needs_confirmation' as const, module_id: null};
       }
-      const support = layerSupport(asVisualLayer(layer), spec);
+      const support = layerSupport(asVisualLayer(layer), {...spec, design_intent: intent});
       return {...layer, included: true, support_status: support.status, module_id: support.moduleId};
     }),
     proportions: intent.proportions.confirmed_by_user === true

@@ -46,6 +46,11 @@ def prepare_proportions(request: Mapping[str, Any]) -> dict[str, Any]:
     """Derive construction inputs without altering the saved anatomical measures."""
     effective = deepcopy(dict(request))
     prop = (request["garment_spec"].get("design_intent") or {}).get("proportions") or {}
+    fit_minimum = {"loose": 60, "oversized": 120}.get(request["garment_spec"]["parameters"]["bodice_fit"], 0)
+    for key in ("bust", "waist", "hips", "upper_arm"):
+        effective["fit_settings"]["design_ease_mm"][key] = max(
+            effective["fit_settings"]["design_ease_mm"][key], fit_minimum / 2 if key == "upper_arm" else fit_minimum
+        )
     if prop.get("module_id") != "parametric_visual_proportions_v1":
         return effective
     volume = prop["volume"]
@@ -57,14 +62,15 @@ def prepare_proportions(request: Mapping[str, Any]) -> dict[str, Any]:
         )
     if prop["waist_position"] != "natural":
         shift = prop["waist_shift_mm"] * (1 if prop["waist_position"] == "low" else -1)
-        values = effective["body_measurements"]["values"]
-        for key in ("front_neck_to_waist_over_bust", "back_neck_to_waist"):
-            values[key]["value"] += shift
-        values["hip_depth"]["value"] -= shift
-        values["waist"]["value"] = prop["waist_level_circumference_mm"]
-        values["back_waist_arc"]["value"] = prop["back_waist_level_arc_mm"]
-        effective["garment_spec"]["parameters"]["skirt"]["length_from_waist_mm"] -= shift
-        if values["hip_depth"]["value"] < 80:
+        parameters = effective["garment_spec"]["parameters"]
+        garment = effective["garment_spec"]["garment_type"]
+        if garment in {"dress", "sundress", "skirt"}:
+            parameters["skirt"]["length_from_waist_mm"] -= shift
+        elif garment in {"trousers", "shorts"}:
+            parameters["trousers"]["length_mm"] -= shift
+        else:
+            parameters["upper"]["length_below_waist_mm"] -= shift
+        if effective["body_measurements"]["values"]["hip_depth"]["value"] - shift < 80:
             raise _error("Смещение талии оставляет менее 8 см до линии бёдер.", "proportions")
     return effective
 
@@ -115,7 +121,7 @@ def apply_silhouette(pattern: Mapping[str, Any], request: Mapping[str, Any]) -> 
     prop = (request["garment_spec"].get("design_intent") or {}).get("proportions") or {}
     if prop.get("module_id") == "parametric_visual_proportions_v1":
         if prop["hem_shape"] not in {"straight", "tiered"}:
-            _shape_hem(result, prop)
+            _shape_hem(result, prop, request["garment_spec"]["garment_type"])
         if (
             prop["asymmetry"] == "yes"
             and prop["hem_shape"] != "asymmetric"
@@ -166,7 +172,10 @@ def apply_silhouette(pattern: Mapping[str, Any], request: Mapping[str, Any]) -> 
     return result
 
 
-def _shape_hem(pattern: dict, prop: Mapping[str, Any]) -> None:
+def _shape_hem(pattern: dict, prop: Mapping[str, Any], garment: str) -> None:
+    if garment not in {"dress", "sundress", "skirt"}:
+        _shape_component_hems(pattern, prop, garment)
+        return
     for prefix in ("front", "back"):
         if prop["hem_shape"] == "asymmetric" and prefix == "back":
             continue
@@ -203,6 +212,60 @@ def _shape_hem(pattern: dict, prop: Mapping[str, Any]) -> None:
                 position=[40, start.y_mm + 45],
             )
         )
+
+
+def _shape_component_hems(pattern, prop, garment):
+    delta = prop["hem_delta_mm"]
+    lower = garment in {"trousers", "shorts"}
+    targets = {"front_trouser", "back_trouser"} if lower else {"front_bodice", "back_bodice", "jacket_front_center", "jacket_side_front"}
+    for piece in pattern["pieces"]:
+        # Jacket's built-in lining follows the same hem geometry.
+        base = {"jacket_front_lining": "jacket_front_center", "jacket_side_front_lining": "jacket_side_front", "jacket_back_lining": "back_bodice"}.get(piece["id"], piece["id"].removeprefix("lining_"))
+        if base not in targets:
+            continue
+        if prop["hem_shape"] == "asymmetric" and not lower and base == "back_bodice":
+            continue
+        contour = contour_from_data(piece["seam_contour"])
+        edges = list(contour.segments)
+        index = next((i for i, e in enumerate(edges) if e.id.endswith("_hem")), None)
+        if index is None or not isinstance(edges[index], LineSegment):
+            raise _error("Для формы низа нужен прямой исходный срез.", "proportions")
+        hem = edges[index]
+        if lower:
+            balance = max(edges[index - 1].start.y_mm, edges[(index + 1) % len(edges)].end.y_mm)
+            if hem.start.y_mm - delta < balance + 25:
+                raise _error("Подъём низа пересекает балансовый уровень брючины; оставьте ниже него минимум 25 мм.", "proportions")
+        elif hem.start.y_mm + delta > -40:
+            raise _error("После подъёма низа нужно оставить минимум 40 мм ниже конструктивной талии.", "proportions")
+        if contour.bounding_box.height_mm - delta < 100:
+            raise _error("Подъём низа оставляет менее 10 см высоты детали.", "proportions")
+        sign = -1 if lower else 1
+        if prop["hem_shape"] == "asymmetric" and lower:
+            end = Point(hem.end.x_mm, hem.end.y_mm - delta)
+            edges[index] = LineSegment(hem.start, end, hem.id)
+            following = edges[(index + 1) % len(edges)]
+            edges[(index + 1) % len(edges)] = replace(following, start=end)
+        elif garment == "jacket" or lower:
+            # A smooth scallop inside a hem keeps side, centre and princess joins unchanged.
+            edges[index] = CubicBezier(hem.start, Point(hem.start.x_mm + (hem.end.x_mm - hem.start.x_mm) / 3, hem.start.y_mm + sign * delta * 4 / 3), Point(hem.start.x_mm + (hem.end.x_mm - hem.start.x_mm) * 2 / 3, hem.end.y_mm + sign * delta * 4 / 3), hem.end, hem.id)
+        else:
+            start = Point(hem.start.x_mm, hem.start.y_mm + delta)
+            edges[index] = CubicBezier(start, Point(hem.start.x_mm + (hem.end.x_mm - hem.start.x_mm) / 3, start.y_mm), Point(hem.start.x_mm + (hem.end.x_mm - hem.start.x_mm) * 2 / 3, hem.end.y_mm), hem.end, hem.id)
+            previous = edges[index - 1]
+            edges[index - 1] = replace(previous, end=start)
+            # The placket fold terminates on the new hem too.
+            for path in piece["internal_paths"]:
+                if path["id"] == "front_placket_fold":
+                    path["segments"][0]["start"][1] += delta
+        if lower:
+            shaped_hem = edges[index]
+            for path in piece["internal_paths"]:
+                if path["id"].endswith("_crease_line"):
+                    end = path["segments"][-1]["end"]
+                    t = (end[0] - hem.start.x_mm) / (hem.end.x_mm - hem.start.x_mm)
+                    end[1] = min(end[1], shaped_hem.point_at(t).y_mm - 25)
+        piece["seam_contour"] = contour_to_data(Contour(tuple(edges), id=contour.id))
+        piece["annotations"].append(dict(id=f"{piece['id']}_hem_shape", text_ru=f"Модельный подъём низа {delta:g} мм.", position=piece["grainline"]["start"]))
 
 
 def _trim_arm(edge: Any, height: float) -> Any:

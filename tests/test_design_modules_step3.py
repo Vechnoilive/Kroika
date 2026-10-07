@@ -106,7 +106,7 @@ def test_every_registered_recipe_has_actual_cut_or_marker_geometry(module):
     assert op["invariant_residual_mm"] <= 1
     svg = render_pattern_svg(pattern)
     assert source_printed(svg, op)
-    assert canonical_generation_payload(r)["hash_contract_version"] == "1.9.0"
+    assert canonical_generation_payload(r)["hash_contract_version"] == ("1.10.0" if r["garment_spec"]["parameters"]["sleeve"]["type"] != "sleeveless" else "1.9.0")
 
 
 def source_printed(svg, op):

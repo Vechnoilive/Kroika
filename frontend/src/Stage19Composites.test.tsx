@@ -93,7 +93,7 @@ describe('stage 19 composite capability mapping', () => {
     );
     const layers = reevaluateDesignIntent(layersIntent, project.garment_spec, analysis);
     expect(layers.layers.map((item) => item.module_id)).toEqual([
-      'main_fabric_layer', 'skirt_overlay_layer_v1', 'skirt_full_lining_v1',
+      'main_fabric_layer', 'foundation_overlay_v4', 'foundation_lining_v4',
     ]);
 
     const hoodIntent = baseIntent();
@@ -121,12 +121,12 @@ describe('stage 19 composite capability mapping', () => {
       fabric_properties: project.fabric_properties,
     };
     const payload = canonicalGenerationPayload(request);
-    expect(payload.hash_contract_version).toBe('1.3.0');
+    expect(payload.hash_contract_version).toBe('1.10.0');
     expect(payload.garment_spec.composite_elements[0].module_id).toBe(
       'paired_patch_pocket_v1',
     );
-    expect(payload.garment_spec.composite_layers[0].module_id).toBe(
-      'skirt_overlay_layer_v1',
+    expect(payload.garment_spec.foundation_layers[0].module_id).toBe(
+      'foundation_overlay_v4',
     );
 
     const first = stableJson(payload);

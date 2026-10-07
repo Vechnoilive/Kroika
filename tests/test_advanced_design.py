@@ -20,6 +20,7 @@ from kroika_contracts.semantic import validate_engine_request, SemanticContractE
 from kroika_pattern_engine import GeometryPatternEngine
 from kroika_pattern_engine.advanced import prepare_proportions, validate_advanced_placements
 from kroika_pattern_engine.blocks import BlockConstructionError
+from kroika_pattern_engine.blocks.formulas import constructive_formula_inputs
 from kroika_pattern_engine.geometry import contour_from_data
 
 CASES = [
@@ -213,13 +214,15 @@ def test_shifted_waist_uses_measured_arcs_and_keeps_total_length(waist, sign):
     before = deepcopy(req)
     derived = prepare_proportions(req)
     assert req == before
+    assert derived["body_measurements"] == before["body_measurements"]
+    inputs = constructive_formula_inputs(derived)
     for key in ["front_neck_to_waist_over_bust", "back_neck_to_waist"]:
         assert (
-            derived["body_measurements"]["values"][key]["value"]
+            inputs[key]
             == before["body_measurements"]["values"][key]["value"] + sign * 30
         )
     assert (
-        derived["body_measurements"]["values"]["hip_depth"]["value"]
+        inputs["hip_depth"]
         == before["body_measurements"]["values"]["hip_depth"]["value"] - sign * 30
     )
     assert derived["garment_spec"]["parameters"]["skirt"]["length_from_waist_mm"] == 550 - sign * 30

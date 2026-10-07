@@ -12,7 +12,7 @@ from .design_modules import (
     STAGE21_TOPOLOGY_MODULES, FIXED_ELEMENT_MODULES, FIXED_LAYER_MODULES,
     module_matches,
     DETAIL_ELEMENT_MODULES, DETAIL_LAYER_MODULES, ADVANCED_ELEMENT_MODULES,
-    FULLNESS_MODULES, STRUCTURAL_MODULES, structural_conflicts,
+    FULLNESS_MODULES, STRUCTURAL_MODULES, FOUNDATION_LAYER_MODULES, structural_conflicts,
 )
 
 
@@ -226,7 +226,7 @@ def _validate_design_intent(
             module_id = item.get('module_id')
             if group == 'elements' and item.get('selected_module_id') is not None and item['support_status'] == 'supported' and item['selected_module_id'] != module_id:
                 _add(issues, 'DESIGN_SELECTED_MODULE_MISMATCH', pointer, 'Выбранную конструкцию нельзя подменять другим модулем.')
-            if module_id in DETAIL_ELEMENT_MODULES | DETAIL_LAYER_MODULES | ADVANCED_ELEMENT_MODULES | FULLNESS_MODULES | STRUCTURAL_MODULES:
+            if module_id in DETAIL_ELEMENT_MODULES | DETAIL_LAYER_MODULES | ADVANCED_ELEMENT_MODULES | FULLNESS_MODULES | STRUCTURAL_MODULES | FOUNDATION_LAYER_MODULES:
                 if item['support_status'] != 'supported' or not module_matches(
                     module_id, item, spec, kind='element' if group == 'elements' else 'layer',
                 ):
@@ -493,10 +493,14 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
         'dress': {
             'fitted': 'woven_fitted_trial',
             'semi_fitted': 'woven_semi_fitted_trial',
+            'loose': 'woven_semi_fitted_trial',
+            'oversized': 'woven_semi_fitted_trial',
         }.get(parameters['bodice_fit']),
         'sundress': {
             'fitted': 'woven_fitted_trial',
             'semi_fitted': 'woven_semi_fitted_trial',
+            'loose': 'woven_semi_fitted_trial',
+            'oversized': 'woven_semi_fitted_trial',
         }.get(parameters['bodice_fit']),
         'skirt': 'woven_skirt_trial',
         'top': 'woven_top_trial',
@@ -514,8 +518,8 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
         and (
             garment_type in {'trousers', 'shorts'}
             or (
-                parameters['neckline']['type'] == 'round'
-                and parameters['skirt']['type'] == 'a_line'
+                parameters['neckline']['type'] in {'round', 'v', 'square'}
+                and parameters['skirt']['type'] in {'straight', 'a_line'}
             )
         )
     )
@@ -527,13 +531,18 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
     ):
         _add(issues, 'BACK_LOOP_SETTINGS_NOT_APPLICABLE', '/garment_spec/parameters/closure',
              'Шаг креплений применяется к пуговицам, шнуровке или крючкам на спинке.')
+    sleeve = parameters['sleeve']
+    if sleeve['type'] != 'sleeveless':
+        low, high = (80, 350) if sleeve['type'] == 'short' else (250, 900)
+        if not low <= sleeve['length_mm'] <= high:
+            _add(issues, 'SLEEVE_LENGTH_OUTSIDE_DOMAIN', '/garment_spec/parameters/sleeve/length_mm', 'Длина короткого рукава — 8–35 см, длинного — 25–90 см.')
     supported_variant = common and any((
         garment_type in {'dress', 'sundress'}
-        and parameters['sleeve']['type'] == 'sleeveless'
+        and parameters['sleeve']['type'] in {'sleeveless', 'short', 'long'}
         and parameters['closure']['type'] in {'zipper', 'buttons', 'lacing', 'hooks'}
         and parameters['closure']['location'] == 'center_back'
         and finishing['neckline_facing'] is True
-        and finishing['armhole_facing'] is True
+        and finishing['armhole_facing'] == (parameters['sleeve']['type'] == 'sleeveless')
         and not finishing.get('waistband', False)
         and not finishing.get('front_placket', False)
         and not finishing.get('collar', False),
@@ -547,16 +556,16 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
         and not finishing.get('front_placket', False)
         and not finishing.get('collar', False),
         garment_type == 'top'
-        and parameters['sleeve']['type'] == 'sleeveless'
+        and parameters['sleeve']['type'] in {'sleeveless', 'short', 'long'}
         and parameters['closure']['type'] in {'zipper', 'buttons', 'lacing', 'hooks'}
         and parameters['closure']['location'] == 'center_back'
         and finishing['neckline_facing'] is True
-        and finishing['armhole_facing'] is True
+        and finishing['armhole_facing'] == (parameters['sleeve']['type'] == 'sleeveless')
         and not finishing.get('waistband', False)
         and not finishing.get('front_placket', False)
         and not finishing.get('collar', False),
         garment_type == 'blouse'
-        and parameters['sleeve']['type'] == 'long'
+        and parameters['sleeve']['type'] in {'short', 'long'}
         and parameters['closure']['type'] in {'zipper', 'buttons', 'lacing', 'hooks'}
         and parameters['closure']['location'] == 'center_back'
         and finishing['neckline_facing'] is True
@@ -565,7 +574,7 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
         and not finishing.get('front_placket', False)
         and not finishing.get('collar', False),
         garment_type == 'shirt'
-        and parameters['sleeve']['type'] == 'long'
+        and parameters['sleeve']['type'] in {'short', 'long'}
         and parameters['closure']['type'] == 'buttons'
         and parameters['closure']['location'] == 'center_front'
         and finishing['neckline_facing'] is False
@@ -584,7 +593,7 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
         and not finishing.get('collar', False),
         garment_type == 'jacket'
         and method['id'] == 'kroika-light-jacket'
-        and parameters['bodice_fit'] == 'semi_fitted'
+        and parameters['bodice_fit'] in {'fitted', 'semi_fitted', 'loose', 'oversized'}
         and parameters['shaping'] == 'princess_seams'
         and parameters['sleeve']['type'] == 'long'
         and parameters['closure']['type'] == 'buttons'
@@ -607,7 +616,7 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
         and not finishing.get('armhole_facing', False),
         garment_type in {'trousers', 'shorts'}
         and method['id'] == 'kroika-woven-trousers'
-        and parameters['bodice_fit'] == 'semi_fitted'
+        and parameters['bodice_fit'] in {'fitted', 'semi_fitted', 'loose', 'oversized'}
         and parameters['shaping'] == 'darts'
         and parameters['sleeve']['type'] == 'sleeveless'
         and parameters['closure']['type'] == 'zipper'
@@ -629,7 +638,7 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
     if not supported_variant:
         _add(
             issues, 'GARMENT_VARIANT_NOT_IMPLEMENTED', '/garment_spec/parameters',
-            'Выбранная комбинация деталей не входит в ограниченный каталог этапа 14. '
+            'Выбранная комбинация деталей не входит в каталог реализованных основ. '
             'Выберите один из явно показанных вариантов без произвольной подмены компонентов.',
         )
 

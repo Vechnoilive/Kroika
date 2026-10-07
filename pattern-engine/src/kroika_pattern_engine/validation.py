@@ -11,6 +11,7 @@ from .modeling import validate_modeling_placements
 from .fullness import validate_fullness_placements
 from .structural import validate_structural_placements
 from .back_closure import validate_back_closure_placements
+from .layers import validate_foundation_layers
 
 
 def _fail(code: str, message: str, pointer: str) -> None:
@@ -47,6 +48,7 @@ def validate_export_coverage(pattern: Mapping[str, Any]) -> None:
     validate_fullness_placements(pattern)
     validate_structural_placements(pattern)
     validate_back_closure_placements(pattern)
+    validate_foundation_layers(pattern)
     index = geometry_index(pattern)
     for module in (pattern.get("design_coverage") or {}).get("modules", []):
         evidence_sets = [module["evidence"], *module.get("source_evidence", {}).values()]
@@ -72,6 +74,7 @@ def validate_pattern_assembly(pattern: Mapping[str, Any]) -> float:
     validate_fullness_placements(pattern)
     validate_structural_placements(pattern)
     validate_back_closure_placements(pattern)
+    validate_foundation_layers(pattern)
     _unique([p["id"] for p in pattern["pieces"]], "/pattern/pieces")
     _unique([p["id"] for p in pattern.get("seam_pairs", [])], "/pattern/seam_pairs")
     pieces = {p["id"]: p for p in pattern["pieces"]}

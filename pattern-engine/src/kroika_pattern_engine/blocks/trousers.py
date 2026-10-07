@@ -57,6 +57,17 @@ def _measurement(request: Mapping[str, Any], name: str) -> float:
             "Мерка должна быть положительным конечным числом.",
             f"/body_measurements/values/{name}/value",
         )
+    prop = (request["garment_spec"].get("design_intent") or {}).get("proportions") or {}
+    if prop.get("module_id") == "parametric_visual_proportions_v1" and prop["waist_position"] != "natural":
+        shift = prop["waist_shift_mm"] * (1 if prop["waist_position"] == "low" else -1)
+        if name == "waist":
+            numeric = float(prop["waist_level_circumference_mm"])
+        elif name in {"sitting_height", "outside_leg_length"}:
+            numeric -= shift
+        elif name == "crotch_length":
+            numeric -= 2 * shift
+        if numeric <= 0:
+            raise BlockConstructionError("TROUSER_SHIFT_OUTSIDE_DOMAIN", "Смещение талии не помещается в мерках брючной основы.", "/garment_spec/design_intent/proportions")
     return numeric
 
 
@@ -283,6 +294,11 @@ def build_trouser_blocks(request: Mapping[str, Any]) -> TrouserBlockSet:
     finished_hips = hips + hip_ease
     front_waist = finished_waist / 4.0 - 4.0
     back_waist = finished_waist / 4.0 + 4.0
+    prop = (request["garment_spec"].get("design_intent") or {}).get("proportions") or {}
+    if prop.get("module_id") == "parametric_visual_proportions_v1" and prop["waist_position"] != "natural":
+        back_arc = prop["back_waist_level_arc_mm"] + waist_ease * request["fit_settings"]["distribution"]["back_share"]
+        front_waist = (finished_waist - back_arc) / 2
+        back_waist = back_arc / 2
     front_dart = min(24.0, max(12.0, (finished_hips - finished_waist) / 16.0))
     back_dart = min(34.0, max(18.0, (finished_hips - finished_waist) / 12.0))
     front_waist_seam = front_waist + front_dart
@@ -310,6 +326,10 @@ def build_trouser_blocks(request: Mapping[str, Any]) -> TrouserBlockSet:
         balance_y = hip_y + (length - hip_y) * 0.55
         balance_width = max(thigh + 50.0, hem) / 2.0
         hem_width = hem / 2.0
+    if request["garment_spec"]["parameters"]["bodice_fit"] in {"loose", "oversized"}:
+        leg_addition = float(request["fit_settings"]["design_ease_mm"]["hips"]) / 2
+        balance_width += leg_addition
+        hem_width += leg_addition
     if min(balance_width, hem_width) < 100.0:
         raise BlockConstructionError(
             "TROUSER_LEG_WIDTH_OUTSIDE_DOMAIN",

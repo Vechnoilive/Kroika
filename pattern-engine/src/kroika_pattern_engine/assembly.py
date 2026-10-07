@@ -36,6 +36,21 @@ def _segment(piece: DraftPiece, segment_id: str):
         ) from error
 
 
+def _neck_chain(piece: DraftPiece, neck_id: str):
+    square_id = neck_id.removesuffix("_neckline") + "_square_neckline"
+    return tuple(e for e in piece.seam_contour.segments if e.id in {neck_id, square_id})
+
+
+def _resolved_ids(piece: DraftPiece, ids: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(edge.id for sid in ids for edge in (
+        _neck_chain(piece, sid) if sid.endswith("_neckline") and not sid.endswith("_square_neckline") and sid.removesuffix("_neckline") + "_square_neckline" not in ids else (_segment(piece, sid),)
+    ))
+
+
+def _reverse_neck(chain, facing_prefix: str):
+    return tuple(_reverse(e, facing_prefix + ("_square_neckline" if e.id.endswith("_square_neckline") else "_neckline")) for e in reversed(chain))
+
+
 def _reverse(segment, segment_id: str):
     if isinstance(segment, LineSegment):
         return LineSegment(segment.end, segment.start, segment_id)
@@ -57,7 +72,8 @@ def _reverse(segment, segment_id: str):
 def _facing_piece(bodice: DraftPiece, prefix: str, name_ru: str, cut_on_fold: bool) -> DraftPiece:
     armhole = _segment(bodice, f"{prefix}_armhole")
     shoulder = _segment(bodice, f"{prefix}_shoulder")
-    neckline = _segment(bodice, f"{prefix}_neckline")
+    neck_chain = _neck_chain(bodice, f"{prefix}_neckline")
+    neckline = neck_chain[-1]
     underarm = armhole.start
     center_neck = neckline.end
     facing_depth = 50.0
@@ -73,7 +89,7 @@ def _facing_piece(bodice: DraftPiece, prefix: str, name_ru: str, cut_on_fold: bo
     contour = Contour(
         (
             LineSegment(lower_center, center_neck, f"{prefix}_facing_center"),
-            _reverse(neckline, f"{prefix}_facing_neckline"),
+            *_reverse_neck(neck_chain, f"{prefix}_facing"),
             _reverse(shoulder, f"{prefix}_facing_shoulder"),
             _reverse(armhole, f"{prefix}_facing_armhole"),
             LineSegment(underarm, lower_side, f"{prefix}_facing_side"),
@@ -113,7 +129,8 @@ def _neck_facing_piece(
 ) -> DraftPiece:
     """Build a separate 45 mm neckline facing for a sleeved upper garment."""
 
-    neckline = _segment(bodice, f"{prefix}_neckline")
+    neck_chain = _neck_chain(bodice, f"{prefix}_neckline")
+    neckline = neck_chain[-1]
     shoulder = _segment(bodice, f"{prefix}_shoulder")
     if not isinstance(shoulder, LineSegment):
         raise BlockConstructionError(
@@ -125,14 +142,18 @@ def _neck_facing_piece(
     shoulder_inner = shoulder.point_at(1.0 - facing_depth / shoulder.length_mm)
     center_outer = neckline.end
     center_inner = Point(center_outer.x_mm, center_outer.y_mm - facing_depth)
-    neck_shoulder = neckline.start
+    neck_shoulder = neck_chain[0].start
     contour = Contour(
         (
             LineSegment(center_inner, center_outer, f"{prefix}_neck_facing_center"),
-            _reverse(neckline, f"{prefix}_neck_facing_neckline"),
+            *_reverse_neck(neck_chain, f"{prefix}_neck_facing"),
             LineSegment(
                 neck_shoulder, shoulder_inner, f"{prefix}_neck_facing_shoulder"
             ),
+            *( (
+                LineSegment(shoulder_inner, Point(shoulder_inner.x_mm, center_inner.y_mm), f"{prefix}_neck_facing_inner_side"),
+                LineSegment(Point(shoulder_inner.x_mm, center_inner.y_mm), center_inner, f"{prefix}_neck_facing_inner"),
+            ) if len(neck_chain) > 1 else (
             CubicBezier(
                 shoulder_inner,
                 Point(shoulder_inner.x_mm * 0.72, shoulder_inner.y_mm - 8.0),
@@ -140,6 +161,7 @@ def _neck_facing_piece(
                 center_inner,
                 f"{prefix}_neck_facing_inner",
             ),
+            ) ),
         ),
         id=f"{prefix}_neck_facing_seam",
     )
@@ -165,7 +187,7 @@ def _neck_facing_piece(
 
 
 def _length(piece: DraftPiece, segment_ids: tuple[str, ...]) -> float:
-    return sum(_segment(piece, segment_id).length_mm for segment_id in segment_ids)
+    return sum(_segment(piece, segment_id).length_mm for segment_id in _resolved_ids(piece, segment_ids))
 
 
 def _add_notches(
@@ -540,7 +562,7 @@ def _split_jacket_front(
         princess,
         center_armhole,
         _segment(front, "front_shoulder"),
-        _segment(front, "front_neckline"),
+        *_neck_chain(front, "front_neckline"),
         _segment(front, "front_placket_top"),
         _segment(front, "front_placket_edge"),
     ), id="jacket_front_center_seam")
@@ -641,9 +663,9 @@ def _append_pair(
     pairs.append({
         "id": pair_id,
         "first_piece_id": first_piece_id,
-        "first_segment_ids": list(first_segment_ids),
+        "first_segment_ids": list(_resolved_ids(by_id[first_piece_id], first_segment_ids)),
         "second_piece_id": second_piece_id,
-        "second_segment_ids": list(second_segment_ids),
+        "second_segment_ids": list(_resolved_ids(by_id[second_piece_id], second_segment_ids)),
         "first_length_reduction_mm": round(first_length_reduction_mm, 6),
         "second_length_reduction_mm": round(second_length_reduction_mm, 6),
         "allowed_ease_mm": round(abs(first_effective - second_effective), 6),
@@ -866,6 +888,13 @@ def _assemble_trousers(
     )
 
 
+def _sleeve_hem(request, measurement):
+    if request["garment_spec"]["parameters"]["sleeve"]["type"] == "short":
+        fit = request["fit_settings"]
+        return _measurement(request, "upper_arm_circumference") + fit["wearing_ease_mm"]["upper_arm"] + fit["design_ease_mm"]["upper_arm"]
+    return _measurement(request, measurement)
+
+
 def _assemble_upper(request: Mapping[str, Any], blocks: BaseBlockSet) -> GarmentAssembly:
     spec = request["garment_spec"]
     garment_type = spec["garment_type"]
@@ -891,7 +920,7 @@ def _assemble_upper(request: Mapping[str, Any], blocks: BaseBlockSet) -> Garment
     pieces: list[DraftPiece] = [front, back]
     pairs: list[dict[str, Any]] = []
 
-    sleeved = garment_type in {"blouse", "shirt"}
+    sleeved = spec["parameters"]["sleeve"]["type"] != "sleeveless"
     if sleeved:
         sleeve = build_one_piece_sleeve(
             front_armhole_length_mm=blocks.controls["front_armhole_length_mm"],
@@ -899,14 +928,14 @@ def _assemble_upper(request: Mapping[str, Any], blocks: BaseBlockSet) -> Garment
             upper_arm_circumference_mm=_measurement(request, "upper_arm_circumference"),
             upper_arm_ease_mm=(request["fit_settings"]["wearing_ease_mm"]["upper_arm"]
                                + request["fit_settings"]["design_ease_mm"]["upper_arm"]),
-            match_cap_halves=request["fit_settings"]["design_ease_mm"]["upper_arm"] > 0,
+            match_cap_halves=True,
             sleeve_length_mm=float(spec["parameters"]["sleeve"]["length_mm"]),
-            wrist_circumference_mm=_measurement(request, "wrist_circumference"),
-            hand_circumference_mm=_measurement(request, "hand_circumference"),
+            wrist_circumference_mm=_sleeve_hem(request, "wrist_circumference"),
+            hand_circumference_mm=_sleeve_hem(request, "hand_circumference"),
             sleeve_balance_mm=blocks.formula_values["sleeve_balance"],
         ).piece
         pieces.append(sleeve)
-        if garment_type == "blouse":
+        if garment_type in {"blouse", "top"}:
             pieces.extend((
                 _neck_facing_piece(
                     front, "front", "Блузка · обтачка горловины переда", True
@@ -956,7 +985,7 @@ def _assemble_upper(request: Mapping[str, Any], blocks: BaseBlockSet) -> Garment
             pairs, by_id, "back_sleeve_join", "back_bodice", ("back_armhole",),
             "base_sleeve", ("sleeve_cap_back",),
         )
-        if garment_type == "blouse":
+        if garment_type in {"blouse", "top"}:
             _append_pair(
                 pairs, by_id, "front_neckline_facing", "front_bodice", ("front_neckline",),
                 "front_neck_facing", ("front_neck_facing_neckline",),
@@ -991,6 +1020,8 @@ def _assemble_upper(request: Mapping[str, Any], blocks: BaseBlockSet) -> Garment
             pairs, by_id, "facing_shoulder_join", "front_facing", ("front_facing_shoulder",),
             "back_facing", ("back_facing_shoulder",),
         )
+    if sleeved and (spec["parameters"]["sleeve"]["type"] == "short" or garment_type == "top"):
+        _append_pair(pairs, by_id, "sleeve_underarm_join", "base_sleeve", ("sleeve_front_seam",), "base_sleeve", ("sleeve_back_seam",))
     if garment_type == "shirt":
         _append_pair(
             pairs, by_id, "front_collar_band_join", "front_bodice", ("front_neckline",),
@@ -1036,7 +1067,7 @@ def _assemble_jacket(request: Mapping[str, Any], blocks: BaseBlockSet) -> Garmen
     jacket = parameters["jacket"]
     finishing = parameters["finishing"]
     supported = (
-        parameters["bodice_fit"] == "semi_fitted"
+        parameters["bodice_fit"] in {"fitted", "semi_fitted", "loose", "oversized"}
         and parameters["shaping"] == "princess_seams"
         and parameters["sleeve"]["type"] == "long"
         and parameters["closure"]["type"] == "buttons"
@@ -1109,6 +1140,7 @@ def _assemble_jacket(request: Mapping[str, Any], blocks: BaseBlockSet) -> Garmen
         back_base.cut_quantity, back_base.cut_on_fold, back_base.mirrored_pair,
     )
     sleeve_base = build_one_piece_sleeve(
+        match_cap_halves=True,
         front_armhole_length_mm=blocks.controls["front_armhole_length_mm"],
         back_armhole_length_mm=blocks.controls["back_armhole_length_mm"],
         upper_arm_circumference_mm=_measurement(request, "upper_arm_circumference"),
@@ -1292,17 +1324,17 @@ def assemble_garment(
         )
     supported = (
         spec["garment_type"] in {"dress", "sundress"}
-        and parameters["bodice_fit"] in {"fitted", "semi_fitted"}
-        and parameters["neckline"]["type"] == "round"
-        and parameters["sleeve"]["type"] == "sleeveless"
-        and parameters["skirt"]["type"] == "a_line"
+        and parameters["bodice_fit"] in {"fitted", "semi_fitted", "loose", "oversized"}
+        and parameters["neckline"]["type"] in {"round", "v", "square"}
+        and parameters["sleeve"]["type"] in {"sleeveless", "short", "long"}
+        and parameters["skirt"]["type"] in {"straight", "a_line"}
         and parameters["closure"] == {
             "type": "zipper",
             "location": "center_back",
             "length_mm": parameters["closure"]["length_mm"],
         }
         and parameters["finishing"]["neckline_facing"] is True
-        and parameters["finishing"]["armhole_facing"] is True
+        and parameters["finishing"]["armhole_facing"] == (parameters["sleeve"]["type"] == "sleeveless")
         and parameters["finishing"].get("waistband", False) is False
         and parameters["finishing"].get("front_placket", False) is False
         and parameters["finishing"].get("collar", False) is False
@@ -1316,12 +1348,10 @@ def assemble_garment(
         )
 
     garment_name = "Платье" if spec["garment_type"] == "dress" else "Сарафан"
-    front_facing = _facing_piece(
-        blocks.front_bodice, "front", f"{garment_name} · обтачка переда", True
-    )
-    back_facing = _facing_piece(
-        blocks.back_bodice, "back", f"{garment_name} · обтачка спинки", False
-    )
+    sleeved = parameters["sleeve"]["type"] != "sleeveless"
+    facing_builder = _neck_facing_piece if sleeved else _facing_piece
+    front_facing = facing_builder(blocks.front_bodice, "front", f"{garment_name} · обтачка переда", True)
+    back_facing = facing_builder(blocks.back_bodice, "back", f"{garment_name} · обтачка спинки", False)
     pieces = (
         blocks.front_bodice,
         blocks.back_bodice,
@@ -1330,6 +1360,18 @@ def assemble_garment(
         front_facing,
         back_facing,
     )
+    if sleeved:
+        sleeve = build_one_piece_sleeve(
+            front_armhole_length_mm=blocks.controls["front_armhole_length_mm"],
+            back_armhole_length_mm=blocks.controls["back_armhole_length_mm"],
+            upper_arm_circumference_mm=_measurement(request, "upper_arm_circumference"),
+            upper_arm_ease_mm=request["fit_settings"]["wearing_ease_mm"]["upper_arm"] + request["fit_settings"]["design_ease_mm"]["upper_arm"],
+            sleeve_length_mm=float(parameters["sleeve"]["length_mm"]),
+            wrist_circumference_mm=_sleeve_hem(request, "wrist_circumference"),
+            hand_circumference_mm=_sleeve_hem(request, "hand_circumference"),
+            sleeve_balance_mm=blocks.formula_values["sleeve_balance"], match_cap_halves=True,
+        ).piece
+        pieces += (sleeve,)
     by_id = {piece.id: piece for piece in pieces}
     pairs: list[dict[str, Any]] = []
 
@@ -1355,9 +1397,9 @@ def assemble_garment(
         pairs.append({
             "id": pair_id,
             "first_piece_id": first_piece_id,
-            "first_segment_ids": list(first_segment_ids),
+            "first_segment_ids": list(_resolved_ids(by_id[first_piece_id], first_segment_ids)),
             "second_piece_id": second_piece_id,
-            "second_segment_ids": list(second_segment_ids),
+            "second_segment_ids": list(_resolved_ids(by_id[second_piece_id], second_segment_ids)),
             "first_length_reduction_mm": round(first_length_reduction_mm, 6),
             "second_length_reduction_mm": round(second_length_reduction_mm, 6),
             "allowed_ease_mm": round(abs(first_effective - second_effective), 6),
@@ -1380,16 +1422,23 @@ def assemble_garment(
     add_pair("skirt_side_join", "front_skirt",
              ("front_skirt_side_lower", "front_skirt_side_upper"),
              "back_skirt", ("back_skirt_side_lower", "back_skirt_side_upper"))
-    add_pair("front_neckline_facing", "front_bodice", ("front_neckline",),
-             "front_facing", ("front_facing_neckline",))
-    add_pair("back_neckline_facing", "back_bodice", ("back_neckline",),
-             "back_facing", ("back_facing_neckline",))
-    add_pair("front_armhole_facing", "front_bodice", ("front_armhole",),
-             "front_facing", ("front_facing_armhole",))
-    add_pair("back_armhole_facing", "back_bodice", ("back_armhole",),
-             "back_facing", ("back_facing_armhole",))
-    add_pair("facing_shoulder_join", "front_facing", ("front_facing_shoulder",),
-             "back_facing", ("back_facing_shoulder",))
+    if sleeved:
+        for prefix in ("front", "back"):
+            add_pair(f"{prefix}_neckline_facing", f"{prefix}_bodice", (f"{prefix}_neckline",), f"{prefix}_neck_facing", (f"{prefix}_neck_facing_neckline",))
+            add_pair(f"{prefix}_sleeve_join", f"{prefix}_bodice", (f"{prefix}_armhole",), "base_sleeve", (f"sleeve_cap_{prefix}",))
+        add_pair("neck_facing_shoulder_join", "front_neck_facing", ("front_neck_facing_shoulder",), "back_neck_facing", ("back_neck_facing_shoulder",))
+        add_pair("sleeve_underarm_join", "base_sleeve", ("sleeve_front_seam",), "base_sleeve", ("sleeve_back_seam",))
+    else:
+        add_pair("front_neckline_facing", "front_bodice", ("front_neckline",),
+                 "front_facing", ("front_facing_neckline",))
+        add_pair("back_neckline_facing", "back_bodice", ("back_neckline",),
+                 "back_facing", ("back_facing_neckline",))
+        add_pair("front_armhole_facing", "front_bodice", ("front_armhole",),
+                 "front_facing", ("front_facing_armhole",))
+        add_pair("back_armhole_facing", "back_bodice", ("back_armhole",),
+                 "back_facing", ("back_facing_armhole",))
+        add_pair("facing_shoulder_join", "front_facing", ("front_facing_shoulder",),
+                 "back_facing", ("back_facing_shoulder",))
 
     pair_residuals = []
     for pair in pairs:
@@ -1417,7 +1466,7 @@ def assemble_garment(
         {
             "schema_version": "1.0.0",
             "unit": "mm",
-            "pieces": [_decorate_piece(piece, garment_name) for piece in pieces],
+            "pieces": [_decorate_piece(piece, garment_name, armhole_finish="sleeve" if sleeved else "facing") for piece in pieces],
             "seam_pairs": pairs,
         },
         {

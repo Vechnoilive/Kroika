@@ -1,7 +1,373 @@
 {
-  "registry_version": "1.6.0",
+  "registry_version": "1.7.0",
   "unit": "mm",
   "modules": [
+    {
+      "id": "foundation_lining_v4",
+      "kind": "layer",
+      "group": "foundation_layer",
+      "title_ru": "Подкладка по готовым деталям",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest",
+            "jacket",
+            "skirt",
+            "trousers",
+            "shorts"
+          ],
+          "role": [
+            "lining"
+          ],
+          "coverage": [
+            "full",
+            "detail"
+          ],
+          "opacity": [
+            "opaque",
+            "semi_transparent",
+            "transparent"
+          ],
+          "drape": [
+            "crisp",
+            "medium",
+            "fluid"
+          ]
+        },
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest",
+            "jacket"
+          ],
+          "role": [
+            "lining"
+          ],
+          "coverage": [
+            "bodice"
+          ],
+          "opacity": [
+            "opaque",
+            "semi_transparent",
+            "transparent"
+          ],
+          "drape": [
+            "crisp",
+            "medium",
+            "fluid"
+          ]
+        },
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt",
+            "trousers",
+            "shorts"
+          ],
+          "role": [
+            "lining"
+          ],
+          "coverage": [
+            "skirt"
+          ],
+          "opacity": [
+            "opaque",
+            "semi_transparent",
+            "transparent"
+          ],
+          "drape": [
+            "crisp",
+            "medium",
+            "fluid"
+          ]
+        },
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest",
+            "jacket"
+          ],
+          "sleeve_type": [
+            "short",
+            "long"
+          ],
+          "role": [
+            "lining"
+          ],
+          "coverage": [
+            "sleeves"
+          ],
+          "opacity": [
+            "opaque",
+            "semi_transparent",
+            "transparent"
+          ],
+          "drape": [
+            "crisp",
+            "medium",
+            "fluid"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "foundation_interfacing_v4",
+      "kind": "layer",
+      "group": "foundation_layer",
+      "title_ru": "Прокладка по готовым деталям",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest",
+            "jacket",
+            "skirt",
+            "trousers",
+            "shorts"
+          ],
+          "role": [
+            "interfacing"
+          ],
+          "coverage": [
+            "full",
+            "detail"
+          ],
+          "opacity": [
+            "opaque",
+            "semi_transparent",
+            "transparent"
+          ],
+          "drape": [
+            "crisp",
+            "medium",
+            "fluid"
+          ]
+        },
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest",
+            "jacket"
+          ],
+          "role": [
+            "interfacing"
+          ],
+          "coverage": [
+            "bodice"
+          ],
+          "opacity": [
+            "opaque",
+            "semi_transparent",
+            "transparent"
+          ],
+          "drape": [
+            "crisp",
+            "medium",
+            "fluid"
+          ]
+        },
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt",
+            "trousers",
+            "shorts"
+          ],
+          "role": [
+            "interfacing"
+          ],
+          "coverage": [
+            "skirt"
+          ],
+          "opacity": [
+            "opaque",
+            "semi_transparent",
+            "transparent"
+          ],
+          "drape": [
+            "crisp",
+            "medium",
+            "fluid"
+          ]
+        },
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest",
+            "jacket"
+          ],
+          "sleeve_type": [
+            "short",
+            "long"
+          ],
+          "role": [
+            "interfacing"
+          ],
+          "coverage": [
+            "sleeves"
+          ],
+          "opacity": [
+            "opaque",
+            "semi_transparent",
+            "transparent"
+          ],
+          "drape": [
+            "crisp",
+            "medium",
+            "fluid"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "foundation_overlay_v4",
+      "kind": "layer",
+      "group": "foundation_layer",
+      "title_ru": "Накладной слой по готовым деталям",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest",
+            "jacket",
+            "skirt",
+            "trousers",
+            "shorts"
+          ],
+          "role": [
+            "overlay"
+          ],
+          "coverage": [
+            "full",
+            "detail"
+          ],
+          "opacity": [
+            "opaque",
+            "semi_transparent",
+            "transparent"
+          ],
+          "drape": [
+            "crisp",
+            "medium",
+            "fluid"
+          ]
+        },
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest",
+            "jacket"
+          ],
+          "role": [
+            "overlay"
+          ],
+          "coverage": [
+            "bodice"
+          ],
+          "opacity": [
+            "opaque",
+            "semi_transparent",
+            "transparent"
+          ],
+          "drape": [
+            "crisp",
+            "medium",
+            "fluid"
+          ]
+        },
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt",
+            "trousers",
+            "shorts"
+          ],
+          "role": [
+            "overlay"
+          ],
+          "coverage": [
+            "skirt"
+          ],
+          "opacity": [
+            "opaque",
+            "semi_transparent",
+            "transparent"
+          ],
+          "drape": [
+            "crisp",
+            "medium",
+            "fluid"
+          ]
+        },
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest",
+            "jacket"
+          ],
+          "sleeve_type": [
+            "short",
+            "long"
+          ],
+          "role": [
+            "overlay"
+          ],
+          "coverage": [
+            "sleeves"
+          ],
+          "opacity": [
+            "opaque",
+            "semi_transparent",
+            "transparent"
+          ],
+          "drape": [
+            "crisp",
+            "medium",
+            "fluid"
+          ]
+        }
+      ]
+    },
     {
       "id": "center_pleat_v1",
       "group": "modeling",
@@ -1670,11 +2036,12 @@
           "garment_type": [
             "dress",
             "sundress",
-            "skirt",
             "top",
             "blouse",
             "shirt",
             "vest",
+            "jacket",
+            "skirt",
             "trousers",
             "shorts"
           ],

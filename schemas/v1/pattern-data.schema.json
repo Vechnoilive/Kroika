@@ -205,7 +205,7 @@
         "source_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
         "kind": {"type": "string", "enum": ["cuff", "collar", "patch_pocket", "lining", "overlay", "sash", "tie", "ruffle", "flounce", "peplum", "interfacing", "drape", "off_shoulder", "cascade", "proportions", "closure", "slit", "vent", "hood", "strap", "waistband", "belt", "welt_pocket", "yoke", "panel", "princess_seam", "dart", "decorative_seam", "other"]},
         "module_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
-        "formula_id": {"type": "string", "pattern": "^(M19|D02|A03|F02|C03)-[A-Z][0-9]{2}$"},
+        "formula_id": {"type": "string", "pattern": "^(M19|D02|A03|F02|C03|L04)-[A-Z][0-9]{2}$"},
         "target_piece_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}},
         "added_piece_ids": {"type": "array", "minItems": 0, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}},
         "interface_ids": {"type": "array", "minItems": 0, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}},

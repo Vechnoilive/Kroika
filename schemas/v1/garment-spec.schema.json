@@ -17,7 +17,7 @@
       "required": ["symmetry", "bodice_fit", "shaping", "neckline", "sleeve", "skirt", "closure", "finishing"],
       "properties": {
         "symmetry": {"type": "string", "const": "symmetric"},
-        "bodice_fit": {"type": "string", "enum": ["fitted", "semi_fitted"]},
+        "bodice_fit": {"type": "string", "enum": ["fitted", "semi_fitted", "loose", "oversized"]},
         "shaping": {"type": "string", "enum": ["darts", "princess_seams"]},
         "neckline": {
           "type": "object", "additionalProperties": false,

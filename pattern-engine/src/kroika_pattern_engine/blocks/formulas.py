@@ -142,7 +142,7 @@ def calculate_block_values(inputs: Mapping[str, Any]) -> dict[str, float]:
     )
     r["front_waist_dart"] = _positive(
         (r["front_width"] - r["front_waist"]) * c["front_dart_fraction"],
-        "front_waist_dart",
+        "front_waist_dart", zero_allowed=True,
     )
     r["front_waist_dart_depth"] = _positive(c["dart_tip_factor"] * r["bust_from_waist"], "front_waist_dart_depth")
 
@@ -279,6 +279,31 @@ def constructive_formula_inputs(request: Mapping[str, Any]) -> dict[str, float]:
         raw[circumference] += ease
         raw[back_arc] += ease * back_share
 
+    return derive_foundation_inputs(raw, request)
+
+
+def derive_foundation_inputs(raw: dict[str, float], request: Mapping[str, Any]) -> dict[str, float]:
+    """Construction dimensions; the request's anatomical measurements stay intact."""
+    prop = (request["garment_spec"].get("design_intent") or {}).get("proportions") or {}
+    if prop.get("module_id") == "parametric_visual_proportions_v1" and prop["waist_position"] != "natural":
+        shift = prop["waist_shift_mm"] * (1 if prop["waist_position"] == "low" else -1)
+        for key in ("front_neck_to_waist_over_bust", "back_neck_to_waist"):
+            if key in raw:
+                raw[key] += shift
+        raw["hip_depth"] -= shift
+        fit = request["fit_settings"]
+        ease = fit["wearing_ease_mm"]["waist"] + fit["design_ease_mm"]["waist"]
+        raw["waist"] = prop["waist_level_circumference_mm"] + ease
+        raw["back_waist_arc"] = prop["back_waist_level_arc_mm"] + ease * fit["distribution"]["back_share"]
+    if request["garment_spec"]["parameters"]["bodice_fit"] in {"loose", "oversized"} and "bust" in raw:
+        # No waist suppression in a free bodice. Enlarge any narrower hip section
+        # to the same construction width, retaining independent front/back arcs.
+        front = max(raw["bust"] - raw["back_bust_arc"], raw["waist"] - raw["back_waist_arc"])
+        back = max(raw["back_bust_arc"], raw["back_waist_arc"])
+        raw.update(bust=front + back, back_bust_arc=back, waist=front + back, back_waist_arc=back)
+        hip_front = max(raw["hips"] - raw["back_hip_arc"], front)
+        hip_back = max(raw["back_hip_arc"], back)
+        raw.update(hips=hip_front + hip_back, back_hip_arc=hip_back)
     return raw
 
 
@@ -343,7 +368,7 @@ def constructive_skirt_formula_inputs(request: Mapping[str, Any]) -> dict[str, f
             )
         raw[circumference] += ease
         raw[back_arc] += ease * back_share
-    return raw
+    return derive_foundation_inputs(raw, request)
 
 
 def calculate_skirt_values(inputs: Mapping[str, Any]) -> dict[str, float]:

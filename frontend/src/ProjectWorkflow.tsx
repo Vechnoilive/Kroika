@@ -106,9 +106,9 @@ export function StyleEditor({
   });
 
   const suggestedUnsupported = [
-    analysis.neckline.front !== 'round' ? `горловина «${analysis.neckline.front}»` : '',
-    analysis.sleeves.length !== 'sleeveless' ? `рукав «${analysis.sleeves.length}»` : '',
-    analysis.lower_part.type !== 'a_line' ? `юбка «${analysis.lower_part.type}»` : '',
+    analysis.neckline.front !== spec.parameters.neckline.type ? `горловина «${analysis.neckline.front}»` : '',
+    analysis.sleeves.length !== spec.parameters.sleeve.type ? `рукав «${analysis.sleeves.length}»` : '',
+    analysis.lower_part.type !== spec.parameters.skirt.type ? `юбка «${analysis.lower_part.type}»` : '',
   ].filter(Boolean);
 
   function updateSpec(next: GarmentSpec) {
@@ -196,7 +196,7 @@ export function StyleEditor({
     const skirtBased = ['dress', 'sundress', 'skirt'].includes(spec.garment_type);
     const upperOnly = ['top', 'blouse', 'shirt', 'vest', 'jacket'].includes(spec.garment_type);
     const lowerOnly = ['trousers', 'shorts'].includes(spec.garment_type);
-    const sleeved = ['blouse', 'shirt', 'jacket'].includes(spec.garment_type);
+    const sleeved = spec.parameters.sleeve.type !== 'sleeveless';
     const invalid = (!['skirt', 'trousers', 'shorts'].includes(spec.garment_type)
         && (!bounded(neckline.front_depth_mm, 50, 250) || !bounded(neckline.back_depth_mm, 10, 120)))
       || (skirtBased
@@ -209,7 +209,7 @@ export function StyleEditor({
         || !bounded(trousers?.fly_length_mm ?? NaN, 120, 240)
         || !bounded(trousers?.pocket_opening_mm ?? NaN, 120, 220)
       ))
-      || (sleeved && !bounded(sleeve.length_mm ?? NaN, 250, 900))
+      || (sleeved && !bounded(sleeve.length_mm ?? NaN, sleeve.type === 'short' ? 80 : 250, sleeve.type === 'short' ? 350 : 900))
       || (closure.type !== 'none' && !bounded(
         closure.length_mm ?? NaN,
         lowerOnly ? 120 : 100,
@@ -247,6 +247,7 @@ export function StyleEditor({
           wearing_ease_mm: easeForGarment(
             confirmed.garment_type,
             confirmed.parameters.jacket?.underlayer_allowance_mm,
+            confirmed.parameters.bodice_fit,
           ),
           design_ease_mm: {bust: 0, waist: 0, hips: 0, upper_arm: 0},
           confirmed_at: null,
@@ -277,7 +278,7 @@ export function StyleEditor({
   const skirtBased = ['dress', 'sundress', 'skirt'].includes(spec.garment_type);
   const upperOnly = ['top', 'blouse', 'shirt', 'vest', 'jacket'].includes(spec.garment_type);
   const lowerOnly = ['trousers', 'shorts'].includes(spec.garment_type);
-  const sleeved = ['blouse', 'shirt', 'jacket'].includes(spec.garment_type);
+  const sleeved = spec.parameters.sleeve.type !== 'sleeveless';
   const selectedAcceptance = acceptance?.garment_type === spec.garment_type ? acceptance : undefined;
   return (
     <form className="workflow-card" onSubmit={(event) => void submit(event)}>
@@ -308,14 +309,24 @@ export function StyleEditor({
         ))}
       </fieldset>
 
+      <fieldset className="plain-choice">
+        <legend>Посадка</legend>
+        {([['fitted', 'Прилегающая'], ['semi_fitted', 'Полуприлегающая'], ['loose', 'Свободная'], ['oversized', 'Объёмная']] as const).map(([fit, title]) => <label key={fit}><input type="radio" checked={parameters.bodice_fit === fit} onChange={() => updateParameters({bodice_fit: fit})} /> {title}</label>)}
+        <p className="field-hint">Свободная посадка добавляет минимум 6 см модельной прибавки, объёмная — 12 см. У свободного лифа нет талиевых вытачек; нагрудная сохраняет баланс.</p>
+      </fieldset>
       {!['skirt', 'trousers', 'shorts'].includes(spec.garment_type) && <fieldset className="plain-choice">
-        <legend>Посадка лифа</legend>
-        <label><input type="radio" checked={parameters.bodice_fit === 'semi_fitted'} onChange={() => updateParameters({bodice_fit: 'semi_fitted'})} /> Полуприлегающая</label>
-        {!['blouse', 'shirt', 'jacket'].includes(spec.garment_type) && <label><input type="radio" checked={parameters.bodice_fit === 'fitted'} onChange={() => updateParameters({bodice_fit: 'fitted'})} /> Прилегающая</label>}
+        <legend>Горловина</legend>
+        {([['round', 'Круглая'], ['v', 'V-образная'], ['square', 'Квадратная']] as const).map(([type, title]) => <label key={type}><input type="radio" checked={parameters.neckline.type === type} onChange={() => updateParameters({neckline: {...parameters.neckline, type}})} /> {title}</label>)}
       </fieldset>}
+      {['dress', 'top', 'blouse', 'shirt'].includes(spec.garment_type) && <fieldset className="plain-choice">
+        <legend>Рукав</legend>
+        {(['short', 'long', ...(['dress', 'top'].includes(spec.garment_type) ? ['sleeveless'] : [])] as Array<'short' | 'long' | 'sleeveless'>).map((type) => <label key={type}><input type="radio" checked={parameters.sleeve.type === type} onChange={() => updateParameters({sleeve: {type, length_mm: type === 'sleeveless' ? null : type === 'short' ? 180 : 580}, finishing: {...parameters.finishing, armhole_facing: type === 'sleeveless'}})} /> {type === 'short' ? 'Короткий' : type === 'long' ? 'Длинный' : 'Без рукава'}</label>)}
+      </fieldset>}
+      {skirtBased && <fieldset className="plain-choice"><legend>Юбка</legend>{([['a_line', 'А-силуэт'], ['straight', 'Прямая']] as const).map(([type, title]) => <label key={type}><input type="radio" checked={parameters.skirt.type === type} onChange={() => updateParameters({skirt: {...parameters.skirt, type, hem_expansion_each_side_mm: type === 'straight' ? 0 : 60}})} /> {title}</label>)}</fieldset>}
+
 
       <div className="locked-features" aria-label="Зафиксированные поддержанные элементы">
-        {features[spec.garment_type].map(([title, detail]) => <div key={title}><strong>{title}</strong><span>{detail}</span></div>)}
+        {features[spec.garment_type].filter(([title]) => !['Круглая горловина', 'Без рукавов', 'Длинный рукав', 'А-юбка', 'А-силуэт', 'Полуприлегающая', 'Естественная талия'].includes(title)).map(([title, detail]) => <div key={title}><strong>{title}</strong><span>{detail}</span></div>)}
       </div>
 
       {BACK_GARMENTS.includes(spec.garment_type) && <fieldset className="back-design">
@@ -357,12 +368,12 @@ export function StyleEditor({
       </div>
 
       <div className="number-grid">
-        {!['skirt', 'jacket', 'trousers', 'shorts'].includes(spec.garment_type) && <NumberField id="front-neck-depth" label="Глубина горловины спереди" value={parameters.neckline.front_depth_mm / 10} min={5} max={25} onChange={(value) => updateParameters({neckline: {...parameters.neckline, type: 'round', front_depth_mm: value * 10}})} />}
-        {!BACK_GARMENTS.includes(spec.garment_type) && !['skirt', 'jacket', 'trousers', 'shorts'].includes(spec.garment_type) && <NumberField id="back-neck-depth" label="Глубина горловины сзади" value={parameters.neckline.back_depth_mm / 10} min={1} max={12} onChange={(value) => updateParameters({neckline: {...parameters.neckline, type: 'round', back_depth_mm: value * 10}})} />}
-        {skirtBased && <NumberField id="skirt-length" label="Длина юбки от талии" value={parameters.skirt.length_from_waist_mm / 10} min={35} max={120} onChange={(value) => updateParameters({skirt: {...parameters.skirt, type: 'a_line', length_from_waist_mm: value * 10}})} />}
-        {skirtBased && <NumberField id="hem-expansion" label="Изменение низа с каждой стороны (+ шире, − уже)" value={parameters.skirt.hem_expansion_each_side_mm / 10} min={-10} max={25} onChange={(value) => updateParameters({skirt: {...parameters.skirt, type: 'a_line', hem_expansion_each_side_mm: value * 10}})} />}
+        {!['skirt', 'jacket', 'trousers', 'shorts'].includes(spec.garment_type) && <NumberField id="front-neck-depth" label="Глубина горловины спереди" value={parameters.neckline.front_depth_mm / 10} min={5} max={25} onChange={(value) => updateParameters({neckline: {...parameters.neckline, front_depth_mm: value * 10}})} />}
+        {!BACK_GARMENTS.includes(spec.garment_type) && !['skirt', 'jacket', 'trousers', 'shorts'].includes(spec.garment_type) && <NumberField id="back-neck-depth" label="Глубина горловины сзади" value={parameters.neckline.back_depth_mm / 10} min={1} max={12} onChange={(value) => updateParameters({neckline: {...parameters.neckline, back_depth_mm: value * 10}})} />}
+        {skirtBased && <NumberField id="skirt-length" label="Длина юбки от талии" value={parameters.skirt.length_from_waist_mm / 10} min={35} max={120} onChange={(value) => updateParameters({skirt: {...parameters.skirt, length_from_waist_mm: value * 10}})} />}
+        {skirtBased && parameters.skirt.type !== 'straight' && <NumberField id="hem-expansion" label="Изменение низа с каждой стороны (+ шире, − уже)" value={parameters.skirt.hem_expansion_each_side_mm / 10} min={-10} max={25} onChange={(value) => updateParameters({skirt: {...parameters.skirt, hem_expansion_each_side_mm: value * 10}})} />}
         {upperOnly && <NumberField id="upper-length" label="Длина ниже талии" value={(parameters.upper?.length_below_waist_mm ?? 100) / 10} min={4} max={30} onChange={(value) => updateParameters({upper: {length_below_waist_mm: value * 10}})} />}
-        {sleeved && <NumberField id="sleeve-length" label="Длина рукава" value={(parameters.sleeve.length_mm ?? 580) / 10} min={25} max={90} onChange={(value) => updateParameters({sleeve: {...parameters.sleeve, type: 'long', length_mm: value * 10}})} />}
+        {sleeved && <NumberField id="sleeve-length" label="Длина рукава" value={(parameters.sleeve.length_mm ?? 580) / 10} min={parameters.sleeve.type === 'short' ? 8 : 25} max={parameters.sleeve.type === 'short' ? 35 : 90} onChange={(value) => updateParameters({sleeve: {...parameters.sleeve, length_mm: value * 10}})} />}
         {parameters.jacket && <NumberField id="jacket-lapel" label="Ширина лацкана" value={parameters.jacket.lapel_width_mm / 10} min={4.5} max={10} onChange={(value) => updateParameters({jacket: {...parameters.jacket!, lapel_width_mm: value * 10}})} />}
         {parameters.jacket && <NumberField id="jacket-underlayer" label="Запас на нижний слой" value={parameters.jacket.underlayer_allowance_mm / 10} min={0} max={3} onChange={(value) => updateParameters({jacket: {...parameters.jacket!, underlayer_allowance_mm: value * 10}})} />}
         {parameters.jacket && <NumberField id="jacket-vent" label="Длина шлицы" value={parameters.jacket.vent_length_mm / 10} min={10} max={30} onChange={(value) => updateParameters({jacket: {...parameters.jacket!, vent_length_mm: value * 10}})} />}
@@ -443,7 +454,7 @@ export function ConstructionEditor({
   });
   const easeFields = EASE_FIELDS.filter(({key}) => {
     if (['skirt', 'trousers', 'shorts'].includes(project.garment_spec.garment_type)) return key === 'waist' || key === 'hips';
-    if (['blouse', 'shirt', 'jacket'].includes(project.garment_spec.garment_type)) return true;
+    if (project.garment_spec.parameters.sleeve.type !== 'sleeveless') return true;
     return key !== 'upper_arm';
   }).map((field) => {
     if (project.garment_spec.garment_type !== 'jacket') return field;

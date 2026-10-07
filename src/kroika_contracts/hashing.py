@@ -9,7 +9,7 @@ from .design_modules import (
     STAGE18_MODELING_MODULES, STAGE19_ELEMENT_MODULES, STAGE19_LAYER_MODULES,
     STAGE21_TOPOLOGY_MODULES,
     DETAIL_ELEMENT_MODULES, DETAIL_LAYER_MODULES, ADVANCED_ELEMENT_MODULES,
-    FULLNESS_MODULES, STRUCTURAL_MODULES,
+    FULLNESS_MODULES, STRUCTURAL_MODULES, FOUNDATION_LAYER_MODULES,
 )
 
 
@@ -207,10 +207,16 @@ def canonical_generation_payload(request: Mapping[str, Any]) -> dict[str, Any]:
         garment_payload['composite_layers'] = composite_layers
     if coverage_contract is not None:
         garment_payload['coverage_contract'] = coverage_contract
+    foundation_layers = [{key: layer.get(key) for key in ('source_layer_id', 'role', 'coverage', 'detail_source_ids', 'hem_shortening_mm', 'module_id')}
+        for layer in (garment.get('design_intent') or {}).get('layers', [])
+        if layer.get('included') is not False and layer.get('support_status') == 'supported' and layer.get('module_id') in FOUNDATION_LAYER_MODULES]
+    stage4 = bool(foundation_layers) or garment['parameters']['bodice_fit'] in {'loose', 'oversized'} or garment['parameters']['neckline']['type'] != 'round' or garment['parameters']['skirt']['type'] == 'straight' or garment['parameters']['sleeve']['type'] != 'sleeveless' or (garment['garment_type'] in {'dress', 'top'} and garment['parameters']['sleeve']['type'] == 'long') or (advanced_proportions and (proportions.get('waist_position') != 'natural' or garment['garment_type'] not in {'dress', 'sundress', 'skirt'}))
+    if foundation_layers:
+        garment_payload['foundation_layers'] = sorted(foundation_layers, key=lambda item: (item['module_id'], item['source_layer_id']))
     has_composites = bool(composite_elements or composite_layers)
     return {
         'hash_contract_version': (
-            '1.9.0' if structural or garment['parameters'].get('closure', {}).get('type') == 'hooks' else '1.8.0' if fullness else '1.7.0' if garment['parameters'].get('closure', {}).get('location') == 'center_back' and (
+            '1.10.0' if stage4 else '1.9.0' if structural or garment['parameters'].get('closure', {}).get('type') == 'hooks' else '1.8.0' if fullness else '1.7.0' if garment['parameters'].get('closure', {}).get('location') == 'center_back' and (
                 garment['parameters']['closure']['type'] in {'buttons', 'lacing'})
             else '1.6.0' if advanced_proportions or any(
                 item['module_id'] in ADVANCED_ELEMENT_MODULES for item in details.get('elements', []))

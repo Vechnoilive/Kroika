@@ -24,6 +24,7 @@ from .blocks import (
 from .composites import apply_composite_transformations
 from .details import apply_detail_transformations
 from .coverage import compile_design_coverage
+from .layers import apply_foundation_layers
 from .garment_catalogue import garment_acceptance
 from .geometry import run_core_diagnostics
 from .modeling import apply_modeling_transformations
@@ -43,7 +44,7 @@ class GeometryPatternEngine:
     """Build a bounded experimental garment and return an auditable report."""
 
     engine_id = "kroika-geometry"
-    engine_version = "0.19.0"
+    engine_version = "0.20.0"
 
     def __init__(self, clock: Callable[[], datetime] = _utc_now):
         self._clock = clock
@@ -109,6 +110,7 @@ class GeometryPatternEngine:
             finished = apply_fullness_details(advanced.pattern, request)
             finished = apply_structural_details(finished, request)
             final_pattern = apply_back_closure(finished, request)
+            final_pattern = apply_foundation_layers(final_pattern, request)
             final_residual = validate_pattern_assembly(final_pattern)
             coverage = compile_design_coverage(final_pattern, source_request)
             printable_pattern = apply_seam_allowances(coverage.pattern, request)

@@ -7,7 +7,7 @@ their intake is included in the effective-waist control calculations.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import math
 from collections.abc import Mapping
 from typing import Any
@@ -342,7 +342,7 @@ def _front_bodice(
         "front_bodice",
         "Базовый лиф — перед",
         contour,
-        (waist_dart, side_dart, bust_line),
+        ((waist_dart,) if values["front_waist_dart"] > 0 else ()) + (side_dart, bust_line),
         Point(20.0, 30.0),
         Point(20.0, center_neck.y_mm - 30.0),
         1,
@@ -545,6 +545,21 @@ def _segment(piece: DraftPiece, segment_id: str):
     return next(segment for segment in piece.seam_contour.segments if segment.id == segment_id)
 
 
+def _with_neckline(piece: DraftPiece, prefix: str, kind: str) -> DraftPiece:
+    if kind == "round":
+        return piece
+    edges = list(piece.seam_contour.segments)
+    index = next(i for i, e in enumerate(edges) if e.id == f"{prefix}_neckline")
+    original = edges[index]
+    if kind == "v":
+        neck = [LineSegment(original.start, original.end, original.id)]
+    else:
+        corner = Point(original.start.x_mm, original.end.y_mm)
+        neck = [LineSegment(original.start, corner, f"{prefix}_square_neckline"), LineSegment(corner, original.end, original.id)]
+    edges[index:index + 1] = neck
+    return replace(piece, seam_contour=Contour(tuple(edges), id=piece.seam_contour.id))
+
+
 def build_base_blocks(request: Mapping[str, Any]) -> BaseBlockSet:
     """Build front/back bodice and skirt blocks for the bounded first scenario."""
 
@@ -562,7 +577,7 @@ def build_base_blocks(request: Mapping[str, Any]) -> BaseBlockSet:
             "Не хватает параметров горловины или юбки.",
             "/garment_spec/parameters",
         ) from error
-    if neckline.get("type") != "round" or skirt.get("type") != "a_line":
+    if neckline.get("type") not in {"round", "v", "square"} or skirt.get("type") not in {"a_line", "straight"}:
         raise BlockConstructionError(
             "BLOCK_VARIANT_NOT_IMPLEMENTED",
             "На этапе 7 проверяется круглая горловина и базовая А-силуэтная юбка.",
@@ -579,8 +594,12 @@ def build_base_blocks(request: Mapping[str, Any]) -> BaseBlockSet:
             "/garment_spec/parameters",
         )
 
-    front_bodice = _front_bodice(inputs, values, shoulder_length, front_depth)
-    back_bodice = _back_bodice(inputs, values, shoulder_length, back_depth)
+    if skirt["type"] == "straight":
+        expansion = 0.0
+    front_bodice = _with_neckline(_front_bodice(inputs, values, shoulder_length, front_depth), "front", neckline["type"])
+    back_bodice = _with_neckline(_back_bodice(inputs, values, shoulder_length, back_depth), "back", neckline["type"])
+    if skirt["type"] == "straight":
+        expansion = 0.0
     front_skirt = _skirt_piece(
         piece_id="front_skirt",
         name_ru="Базовая юбка — перед",
@@ -683,7 +702,7 @@ def build_skirt_blocks(request: Mapping[str, Any]) -> SkirtBlockSet:
             "Не хватает параметров юбки.",
             "/garment_spec/parameters/skirt",
         ) from error
-    if skirt.get("type") != "a_line":
+    if skirt.get("type") not in {"a_line", "straight"}:
         raise BlockConstructionError(
             "BLOCK_VARIANT_NOT_IMPLEMENTED",
             "На этапе 12 проверяется отдельная юбка А-силуэта.",
@@ -704,6 +723,8 @@ def build_skirt_blocks(request: Mapping[str, Any]) -> SkirtBlockSet:
             "/garment_spec/parameters/skirt/hem_expansion_each_side_mm",
         )
 
+    if skirt["type"] == "straight":
+        expansion = 0.0
     front_skirt = _skirt_piece(
         piece_id="front_skirt",
         name_ru="Базовая юбка — перед",
@@ -770,7 +791,7 @@ def build_one_piece_sleeve(
     hand_circumference_mm: float,
     sleeve_balance_mm: float,
     cap_ease_mm: float = 0.0,
-    match_cap_halves: bool = False,
+    match_cap_halves: bool = True,
 ) -> SleeveBlock:
     """Draft a one-piece sleeve and solve its explicit cap connections."""
 
@@ -794,7 +815,7 @@ def build_one_piece_sleeve(
     if upper_arm_ease_mm < 0.0 or cap_ease_mm < 0.0:
         raise BlockConstructionError("SLEEVE_INPUT_INVALID", "Отрицательная прибавка рукава не поддерживается.", "/sleeve")
 
-    flat_biceps_width = (upper_arm_circumference_mm + upper_arm_ease_mm) / 2.0
+    flat_biceps_width = upper_arm_circumference_mm + upper_arm_ease_mm
     target = front_armhole_length_mm + back_armhole_length_mm + cap_ease_mm
     if target <= flat_biceps_width:
         raise BlockConstructionError(
@@ -851,7 +872,7 @@ def build_one_piece_sleeve(
         for _ in range(24):
             fc, bc = cap(cap_height, apex_x)
             rf, rb = fc.length_mm - front_target, bc.length_mm - back_target
-            if max(abs(rf), abs(rb)) < 1e-7:
+            if max(abs(rf), abs(rb)) < 1e-9:
                 break
             step = .001
             fh, bh = cap(cap_height + step, apex_x)
@@ -878,10 +899,13 @@ def build_one_piece_sleeve(
     front_cap, back_cap = cap(cap_height, apex_x)
     actual = front_cap.length_mm + back_cap.length_mm
 
-    flat_wrist_width = max(wrist_circumference_mm, hand_circumference_mm) / 2.0
+    underarm_length = sleeve_length_mm - cap_height
+    if underarm_length < 5:
+        raise BlockConstructionError("SLEEVE_LENGTH_BELOW_CAP", "Длина рукава от плеча должна превышать высоту рассчитанного оката минимум на 5 мм.", "/garment_spec/parameters/sleeve/length_mm")
+    flat_wrist_width = max(wrist_circumference_mm, hand_circumference_mm)
     right_underarm = Point(half_width, 0.0)
-    right_wrist = Point(flat_wrist_width / 2.0, -sleeve_length_mm)
-    left_wrist = Point(-flat_wrist_width / 2.0, -sleeve_length_mm)
+    right_wrist = Point(flat_wrist_width / 2.0, -underarm_length)
+    left_wrist = Point(-flat_wrist_width / 2.0, -underarm_length)
     left_underarm = Point(-half_width, 0.0)
     contour = Contour(
         (
@@ -908,7 +932,7 @@ def build_one_piece_sleeve(
         contour,
         (_line_path("sleeve_biceps_line", (left_underarm, right_underarm)),),
         Point(0.0, cap_height - 20.0),
-        Point(0.0, -sleeve_length_mm + 20.0),
+        Point(0.0, -underarm_length + min(20.0, underarm_length * .2)),
         2,
         False,
         True,

@@ -84,7 +84,7 @@ describe('design modules and independent measurement entry', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
     const saved = onSave.mock.calls[0][0];
     expect(saved.garment_spec.design_intent?.proportions).toMatchObject({module_id: 'parametric_visual_proportions_v1', waist_shift_mm: 30, waist_level_circumference_mm: 800, back_waist_level_arc_mm: 400});
-    expect(canonicalGenerationPayload(await buildEngineRequest(saved)).hash_contract_version).toBe('1.6.0');
+    expect(canonicalGenerationPayload(await buildEngineRequest(saved)).hash_contract_version).toBe('1.10.0');
   });
 
   it('adds a peplum from the catalog and includes its sizes in the saved request', async () => {

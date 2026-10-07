@@ -27,6 +27,7 @@ DETAIL_LAYER_MODULES = module_ids('detail_layer')
 ADVANCED_ELEMENT_MODULES = module_ids('advanced_element')
 FULLNESS_MODULES = module_ids('fullness')
 STRUCTURAL_MODULES = module_ids('structural')
+FOUNDATION_LAYER_MODULES = module_ids('foundation_layer')
 
 
 def placement_matches(module: Mapping[str, Any], item: Mapping[str, Any]) -> bool:
@@ -102,6 +103,8 @@ def module_matches(
             'waist_shift_mm', 'waist_level_circumference_mm', 'back_waist_level_arc_mm', 'hem_delta_mm'))
     if kind == 'proportions' and module_id == 'parametric_visual_proportions_v1':
         return proportion_dimensions_match(item, spec, check_dimensions=check_dimensions)
+    if kind == 'layer':
+        return layer_parameters_match(item, spec, module_id, check_dimensions=check_dimensions)
     if kind != 'element' or not check_dimensions:
         return True
     dimensions = item.get('dimensions_mm') or {}
@@ -144,6 +147,23 @@ def module_matches(
     return True
 
 
+def layer_parameters_match(item, spec, module_id, *, check_dimensions=True):
+    targets = item.get('detail_source_ids') or []
+    shortening = item.get('hem_shortening_mm') or 0
+    if module_id not in FOUNDATION_LAYER_MODULES:
+        return not targets and not shortening
+    if isinstance(shortening, bool) or not isinstance(shortening, (int, float)) or not math.isfinite(shortening) or not 0 <= shortening <= 300:
+        return False
+    if shortening and item.get('coverage') not in {'skirt', 'sleeves'}:
+        return False
+    if not check_dimensions:
+        return True
+    if item.get('coverage') == 'detail':
+        active = {e['source_element_id'] for e in (spec.get('design_intent') or {}).get('elements', []) if e.get('included') is not False}
+        return bool(targets) and len(targets) == len(set(targets)) and set(targets) <= active
+    return not targets
+
+
 def matching_module(
     item: Mapping[str, Any], spec: Mapping[str, Any], *, kind: str,
 ) -> str | None:
@@ -161,7 +181,7 @@ def proportion_dimensions_match(item: Mapping[str, Any], spec: Mapping[str, Any]
                 and math.isfinite(value) and low <= value <= high)
     shifted = item.get('waist_position') != 'natural'
     if shifted:
-        if spec['garment_type'] not in {'dress', 'sundress'}:
+        if spec['garment_type'] not in {'dress', 'sundress', 'skirt', 'top', 'blouse', 'shirt', 'vest', 'jacket', 'trousers', 'shorts'}:
             return False
         if check_dimensions and not (bounded('waist_shift_mm', 10, 100)
                 and bounded('waist_level_circumference_mm', 400, 1800)
@@ -183,7 +203,7 @@ def proportion_dimensions_match(item: Mapping[str, Any], spec: Mapping[str, Any]
             return False
     shaped = item.get('hem_shape') not in {'straight', 'tiered'}
     if shaped:
-        if spec['garment_type'] not in {'dress', 'sundress', 'skirt'}:
+        if spec['garment_type'] not in {'dress', 'sundress', 'skirt', 'top', 'blouse', 'shirt', 'vest', 'jacket', 'trousers', 'shorts'}:
             return False
         if check_dimensions and not bounded('hem_delta_mm', 20, 250):
             return False
@@ -215,7 +235,7 @@ def structural_conflicts(spec: Mapping[str, Any]) -> list[str]:
             continue
         if any(other is not item and other.get('location') == item.get('location') and (other.get('module_id') in cuts | FULLNESS_MODULES | STAGE21_TOPOLOGY_MODULES | {'crossed_bodice_drape_v1'}) for other in active):
             messages.append('Сочетание членения с другим преобразованием той же детали ещё не проверено; оно входит в этап 5.')
-        if any(layer.get('included') is not False and layer.get('role') != 'main' for layer in intent.get('layers', [])):
+        if any(layer.get('included') is not False and layer.get('role') != 'main' and layer.get('module_id') not in FOUNDATION_LAYER_MODULES for layer in intent.get('layers', [])):
             messages.append('Перенос всех слоёв через новые швы членения входит в этапы 4–5. Для этой конструкции пока выберите основной слой.')
     if any(id in ids for id in {'fitted_two_piece_hood_v3', 'shaped_flat_collar_v3', 'shawl_collar_v3'}) and any(id in ids for id in {'front_bodice_yoke_v3', 'back_bodice_yoke_v3', 'straight_shoulder_straps_v3', 'off_shoulder_bands_v1', 'crossed_bodice_drape_v1', 'diagonal_bodice_drape_v2'}):
         messages.append('Привязка капюшона/воротника к изменённому верхнему срезу ещё не проверена; сочетание входит в этап 5.')
@@ -223,4 +243,16 @@ def structural_conflicts(spec: Mapping[str, Any]) -> list[str]:
         messages.append('Бретели пока требуют лиф без членения и дополнительных раскрытий; сочетание входит в этап 5.')
     if spec['garment_type'] == 'shirt' and any(id in ids for id in {'fitted_two_piece_hood_v3', 'shaped_flat_collar_v3', 'shawl_collar_v3'}):
         messages.append('Рубашечная основа уже включает стойку и воротник; замена её воротника требует отдельного сопряжения.')
+    layers = [layer for layer in intent.get('layers', []) if layer.get('included') is not False and layer.get('support_status') == 'supported' and layer.get('role') != 'main']
+    for index, layer in enumerate(layers):
+        scope = layer['coverage']
+        if spec['garment_type'] == 'jacket' and layer['role'] == 'lining' and scope in {'full', 'bodice', 'sleeves'} and layer.get('module_id') in FOUNDATION_LAYER_MODULES:
+            messages.append('Полная подкладка жакета уже включена в основу. Не добавляйте второй слой подкладки на те же детали.')
+        for other in layers[index + 1:]:
+            if layer['role'] != other['role']:
+                continue
+            same = scope == other['coverage'] and (scope != 'detail' or bool(set(layer.get('detail_source_ids') or []) & set(other.get('detail_source_ids') or [])))
+            whole = scope == 'full' and other['coverage'] != 'detail' or other['coverage'] == 'full' and scope != 'detail'
+            if same or whole:
+                messages.append('Два слоя одной роли покрывают одну часть изделия. Выберите непересекающиеся покрытия.')
     return list(dict.fromkeys(messages))

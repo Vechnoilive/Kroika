@@ -5,7 +5,7 @@ export const GARMENT_OPTIONS: Array<{id: GarmentType; name: string; short: strin
   {id: 'sundress', name: 'Сарафан', short: 'без рукавов'},
   {id: 'skirt', name: 'Юбка', short: 'А-силуэт + пояс'},
   {id: 'top', name: 'Топ', short: 'без рукавов'},
-  {id: 'blouse', name: 'Блузка', short: 'длинный рукав'},
+  {id: 'blouse', name: 'Блузка', short: 'короткий или длинный рукав'},
   {id: 'shirt', name: 'Рубашка', short: 'планка + воротник'},
   {id: 'vest', name: 'Жилет', short: 'планка + обтачки'},
   {id: 'jacket', name: 'Лёгкий жакет', short: 'лацкан + подкладка'},
@@ -56,8 +56,12 @@ export function presetForGarment(type: GarmentType, fit: GarmentSpec['parameters
   return PRESETS[type];
 }
 
-export function easeForGarment(type: GarmentType, underlayerAllowanceMm = 10): FitSettings['wearing_ease_mm'] {
+export function easeForGarment(type: GarmentType, underlayerAllowanceMm = 10, fit: GarmentSpec['parameters']['bodice_fit'] = 'semi_fitted'): FitSettings['wearing_ease_mm'] {
   const values = {...EASE[type]};
+  if (fit === 'fitted') {
+    const reduction = ['jacket', 'skirt', 'trousers', 'shorts'].includes(type) ? 10 : 20;
+    for (const key of ['bust', 'waist', 'hips', 'upper_arm'] as const) values[key] = Math.max(0, values[key] - (key === 'upper_arm' ? reduction / 2 : reduction));
+  }
   if (type === 'jacket') {
     const delta = underlayerAllowanceMm - 10;
     return {

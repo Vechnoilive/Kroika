@@ -171,9 +171,14 @@ export function canonicalGenerationPayload(request: JsonObject): JsonObject {
   const hasAdvanced = advancedProportions || (details.elements ?? []).some((item: JsonObject) => moduleIds('advanced_element').has(item.module_id));
   if (advancedProportions) garmentSpec.proportions = Object.fromEntries(['waist_position', 'volume', 'hem_shape', 'asymmetry', 'waist_shift_mm', 'waist_level_circumference_mm', 'back_waist_level_arc_mm', 'hem_delta_mm'].map((key) => [key, proportions[key] ?? null]));
   if (coverage) garmentSpec.coverage_contract = coverage;
+  const foundationLayers = (garment.design_intent?.layers ?? []).filter((item: JsonObject) => item.included !== false && item.support_status === 'supported' && moduleIds('foundation_layer').has(item.module_id))
+    .map((item: JsonObject) => Object.fromEntries(['source_layer_id', 'role', 'coverage', 'detail_source_ids', 'hem_shortening_mm', 'module_id'].map((key) => [key, item[key] ?? null])))
+    .sort((a: JsonObject, b: JsonObject) => { const left = `${a.module_id}\u0000${a.source_layer_id}`, right = `${b.module_id}\u0000${b.source_layer_id}`; return left < right ? -1 : left > right ? 1 : 0; });
+  if (foundationLayers.length) garmentSpec.foundation_layers = foundationLayers;
+  const stage4 = foundationLayers.length > 0 || ['loose', 'oversized'].includes(garment.parameters.bodice_fit) || (garment.parameters.neckline?.type ?? 'round') !== 'round' || garment.parameters.skirt?.type === 'straight' || (garment.parameters.sleeve?.type ?? 'sleeveless') !== 'sleeveless' || (['dress', 'top'].includes(garment.garment_type) && garment.parameters.sleeve?.type === 'long') || (advancedProportions && (proportions.waist_position !== 'natural' || !['dress', 'sundress', 'skirt'].includes(garment.garment_type)));
   const hasComposites = compositeElements.length > 0 || compositeLayers.length > 0;
   return {
-    hash_contract_version: structural.length || garment.parameters.closure?.type === 'hooks' ? '1.9.0' : fullness.length ? '1.8.0' : garment.parameters.closure?.location === 'center_back' && ['buttons', 'lacing'].includes(garment.parameters.closure.type) ? '1.7.0' : hasAdvanced ? '1.6.0' : hasDetails ? '1.5.0' : topologyElements.length > 0
+    hash_contract_version: stage4 ? '1.10.0' : structural.length || garment.parameters.closure?.type === 'hooks' ? '1.9.0' : fullness.length ? '1.8.0' : garment.parameters.closure?.location === 'center_back' && ['buttons', 'lacing'].includes(garment.parameters.closure.type) ? '1.7.0' : hasAdvanced ? '1.6.0' : hasDetails ? '1.5.0' : topologyElements.length > 0
       ? '1.4.0'
       : coverage ? '1.3.0'
       : hasComposites

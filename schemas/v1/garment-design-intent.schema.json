@@ -142,6 +142,8 @@
       "additionalProperties": false,
       "required": ["source_layer_id", "role", "coverage", "material_hint_ru", "opacity", "drape", "confidence", "requires_confirmation", "support_status", "module_id"],
       "properties": {
+        "hem_shortening_mm": {"type": "number", "minimum": 0, "maximum": 300},
+        "detail_source_ids": {"type": "array", "uniqueItems": true, "maxItems": 32, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{1,63}$"}},
         "source_layer_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{1,63}$"},
         "role": {"type": "string", "enum": ["main", "lining", "interfacing", "overlay"]},
         "coverage": {"type": "string", "enum": ["full", "bodice", "skirt", "sleeves", "detail", "unknown"]},

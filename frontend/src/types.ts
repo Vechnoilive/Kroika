@@ -43,7 +43,7 @@ export interface GarmentSpec {
   garment_type: GarmentType;
   parameters: {
     symmetry: 'symmetric';
-    bodice_fit: 'fitted' | 'semi_fitted';
+    bodice_fit: 'fitted' | 'semi_fitted' | 'loose' | 'oversized';
     shaping: 'darts' | 'princess_seams';
     neckline: {type: 'round' | 'v' | 'square'; front_depth_mm: number; back_depth_mm: number};
     sleeve: {type: 'sleeveless' | 'short' | 'long'; length_mm: number | null};
@@ -180,6 +180,8 @@ export interface GarmentDesignIntent {
   }>;
   layers: Array<Omit<VisualDesignLayer, 'layer_id'> & {
     source_layer_id: string;
+    detail_source_ids?: string[];
+    hem_shortening_mm?: number;
     included?: boolean;
     confirmed_by_user?: boolean;
     support_status: 'supported' | 'planned' | 'needs_confirmation' | 'excluded';
