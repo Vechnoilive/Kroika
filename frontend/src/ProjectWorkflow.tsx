@@ -126,14 +126,14 @@ export function StyleEditor({
       : updated);
   }
 
-  function selectBackClosure(type: 'zipper' | 'buttons' | 'lacing', title: string) {
+  function selectBackClosure(type: 'zipper' | 'buttons' | 'lacing' | 'hooks', title: string) {
     const updated = {...spec, parameters: {...spec.parameters, closure: {
       type, location: 'center_back' as const, length_mm: spec.parameters.closure.length_mm ?? 350,
       ...(type === 'zipper' ? {} : {loop_pitch_mm: 80}),
     }}};
     if (updated.design_intent) updated.design_intent = {...updated.design_intent, elements: updated.design_intent.elements.map((item) => item.type === 'closure' && ['bodice_back', 'unknown'].includes(item.location) ? {
       ...item, variant: type === 'lacing' ? 'tie' : type, location: 'bodice_back', count: 1,
-      construction: 'separate_piece', confirmed_by_user: true, description_ru: title,
+      construction: 'separate_piece', confirmed_by_user: true, description_ru: title, selected_module_id: null, outline_mm: null, placement: undefined,
       dimensions_mm: {width: null, length: null, depth: null, spacing: null},
     } : item)};
     updateSpec({...updated, selection_status: 'proposed', confirmed_at: null,
@@ -263,11 +263,11 @@ export function StyleEditor({
 
   const {parameters} = spec;
   const features: Record<GarmentType, Array<[string, string]>> = {
-    dress: [['Круглая горловина', 'обтачка'], ['Без рукавов', 'обтачка проймы'], ['А-юбка', 'отрезная по талии'], ['Оформление спинки', parameters.closure.type === 'lacing' ? 'шнуровка' : parameters.closure.type === 'buttons' ? 'пуговицы с петлями' : 'молния']],
-    sundress: [['Круглая горловина', 'обтачка'], ['Без рукавов', 'обтачка проймы'], ['А-юбка', 'отрезная по талии'], ['Оформление спинки', parameters.closure.type === 'lacing' ? 'шнуровка' : parameters.closure.type === 'buttons' ? 'пуговицы с петлями' : 'молния']],
-    skirt: [['А-силуэт', 'две основные детали'], ['Прямой пояс', 'перед и спинка'], ['Оформление спинки', parameters.closure.type === 'lacing' ? 'шнуровка' : parameters.closure.type === 'buttons' ? 'пуговицы с петлями' : 'молния'], ['Без лифа', 'только нижние мерки']],
-    top: [['Круглая горловина', 'обтачка'], ['Без рукавов', 'обтачка проймы'], ['Ниже талии', 'длина регулируется'], ['Оформление спинки', parameters.closure.type === 'lacing' ? 'шнуровка' : parameters.closure.type === 'buttons' ? 'пуговицы с петлями' : 'молния']],
-    blouse: [['Круглая горловина', 'без воротника'], ['Длинный рукав', 'одношовный'], ['Полуприлегающая', 'вытачки основы'], ['Оформление спинки', parameters.closure.type === 'lacing' ? 'шнуровка' : parameters.closure.type === 'buttons' ? 'пуговицы с петлями' : 'молния']],
+    dress: [['Круглая горловина', 'обтачка'], ['Без рукавов', 'обтачка проймы'], ['А-юбка', 'отрезная по талии'], ['Оформление спинки', parameters.closure.type === 'hooks' ? 'крючки' : parameters.closure.type === 'lacing' ? 'шнуровка' : parameters.closure.type === 'buttons' ? 'пуговицы с петлями' : 'молния']],
+    sundress: [['Круглая горловина', 'обтачка'], ['Без рукавов', 'обтачка проймы'], ['А-юбка', 'отрезная по талии'], ['Оформление спинки', parameters.closure.type === 'hooks' ? 'крючки' : parameters.closure.type === 'lacing' ? 'шнуровка' : parameters.closure.type === 'buttons' ? 'пуговицы с петлями' : 'молния']],
+    skirt: [['А-силуэт', 'две основные детали'], ['Прямой пояс', 'перед и спинка'], ['Оформление спинки', parameters.closure.type === 'hooks' ? 'крючки' : parameters.closure.type === 'lacing' ? 'шнуровка' : parameters.closure.type === 'buttons' ? 'пуговицы с петлями' : 'молния'], ['Без лифа', 'только нижние мерки']],
+    top: [['Круглая горловина', 'обтачка'], ['Без рукавов', 'обтачка проймы'], ['Ниже талии', 'длина регулируется'], ['Оформление спинки', parameters.closure.type === 'hooks' ? 'крючки' : parameters.closure.type === 'lacing' ? 'шнуровка' : parameters.closure.type === 'buttons' ? 'пуговицы с петлями' : 'молния']],
+    blouse: [['Круглая горловина', 'без воротника'], ['Длинный рукав', 'одношовный'], ['Полуприлегающая', 'вытачки основы'], ['Оформление спинки', parameters.closure.type === 'hooks' ? 'крючки' : parameters.closure.type === 'lacing' ? 'шнуровка' : parameters.closure.type === 'buttons' ? 'пуговицы с петлями' : 'молния']],
     shirt: [['Воротник', 'стойка и отлёт'], ['Длинный рукав', 'одношовный'], ['Планка спереди', 'цельнокроеная'], ['Пуговицы', 'центр переда']],
     vest: [['Круглая горловина', 'обтачка'], ['Без рукавов', 'обтачка проймы'], ['Планка спереди', 'цельнокроеная'], ['Пуговицы', 'центр переда']],
     jacket: [['Лацкан и воротник', 'отдельные верхний и нижний'], ['Длинный рукав', 'одношовный'], ['Рельеф переда', 'контрольная линия'], ['Подкладка', 'перед, спинка и рукав']],
@@ -325,6 +325,7 @@ export function StyleEditor({
             ['zipper', 'Молния сзади', 'Разрез и метка конца молнии'],
             ['buttons', 'Пуговицы с петлями', 'Навесные петли, метки пуговиц и обтачки'],
             ['lacing', 'Шнуровка лентой', 'Парные петли, лента и подкладная планка'],
+            ['hooks', 'Крючки и петли', 'Метки крепления крючков и парные обтачки'],
           ] as const).map(([type, title, hint]) => <label key={type}>
             <input type="radio" name="back-closure" checked={parameters.closure.type === type} onClick={() => {
               if (parameters.closure.type === type) selectBackClosure(type, title);

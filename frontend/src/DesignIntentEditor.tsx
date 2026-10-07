@@ -87,8 +87,14 @@ export function DesignIntentEditor({
     const placement: NonNullable<Element['placement']> = {};
     for (const key of Object.keys(module.placement) as Array<keyof NonNullable<Element['placement']>>) {
       if (key === 'side') placement.side = symmetry === 'symmetric' ? 'both' : previous?.side === 'left' ? 'left' : 'right';
-      if (key === 'edge') placement.edge = previous?.edge ?? (location.startsWith('bodice') ? 'neckline' : 'hem');
-      if (key === 'offset_mm') placement.offset_mm = previous?.offset_mm ?? 0;
+      if (key === 'edge') {
+        const available = (module.placement.edge ?? []).filter((edge) => location.startsWith('skirt') ? ['hem', 'waist'].includes(String(edge)) : location.startsWith('bodice') ? ['neckline', 'waist', 'shoulder'].includes(String(edge)) : edge === 'hem');
+        const preferred = location.startsWith('bodice') ? 'neckline' : 'hem';
+        placement.edge = previous?.edge && available.includes(previous.edge) ? previous.edge : (available.includes(preferred) ? preferred : available[0]) as NonNullable<Element['placement']>['edge'];
+      }
+      if (key === 'offset_mm') placement.offset_mm = previous?.offset_mm ?? Number(module.placement?.offset_mm?.[0] ?? 0);
+      if (key === 'orientation') placement.orientation = previous?.orientation ?? 'vertical';
+      if (key === 'outline_edge_index') placement.outline_edge_index = previous?.outline_edge_index ?? 0;
       if (key === 'sweep_angle_deg') placement.sweep_angle_deg = previous?.sweep_angle_deg ?? 180;
     }
     return placement;
@@ -146,7 +152,7 @@ export function DesignIntentEditor({
       location, construction: choose('construction') as Element['construction'],
       count: module.placement?.side ? symmetry === 'symmetric' ? 2 : 1 : choose('count', item.count ?? 1) as number, symmetry,
       placement: defaultPlacement(module, symmetry, location, item.placement),
-      selected_module_id: module.id, dimensions_mm: dimensions, confirmed_by_user: false,
+      outline_mm: module.custom_outline ? item.outline_mm ?? null : null, selected_module_id: module.id, dimensions_mm: dimensions, confirmed_by_user: false,
     });
   }
 
@@ -205,6 +211,14 @@ export function DesignIntentEditor({
     updateElement(item.source_element_id, {
       dimensions_mm: {...dimensions, [key]: value},
       confirmed_by_user: false,
+    });
+  }
+
+  function setLocation(item: Element, location: DesignLocation) {
+    const module = DESIGN_MODULES.find((entry) => entry.id === (item.selected_module_id ?? item.module_id));
+    updateElement(item.source_element_id, {
+      location, confirmed_by_user: false,
+      ...(module?.placement?.edge ? {placement: defaultPlacement(module, item.symmetry, location, item.placement)} : {}),
     });
   }
 
@@ -288,7 +302,7 @@ export function DesignIntentEditor({
                 <label><span>Название и описание</span><input aria-label={`Описание детали ${index + 1}`} disabled={!included} maxLength={240} value={item.description_ru} onChange={(event) => updateElement(item.source_element_id, {description_ru: event.target.value, confirmed_by_user: false})} /></label>
                 <label><span>Тип детали</span><select aria-label={`Тип детали ${index + 1}`} disabled={!included} value={item.type} onChange={(event) => updateElement(item.source_element_id, {type: event.target.value as DesignElementType, confirmed_by_user: false})}>{ELEMENT_TYPES.map((value) => <option value={value} key={value}>{DESIGN_ELEMENT_NAMES[value]}</option>)}</select></label>
                 <label><span>Вариант</span><select aria-label={`Вариант детали ${index + 1}`} disabled={!included} value={item.variant} onChange={(event) => updateElement(item.source_element_id, {variant: event.target.value as Element['variant'], confirmed_by_user: false})}>{VARIANTS.map((value) => <option value={value} key={value}>{value}</option>)}</select></label>
-                <label><span>Расположение</span><select aria-label={`Расположение детали ${index + 1}`} disabled={!included} value={item.location} onChange={(event) => updateElement(item.source_element_id, {location: event.target.value as DesignLocation, confirmed_by_user: false})}>{LOCATIONS.map((value) => <option value={value} key={value}>{value}</option>)}</select></label>
+                <label><span>Расположение</span><select aria-label={`Расположение детали ${index + 1}`} disabled={!included} value={item.location} onChange={(event) => setLocation(item, event.target.value as DesignLocation)}>{LOCATIONS.map((value) => <option value={value} key={value}>{value}</option>)}</select></label>
                 <label><span>Конструкция</span><select aria-label={`Конструкция детали ${index + 1}`} disabled={!included} value={item.construction} onChange={(event) => updateElement(item.source_element_id, {construction: event.target.value as Element['construction'], confirmed_by_user: false})}><option value="integrated">Цельнокроеная</option><option value="separate_piece">Отдельная деталь</option><option value="applied">Настрочная</option><option value="layered">Слой</option><option value="unknown">Не знаю</option></select></label>
                 <label><span>Количество</span><input aria-label={`Количество детали ${index + 1}`} disabled={!included} type="number" min="1" max="32" value={item.count ?? ''} onChange={(event) => updateElement(item.source_element_id, {count: event.target.value === '' ? null : Number(event.target.value), confirmed_by_user: false})} /></label>
                 <label><span>Симметрия</span><select aria-label={`Симметрия детали ${index + 1}`} disabled={!included} value={item.symmetry} onChange={(event) => updateElement(item.source_element_id, {symmetry: event.target.value as Element['symmetry'], confirmed_by_user: false})}><option value="symmetric">Симметричная</option><option value="asymmetric">Асимметричная</option><option value="single">Одиночная</option><option value="unknown">Не знаю</option></select></label>
@@ -303,10 +317,17 @@ export function DesignIntentEditor({
                   <label key={key}><span>{module?.parameter_labels_ru?.[key] ?? label}</span><input aria-label={`${label} детали ${index + 1}, см`} type="number" inputMode="decimal" min="0.1" max="1000" step="0.1" value={dimensions[key] == null ? '' : dimensions[key] / 10} onChange={(event) => setDimension(item, key, event.target.value)} /></label>
                 ))}
               </fieldset>
+              {included && module?.custom_outline && <label><span>Контур детали: координаты точек в сантиметрах</span><textarea aria-label={`Контур детали ${index + 1}, см`} placeholder="[[0,0],[10,0],[8,6],[0,6]]" defaultValue={item.outline_mm ? JSON.stringify(item.outline_mm.map((p) => p.map((v) => v / 10))) : ''} onChange={(event) => {
+                let outline: number[][] | null = null;
+                try { const parsed: unknown = JSON.parse(event.target.value); if (Array.isArray(parsed) && parsed.length >= 3 && parsed.length <= 24 && parsed.every((p) => Array.isArray(p) && p.length === 2 && p.every((v) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 200))) outline = (parsed as number[][]).map((p) => p.map((v) => v * 10)); } catch { /* Keep the text while the polygon is being entered. */ }
+                updateElement(item.source_element_id, {outline_mm: outline, confirmed_by_user: false});
+              }} /><small>Последняя точка соединяется с первой. Номер ребра крепления — от 1. Длина этого ребра должна совпадать с длиной крепления.</small></label>}
               {included && module?.placement && <fieldset className="dimension-fields"><legend>Размещение детали</legend>
                 {module.placement.side && <label><span>Сторона изделия</span><select aria-label={`Сторона детали ${index + 1}`} value={item.placement?.side ?? ''} onChange={(event) => updateElement(item.source_element_id, {placement: {...item.placement, side: event.target.value as 'both' | 'left' | 'right'}, confirmed_by_user: false})}><option value="" disabled>Укажите сторону</option>{module.placement.side.map((side) => <option key={side} value={side}>{side === 'both' ? 'Обе стороны' : side === 'right' ? 'Правая' : 'Левая'}</option>)}</select></label>}
                 {module.placement.edge && <label><span>Срез крепления</span><select aria-label={`Срез крепления детали ${index + 1}`} value={item.placement?.edge ?? (item.location.startsWith('bodice') ? 'neckline' : 'hem')} onChange={(event) => updateElement(item.source_element_id, {placement: {...item.placement, edge: event.target.value as 'hem' | 'neckline' | 'waist' | 'shoulder'}, confirmed_by_user: false})}>{module.placement.edge.filter((edge) => item.location.startsWith('skirt') ? ['hem', 'waist'].includes(String(edge)) : item.location.startsWith('bodice') ? ['neckline', 'waist', 'shoulder'].includes(String(edge)) : edge === 'hem').map((edge) => <option key={edge} value={edge}>{({hem: 'Низ', neckline: 'Горловина', waist: 'Талия', shoulder: 'Плечо'} as Record<string, string>)[edge]}</option>)}</select></label>}
                 {module.placement.offset_mm && <label><span>Смещение начала вниз, см</span><input aria-label={`Смещение начала детали ${index + 1}, см`} type="number" min="0" step="0.1" value={(item.placement?.offset_mm ?? 0) / 10} onChange={(event) => updateElement(item.source_element_id, {placement: {...item.placement, offset_mm: Number(event.target.value) * 10}, confirmed_by_user: false})} /></label>}
+                {module.placement.orientation && <label><span>Направление строчки</span><select aria-label={`Направление детали ${index + 1}`} value={item.placement?.orientation ?? 'vertical'} onChange={(event) => updateElement(item.source_element_id, {placement: {...item.placement, orientation: event.target.value as 'vertical' | 'horizontal'}, confirmed_by_user: false})}><option value="vertical">Вертикальное</option><option value="horizontal">Горизонтальное</option></select></label>}
+                {module.placement.outline_edge_index && <label><span>Номер ребра крепления</span><input aria-label={`Ребро крепления детали ${index + 1}`} type="number" min="1" max="24" value={(item.placement?.outline_edge_index ?? 0) + 1} onChange={(event) => updateElement(item.source_element_id, {placement: {...item.placement, outline_edge_index: Number(event.target.value) - 1}, confirmed_by_user: false})} /></label>}
                 {module.placement.sweep_angle_deg && <label><span>Угол сектора волана, °</span><input aria-label={`Угол сектора детали ${index + 1}`} type="number" min="90" max="270" value={item.placement?.sweep_angle_deg ?? 180} onChange={(event) => updateElement(item.source_element_id, {placement: {...item.placement, sweep_angle_deg: Number(event.target.value)}, confirmed_by_user: false})} /></label>}
               </fieldset>}
               {included && <label className="review-check review-check--confirm"><input type="checkbox" checked={item.confirmed_by_user === true} onChange={(event) => updateElement(item.source_element_id, {confirmed_by_user: event.target.checked})} /><span>Я проверил(а) эту деталь по фотографии</span></label>}

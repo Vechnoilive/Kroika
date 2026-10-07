@@ -1,5 +1,5 @@
 {
-  "registry_version": "1.5.0",
+  "registry_version": "1.6.0",
   "unit": "mm",
   "modules": [
     {
@@ -2921,6 +2921,1462 @@
       },
       "parameter_labels_ru": {
         "depth": "Глубина каждого яруса"
+      }
+    },
+    {
+      "id": "side_skirt_slit_v3",
+      "group": "structural",
+      "kind": "element",
+      "title_ru": "Боковой разрез юбки с обтачками",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "slit"
+          ],
+          "variant": [
+            "straight",
+            "standard"
+          ],
+          "location": [
+            "skirt_front",
+            "skirt_back"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "single",
+            "asymmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "length": [
+            100,
+            "skirt_length_minus_20"
+          ],
+          "width": [
+            20,
+            60
+          ]
+        },
+        "optional": {}
+      },
+      "placement": {
+        "side": [
+          "both",
+          "right",
+          "left"
+        ]
+      },
+      "parameter_labels_ru": {
+        "length": "Длина открытого участка по шву",
+        "width": "Ширина обтачки"
+      }
+    },
+    {
+      "id": "back_skirt_slit_v3",
+      "group": "structural",
+      "kind": "element",
+      "title_ru": "Разрез среднего шва юбки с обтачками",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "slit"
+          ],
+          "variant": [
+            "straight",
+            "standard"
+          ],
+          "location": [
+            "skirt_back"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "length": [
+            100,
+            "skirt_length_minus_20"
+          ],
+          "width": [
+            20,
+            60
+          ]
+        },
+        "optional": {}
+      },
+      "parameter_labels_ru": {
+        "length": "Высота разреза от низа",
+        "width": "Ширина обтачки"
+      }
+    },
+    {
+      "id": "back_skirt_vent_v3",
+      "group": "structural",
+      "kind": "element",
+      "title_ru": "Шлица среднего шва юбки с цельнокроеными припусками",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "vent"
+          ],
+          "variant": [
+            "single",
+            "standard"
+          ],
+          "location": [
+            "skirt_back"
+          ],
+          "construction": [
+            "integrated"
+          ],
+          "count": [
+            1
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "length": [
+            100,
+            "skirt_length_minus_20"
+          ],
+          "width": [
+            30,
+            80
+          ]
+        },
+        "optional": {}
+      },
+      "parameter_labels_ru": {
+        "length": "Высота шлицы",
+        "width": "Ширина припуска шлицы"
+      }
+    },
+    {
+      "id": "fitted_two_piece_hood_v3",
+      "group": "structural",
+      "kind": "element",
+      "title_ru": "Двухдетальный капюшон по фактической горловине",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest"
+          ],
+          "type": [
+            "hood"
+          ],
+          "variant": [
+            "standard",
+            "shaped"
+          ],
+          "location": [
+            "neckline"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            220,
+            400
+          ],
+          "length": [
+            250,
+            450
+          ],
+          "depth": [
+            20,
+            50
+          ]
+        },
+        "optional": {}
+      },
+      "parameter_labels_ru": {
+        "width": "Глубина капюшона",
+        "length": "Высота капюшона",
+        "depth": "Ширина обтачки лицевого края"
+      }
+    },
+    {
+      "id": "straight_shoulder_straps_v3",
+      "group": "structural",
+      "kind": "element",
+      "title_ru": "Прямые бретели с открытым верхом",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top"
+          ],
+          "type": [
+            "strap"
+          ],
+          "variant": [
+            "straight",
+            "standard"
+          ],
+          "location": [
+            "shoulder"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            2
+          ],
+          "symmetry": [
+            "symmetric"
+          ],
+          "sleeve_type": [
+            "sleeveless"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            10,
+            40
+          ],
+          "length": [
+            160,
+            600
+          ],
+          "depth": [
+            10,
+            70
+          ],
+          "spacing": [
+            20,
+            120
+          ]
+        },
+        "optional": {}
+      },
+      "parameter_labels_ru": {
+        "width": "Готовая ширина бретели",
+        "length": "Длина бретели между креплениями",
+        "depth": "Высота верха над основанием проймы",
+        "spacing": "Отступ крепления от центра"
+      }
+    },
+    {
+      "id": "elastic_waistband_v3",
+      "group": "structural",
+      "kind": "element",
+      "title_ru": "Пояс с каналом для эластичной ленты",
+      "rules": [
+        {
+          "garment_type": [
+            "skirt",
+            "trousers",
+            "shorts"
+          ],
+          "type": [
+            "waistband"
+          ],
+          "variant": [
+            "elastic"
+          ],
+          "location": [
+            "waist"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            15,
+            45
+          ],
+          "length": [
+            300,
+            1500
+          ]
+        },
+        "optional": {}
+      },
+      "parameter_labels_ru": {
+        "width": "Готовая ширина пояса",
+        "length": "Длина эластичной ленты без растяжения"
+      }
+    },
+    {
+      "id": "shaped_belt_v3",
+      "group": "structural",
+      "kind": "element",
+      "title_ru": "Ремень с фигурными концами",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest",
+            "skirt",
+            "trousers",
+            "shorts"
+          ],
+          "type": [
+            "belt"
+          ],
+          "variant": [
+            "shaped"
+          ],
+          "location": [
+            "waist"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            20,
+            100
+          ],
+          "length": [
+            400,
+            2000
+          ],
+          "depth": [
+            20,
+            100
+          ]
+        },
+        "optional": {}
+      },
+      "parameter_labels_ru": {
+        "width": "Готовая ширина",
+        "length": "Длина ремня",
+        "depth": "Длина сужения концов"
+      }
+    },
+    {
+      "id": "tapered_sash_v3",
+      "group": "structural",
+      "kind": "element",
+      "title_ru": "Кушак с заострёнными концами",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest",
+            "skirt",
+            "trousers",
+            "shorts"
+          ],
+          "type": [
+            "sash"
+          ],
+          "variant": [
+            "shaped",
+            "tie"
+          ],
+          "location": [
+            "waist"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            40,
+            150
+          ],
+          "length": [
+            900,
+            2600
+          ],
+          "depth": [
+            40,
+            180
+          ]
+        },
+        "optional": {}
+      },
+      "parameter_labels_ru": {
+        "width": "Ширина в средней части",
+        "length": "Длина кушака",
+        "depth": "Длина сужения концов"
+      }
+    },
+    {
+      "id": "rounded_patch_pocket_v3",
+      "group": "structural",
+      "kind": "element",
+      "title_ru": "Накладной карман со скруглённым низом",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest"
+          ],
+          "type": [
+            "pocket"
+          ],
+          "variant": [
+            "patch",
+            "shaped"
+          ],
+          "location": [
+            "bodice_front",
+            "bodice_back"
+          ],
+          "construction": [
+            "applied"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "single",
+            "asymmetric"
+          ]
+        },
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "pocket"
+          ],
+          "variant": [
+            "patch",
+            "shaped"
+          ],
+          "location": [
+            "skirt_front",
+            "skirt_back"
+          ],
+          "construction": [
+            "applied"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "single",
+            "asymmetric"
+          ]
+        },
+        {
+          "garment_type": [
+            "trousers",
+            "shorts"
+          ],
+          "type": [
+            "pocket"
+          ],
+          "variant": [
+            "patch",
+            "shaped"
+          ],
+          "location": [
+            "trouser_front",
+            "trouser_back"
+          ],
+          "construction": [
+            "applied"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "single",
+            "asymmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            60,
+            220
+          ],
+          "depth": [
+            80,
+            260
+          ],
+          "spacing": [
+            10,
+            250
+          ]
+        },
+        "optional": {}
+      },
+      "placement": {
+        "side": [
+          "both",
+          "right",
+          "left"
+        ],
+        "offset_mm": [
+          20,
+          700
+        ]
+      },
+      "parameter_labels_ru": {
+        "width": "Ширина кармана / листочки",
+        "depth": "Глубина кармана / мешковины",
+        "spacing": "Отступ от центра",
+        "length": "Длина входа"
+      }
+    },
+    {
+      "id": "welt_pocket_v3",
+      "group": "structural",
+      "kind": "element",
+      "title_ru": "Прорезной карман с двумя листочками и мешковиной",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest"
+          ],
+          "type": [
+            "pocket"
+          ],
+          "variant": [
+            "welt"
+          ],
+          "location": [
+            "bodice_front",
+            "bodice_back"
+          ],
+          "construction": [
+            "applied"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "single",
+            "asymmetric"
+          ]
+        },
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "pocket"
+          ],
+          "variant": [
+            "welt"
+          ],
+          "location": [
+            "skirt_front",
+            "skirt_back"
+          ],
+          "construction": [
+            "applied"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "single",
+            "asymmetric"
+          ]
+        },
+        {
+          "garment_type": [
+            "trousers",
+            "shorts"
+          ],
+          "type": [
+            "pocket"
+          ],
+          "variant": [
+            "welt"
+          ],
+          "location": [
+            "trouser_front",
+            "trouser_back"
+          ],
+          "construction": [
+            "applied"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "single",
+            "asymmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "length": [
+            80,
+            200
+          ],
+          "width": [
+            8,
+            20
+          ],
+          "depth": [
+            100,
+            280
+          ],
+          "spacing": [
+            10,
+            250
+          ]
+        },
+        "optional": {}
+      },
+      "placement": {
+        "side": [
+          "both",
+          "right",
+          "left"
+        ],
+        "offset_mm": [
+          20,
+          700
+        ]
+      },
+      "parameter_labels_ru": {
+        "width": "Ширина кармана / листочки",
+        "depth": "Глубина кармана / мешковины",
+        "spacing": "Отступ от центра",
+        "length": "Длина входа"
+      }
+    },
+    {
+      "id": "shaped_flat_collar_v3",
+      "group": "structural",
+      "kind": "element",
+      "title_ru": "Плоский воротник с разной шириной у концов",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest"
+          ],
+          "type": [
+            "collar"
+          ],
+          "variant": [
+            "shirt",
+            "shaped",
+            "circular"
+          ],
+          "location": [
+            "neckline"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            30,
+            120
+          ],
+          "depth": [
+            30,
+            120
+          ]
+        },
+        "optional": {}
+      },
+      "parameter_labels_ru": {
+        "width": "Ширина у переднего конца",
+        "depth": "Ширина у заднего конца"
+      }
+    },
+    {
+      "id": "shawl_collar_v3",
+      "group": "structural",
+      "kind": "element",
+      "title_ru": "Плоский воротник-шаль с широким передним концом",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest"
+          ],
+          "type": [
+            "collar"
+          ],
+          "variant": [
+            "shawl"
+          ],
+          "location": [
+            "neckline"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            80,
+            160
+          ],
+          "depth": [
+            30,
+            80
+          ]
+        },
+        "optional": {}
+      },
+      "parameter_labels_ru": {
+        "width": "Ширина переднего конца",
+        "depth": "Ширина сзади"
+      }
+    },
+    {
+      "id": "doubled_cuff_v3",
+      "group": "structural",
+      "kind": "element",
+      "title_ru": "Двойная отворотная манжета с нахлёстом",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "top",
+            "blouse",
+            "shirt"
+          ],
+          "type": [
+            "cuff"
+          ],
+          "variant": [
+            "double"
+          ],
+          "location": [
+            "sleeve"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            2
+          ],
+          "symmetry": [
+            "symmetric"
+          ],
+          "sleeve_type": [
+            "short",
+            "long"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            25,
+            100
+          ],
+          "depth": [
+            15,
+            50
+          ]
+        },
+        "optional": {}
+      },
+      "parameter_labels_ru": {
+        "width": "Высота после отворота",
+        "depth": "Нахлёст под застёжку"
+      }
+    },
+    {
+      "id": "shaped_cuff_v3",
+      "group": "structural",
+      "kind": "element",
+      "title_ru": "Фигурная манжета с разной высотой концов",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "top",
+            "blouse",
+            "shirt"
+          ],
+          "type": [
+            "cuff"
+          ],
+          "variant": [
+            "shaped"
+          ],
+          "location": [
+            "sleeve"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            2
+          ],
+          "symmetry": [
+            "symmetric"
+          ],
+          "sleeve_type": [
+            "short",
+            "long"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            25,
+            100
+          ],
+          "depth": [
+            25,
+            120
+          ]
+        },
+        "optional": {}
+      },
+      "parameter_labels_ru": {
+        "width": "Высота у первого конца",
+        "depth": "Высота у второго конца"
+      }
+    },
+    {
+      "id": "front_bodice_yoke_v3",
+      "group": "structural",
+      "kind": "element",
+      "title_ru": "Кокетка переда лифа — прямая или наклонная",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest"
+          ],
+          "type": [
+            "yoke"
+          ],
+          "variant": [
+            "straight",
+            "shaped"
+          ],
+          "location": [
+            "bodice_front"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "depth": [
+            30,
+            140
+          ]
+        },
+        "optional": {
+          "width": [
+            10,
+            60
+          ]
+        }
+      },
+      "parameter_labels_ru": {
+        "depth": "Глубина от верхней точки",
+        "width": "Разница высот концов для наклонной кокетки"
+      }
+    },
+    {
+      "id": "back_bodice_yoke_v3",
+      "group": "structural",
+      "kind": "element",
+      "title_ru": "Кокетка спинки лифа — прямая или наклонная",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest"
+          ],
+          "type": [
+            "yoke"
+          ],
+          "variant": [
+            "straight",
+            "shaped"
+          ],
+          "location": [
+            "bodice_back"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "depth": [
+            30,
+            140
+          ]
+        },
+        "optional": {
+          "width": [
+            10,
+            60
+          ]
+        }
+      },
+      "parameter_labels_ru": {
+        "depth": "Глубина от верхней точки",
+        "width": "Разница высот концов для наклонной кокетки"
+      }
+    },
+    {
+      "id": "offset_skirt_panel_v3",
+      "group": "structural",
+      "kind": "element",
+      "title_ru": "Смещённая прямая или наклонная панель юбки",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "panel"
+          ],
+          "variant": [
+            "straight",
+            "shaped"
+          ],
+          "location": [
+            "skirt_front",
+            "skirt_back"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            15,
+            180
+          ]
+        },
+        "optional": {
+          "depth": [
+            10,
+            150
+          ]
+        }
+      },
+      "parameter_labels_ru": {
+        "width": "Положение шва у талии от центра",
+        "depth": "Смещение шва у низа для наклонной панели"
+      }
+    },
+    {
+      "id": "shoulder_princess_seam_v3",
+      "group": "structural",
+      "kind": "element",
+      "title_ru": "Рельеф от плеча с поглощением талиевой вытачки",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest"
+          ],
+          "type": [
+            "princess_seam"
+          ],
+          "variant": [
+            "shaped",
+            "standard"
+          ],
+          "location": [
+            "bodice_front",
+            "bodice_back"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            2
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "spacing": [
+            15,
+            110
+          ]
+        },
+        "optional": {}
+      },
+      "parameter_labels_ru": {
+        "spacing": "Расстояние по плечевому срезу от горловины"
+      }
+    },
+    {
+      "id": "side_to_waist_dart_v3",
+      "group": "structural",
+      "kind": "element",
+      "title_ru": "Перенос части боковой вытачки в талиевую",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest"
+          ],
+          "type": [
+            "dart"
+          ],
+          "variant": [
+            "shaped"
+          ],
+          "location": [
+            "bodice_front"
+          ],
+          "construction": [
+            "integrated"
+          ],
+          "count": [
+            2
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            1,
+            20
+          ]
+        },
+        "optional": {}
+      },
+      "parameter_labels_ru": {
+        "width": "Переносимый раствор"
+      }
+    },
+    {
+      "id": "placed_decorative_stitch_v3",
+      "group": "structural",
+      "kind": "element",
+      "title_ru": "Размещённая вертикальная или горизонтальная строчка",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest"
+          ],
+          "type": [
+            "decorative_seam"
+          ],
+          "variant": [
+            "straight"
+          ],
+          "location": [
+            "bodice_front",
+            "bodice_back"
+          ],
+          "construction": [
+            "applied"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "single",
+            "asymmetric"
+          ]
+        },
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "decorative_seam"
+          ],
+          "variant": [
+            "straight"
+          ],
+          "location": [
+            "skirt_front",
+            "skirt_back"
+          ],
+          "construction": [
+            "applied"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "single",
+            "asymmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "length": [
+            20,
+            500
+          ],
+          "spacing": [
+            10,
+            250
+          ]
+        },
+        "optional": {}
+      },
+      "placement": {
+        "side": [
+          "both",
+          "right",
+          "left"
+        ],
+        "offset_mm": [
+          20,
+          700
+        ],
+        "orientation": [
+          "vertical",
+          "horizontal"
+        ]
+      },
+      "parameter_labels_ru": {
+        "length": "Длина строчки",
+        "spacing": "Положение начала от центра"
+      }
+    },
+    {
+      "id": "explicit_polygon_detail_v3",
+      "group": "structural",
+      "kind": "element",
+      "title_ru": "Дополнительная деталь по заданному многоугольнику",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest"
+          ],
+          "type": [
+            "other"
+          ],
+          "variant": [
+            "standard",
+            "shaped",
+            "other"
+          ],
+          "location": [
+            "bodice_front",
+            "bodice_back"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "single",
+            "asymmetric"
+          ]
+        },
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "other"
+          ],
+          "variant": [
+            "standard",
+            "shaped",
+            "other"
+          ],
+          "location": [
+            "skirt_front",
+            "skirt_back"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "single",
+            "asymmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "length": [
+            20,
+            500
+          ],
+          "spacing": [
+            1,
+            1000
+          ]
+        },
+        "optional": {}
+      },
+      "placement": {
+        "side": [
+          "both",
+          "right",
+          "left"
+        ],
+        "edge": [
+          "hem",
+          "waist",
+          "neckline",
+          "shoulder"
+        ],
+        "outline_edge_index": [
+          0,
+          23
+        ]
+      },
+      "parameter_labels_ru": {
+        "length": "Длина присоединяемого участка",
+        "spacing": "Начало участка вдоль среза"
+      },
+      "custom_outline": true
+    },
+    {
+      "id": "back_hooks_v3",
+      "group": "structural",
+      "kind": "element",
+      "title_ru": "Крючки и ответные петли по центру спинки",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse"
+          ],
+          "type": [
+            "closure"
+          ],
+          "variant": [
+            "hooks"
+          ],
+          "location": [
+            "bodice_back"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1
+          ],
+          "symmetry": [
+            "symmetric"
+          ],
+          "configured_closure": true
+        }
+      ],
+      "dimensions": {
+        "required": {},
+        "optional": {}
       }
     }
   ]

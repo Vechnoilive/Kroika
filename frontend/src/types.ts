@@ -78,7 +78,7 @@ export interface GarmentSpec {
       pleat_count: 0;
     };
     closure: {
-      type: 'zipper' | 'buttons' | 'lacing' | 'none';
+      type: 'zipper' | 'buttons' | 'lacing' | 'hooks' | 'none';
       location: 'center_back' | 'center_front' | 'side' | 'none';
       length_mm: number | null;
       loop_pitch_mm?: number;
@@ -165,12 +165,15 @@ export interface GarmentDesignIntent {
       depth: number | null;
       spacing: number | null;
     };
+    outline_mm?: number[][] | null;
     selected_module_id?: string | null;
   placement?: {
       side?: 'both' | 'right' | 'left';
       edge?: 'hem' | 'neckline' | 'waist' | 'shoulder';
       offset_mm?: number;
       sweep_angle_deg?: number;
+      orientation?: 'vertical' | 'horizontal';
+      outline_edge_index?: number;
     };
     support_status: 'supported' | 'planned' | 'needs_confirmation' | 'excluded';
     module_id: string | null;

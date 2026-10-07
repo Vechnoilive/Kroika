@@ -85,6 +85,8 @@
             "shoulder"
           ]
         },
+        "orientation": {"type": "string", "enum": ["vertical", "horizontal"]},
+        "outline_edge_index": {"type": "integer", "minimum": 0, "maximum": 23},
         "offset_mm": {
           "type": "number",
           "minimum": 0,
@@ -111,6 +113,7 @@
       "properties": {
         "selected_module_id": {"$ref": "#/$defs/module_id"},
         "placement": {"$ref": "#/$defs/placement"},
+        "outline_mm": {"type": ["array", "null"], "minItems": 3, "maxItems": 24, "items": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "number", "minimum": 0, "maximum": 2000}}},
         "source_element_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{1,63}$"},
         "type": {"type": "string", "enum": ["waistband", "belt", "sash", "pleat", "tuck", "gather", "ruffle", "flounce", "peplum", "yoke", "panel", "overlay", "drape", "pocket", "closure", "slit", "vent", "hood", "collar", "cuff", "strap", "dart", "princess_seam", "decorative_seam", "other"]},
         "variant": {"type": "string", "enum": ["standard", "straight", "shaped", "elastic", "tie", "knife", "box", "inverted", "accordion", "soft", "circular", "gathered", "patch", "slash", "welt", "zipper", "buttons", "hooks", "concealed", "single", "double", "shirt", "notched", "shawl", "stand", "other", "unknown"]},

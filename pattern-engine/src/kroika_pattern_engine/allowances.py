@@ -99,7 +99,7 @@ def apply_seam_allowances(
         for segment in seam.segments:
             edge_type = edge_type_for_segment(piece, segment.id)
             closure = request["garment_spec"]["parameters"]["closure"]
-            if (closure["location"] == "center_back" and closure["type"] in {"buttons", "lacing"}
+            if (closure["location"] == "center_back" and closure["type"] in {"buttons", "lacing", "hooks"}
                     and "back" in piece["id"] and edge_type == "zipper"):
                 edge_type = "normal"
             allowance = allowance_values[edge_type]

@@ -11,6 +11,7 @@ export interface DesignModule {
   rules: Rule[];
   dimensions?: {required: Record<string, Bounds>; optional: Record<string, Bounds>};
   placement?: Record<string, Array<string | number>>;
+  custom_outline?: boolean;
   parameter_labels_ru?: Record<string, string>;
 }
 
@@ -51,10 +52,10 @@ export function placementMatches(module: DesignModule, item: object): boolean {
   const placement = (source.placement ?? {}) as Item;
   const allowed = module.placement ?? {};
   if (Object.keys(placement).some((key) => !(key in allowed))) return false;
-  if (!Object.entries(placement).every(([key, value]) => ['side', 'edge'].includes(key)
+  if (!Object.entries(placement).every(([key, value]) => ['side', 'edge', 'orientation'].includes(key)
     ? allowed[key].includes(value as string)
     : typeof value === 'number' && Number.isFinite(value) && value >= Number(allowed[key][0]) && value <= Number(allowed[key][1]))) return false;
-  if (['placed_edge_ruffle_v2', 'placed_edge_flounce_v2'].includes(module.id)) {
+  if (['placed_edge_ruffle_v2', 'placed_edge_flounce_v2', 'explicit_polygon_detail_v3'].includes(module.id)) {
     const location = String(source.location);
     const edges = location.startsWith('skirt') ? ['hem', 'waist'] : location.startsWith('bodice') ? ['neckline', 'waist', 'shoulder'] : ['hem'];
     if (!edges.includes(String(placement.edge ?? (location.startsWith('bodice') ? 'neckline' : 'hem')))) return false;
@@ -118,6 +119,8 @@ export function moduleDiagnosis(kind: string, item: object, spec: GarmentSpec): 
       return typeof value === 'number' && Number.isFinite(value) && value >= bounds[0] && value <= maximum
         ? [] : [`${DIMENSION_NAMES[field]}: допустимо ${bounds[0] / 10}–${maximum / 10} см.`];
     });
+    if (structural.custom_outline) reasons.push('Введите простой замкнутый контур из 3–24 точек; длина выбранного ребра должна совпадать с длиной крепления.');
+    if (['front_bodice_yoke_v3', 'back_bodice_yoke_v3', 'offset_skirt_panel_v3'].includes(structural.id)) reasons.push('Для фигурного варианта заполните дополнительный размер смещения; для прямого оставьте его пустым.');
     return {label: 'Проверьте размеры', reasons, module: structural};
   }
   const candidate = candidates[0];
@@ -138,6 +141,17 @@ export function matchingModule(
     if (kind === 'proportions' && module.id === 'parametric_visual_proportions_v1') return proportionDimensionsMatch(source, spec, checkDimensions);
     if (kind !== 'element' || !checkDimensions) return true;
     const dimensions = (source.dimensions_mm ?? {}) as Item;
+    if (module.custom_outline) {
+      const outline = source.outline_mm as number[][] | null;
+      const index = Number((source.placement as Item | undefined)?.outline_edge_index ?? 0);
+      if (!Array.isArray(outline) || outline.length < 3 || outline.length > 24 || !Number.isInteger(index) || index < 0 || index >= outline.length || outline.some((p) => !Array.isArray(p) || p.length !== 2 || p.some((v) => typeof v !== 'number' || !Number.isFinite(v) || v < 0 || v > 2000))) return false;
+      const a = outline[index], b = outline[(index + 1) % outline.length];
+      if (Math.abs(Math.hypot(b[0] - a[0], b[1] - a[1]) - Number(dimensions.length)) > 1) return false;
+    } else if (source.outline_mm != null) return false;
+    if (['front_bodice_yoke_v3', 'back_bodice_yoke_v3', 'offset_skirt_panel_v3'].includes(module.id)) {
+      const extra = module.id === 'offset_skirt_panel_v3' ? 'depth' : 'width';
+      if ((dimensions[extra] != null) !== (source.variant === 'shaped')) return false;
+    }
     return DIMENSIONS.every((field) => {
       const required = module.dimensions!.required;
       const bounds = required[field] ?? module.dimensions!.optional[field];
@@ -162,4 +176,28 @@ function proportionDimensionsMatch(item: Item, spec: GarmentSpec, checkDimension
     if (!['dress', 'sundress', 'skirt'].includes(spec.garment_type) || (checkDimensions && !bounded('hem_delta_mm', 20, 250)) || (item.hem_shape === 'asymmetric' && item.asymmetry !== 'yes')) return false;
   } else if (checkDimensions && item.hem_delta_mm != null) return false;
   return true;
+}
+
+export function structuralConflicts(spec: GarmentSpec): string[] {
+  const intent = spec.design_intent;
+  const active = (intent?.elements ?? []).filter((i) => i.included !== false && i.support_status === 'supported');
+  const ids = active.map((i) => i.module_id ?? '');
+  const messages: string[] = [];
+  const groups = [
+    ['fitted_two_piece_hood_v3', 'shaped_flat_collar_v3', 'shawl_collar_v3', 'stand_collar_v1'],
+    ['doubled_cuff_v3', 'shaped_cuff_v3', 'sleeve_cuff_band_v1'],
+    ['back_skirt_slit_v3', 'back_skirt_vent_v3'], ['elastic_waistband_v3', 'adjustable_straight_waistband_v1'],
+    ['straight_shoulder_straps_v3', 'off_shoulder_bands_v1'],
+  ];
+  if (groups.some((group) => ids.filter((id) => group.includes(id)).length > 1 && ids.some((id) => group.includes(id) && moduleIds('structural').has(id)))) messages.push('На один срез назначены две альтернативные конструктивные детали. Выберите одну конструкцию этого участка.');
+  const cuts = ['front_bodice_yoke_v3', 'back_bodice_yoke_v3', 'offset_skirt_panel_v3', 'shoulder_princess_seam_v3', 'side_to_waist_dart_v3'];
+  for (const item of active.filter((i) => cuts.includes(i.module_id ?? ''))) {
+    if (active.some((other) => other !== item && other.location === item.location && [...cuts, ...moduleIds('fullness'), ...moduleIds('topology'), 'crossed_bodice_drape_v1'].includes(other.module_id ?? ''))) messages.push('Сочетание членения с другим преобразованием той же детали ещё не проверено; оно входит в этап 5.');
+    if (intent?.layers.some((layer) => layer.included !== false && layer.role !== 'main')) messages.push('Перенос всех слоёв через новые швы членения входит в этапы 4–5. Для этой конструкции пока выберите основной слой.');
+  }
+  const neck = ['fitted_two_piece_hood_v3', 'shaped_flat_collar_v3', 'shawl_collar_v3'];
+  if (ids.some((id) => neck.includes(id)) && ids.some((id) => ['front_bodice_yoke_v3', 'back_bodice_yoke_v3', 'straight_shoulder_straps_v3', 'off_shoulder_bands_v1', 'crossed_bodice_drape_v1', 'diagonal_bodice_drape_v2'].includes(id))) messages.push('Привязка капюшона/воротника к изменённому верхнему срезу ещё не проверена; сочетание входит в этап 5.');
+  if (ids.includes('straight_shoulder_straps_v3') && ids.some((id) => [...cuts, 'crossed_bodice_drape_v1', 'diagonal_bodice_drape_v2', 'integrated_bodice_drape_v2', 'integrated_bodice_gather_v2'].includes(id))) messages.push('Бретели пока требуют лиф без членения и дополнительных раскрытий; сочетание входит в этап 5.');
+  if (spec.garment_type === 'shirt' && ids.some((id) => neck.includes(id))) messages.push('Рубашечная основа уже включает стойку и воротник; замена её воротника требует отдельного сопряжения.');
+  return [...new Set(messages)];
 }

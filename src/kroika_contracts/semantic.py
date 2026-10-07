@@ -12,7 +12,7 @@ from .design_modules import (
     STAGE21_TOPOLOGY_MODULES, FIXED_ELEMENT_MODULES, FIXED_LAYER_MODULES,
     module_matches,
     DETAIL_ELEMENT_MODULES, DETAIL_LAYER_MODULES, ADVANCED_ELEMENT_MODULES,
-    FULLNESS_MODULES,
+    FULLNESS_MODULES, STRUCTURAL_MODULES, structural_conflicts,
 )
 
 
@@ -226,7 +226,7 @@ def _validate_design_intent(
             module_id = item.get('module_id')
             if group == 'elements' and item.get('selected_module_id') is not None and item['support_status'] == 'supported' and item['selected_module_id'] != module_id:
                 _add(issues, 'DESIGN_SELECTED_MODULE_MISMATCH', pointer, 'Выбранную конструкцию нельзя подменять другим модулем.')
-            if module_id in DETAIL_ELEMENT_MODULES | DETAIL_LAYER_MODULES | ADVANCED_ELEMENT_MODULES | FULLNESS_MODULES:
+            if module_id in DETAIL_ELEMENT_MODULES | DETAIL_LAYER_MODULES | ADVANCED_ELEMENT_MODULES | FULLNESS_MODULES | STRUCTURAL_MODULES:
                 if item['support_status'] != 'supported' or not module_matches(
                     module_id, item, spec, kind='element' if group == 'elements' else 'layer',
                 ):
@@ -308,6 +308,9 @@ def _validate_design_intent(
             '/garment_spec/design_intent/layers',
             'Для одной роли можно оставить только один геометрический слой.',
         )
+
+    for message in structural_conflicts(spec):
+        _add(issues, 'DESIGN_STRUCTURAL_TARGET_CONFLICT', '/garment_spec/design_intent', message)
 
     topology_modules = {
         item.get('module_id')
@@ -520,14 +523,14 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
     if 'loop_pitch_mm' in closure and not (
         garment_type in {'dress', 'sundress', 'top', 'blouse'}
         and closure['location'] == 'center_back'
-        and closure['type'] in {'buttons', 'lacing'}
+        and closure['type'] in {'buttons', 'lacing', 'hooks'}
     ):
         _add(issues, 'BACK_LOOP_SETTINGS_NOT_APPLICABLE', '/garment_spec/parameters/closure',
-             'Расстояние между петлями применяется только к пуговицам или шнуровке на спинке.')
+             'Шаг креплений применяется к пуговицам, шнуровке или крючкам на спинке.')
     supported_variant = common and any((
         garment_type in {'dress', 'sundress'}
         and parameters['sleeve']['type'] == 'sleeveless'
-        and parameters['closure']['type'] in {'zipper', 'buttons', 'lacing'}
+        and parameters['closure']['type'] in {'zipper', 'buttons', 'lacing', 'hooks'}
         and parameters['closure']['location'] == 'center_back'
         and finishing['neckline_facing'] is True
         and finishing['armhole_facing'] is True
@@ -545,7 +548,7 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
         and not finishing.get('collar', False),
         garment_type == 'top'
         and parameters['sleeve']['type'] == 'sleeveless'
-        and parameters['closure']['type'] in {'zipper', 'buttons', 'lacing'}
+        and parameters['closure']['type'] in {'zipper', 'buttons', 'lacing', 'hooks'}
         and parameters['closure']['location'] == 'center_back'
         and finishing['neckline_facing'] is True
         and finishing['armhole_facing'] is True
@@ -554,7 +557,7 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
         and not finishing.get('collar', False),
         garment_type == 'blouse'
         and parameters['sleeve']['type'] == 'long'
-        and parameters['closure']['type'] in {'zipper', 'buttons', 'lacing'}
+        and parameters['closure']['type'] in {'zipper', 'buttons', 'lacing', 'hooks'}
         and parameters['closure']['location'] == 'center_back'
         and finishing['neckline_facing'] is True
         and finishing['armhole_facing'] is False

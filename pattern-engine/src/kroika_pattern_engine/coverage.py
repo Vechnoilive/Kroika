@@ -139,7 +139,7 @@ def compile_design_coverage(
         interface_ids = [str(item) for item in operation.get("interface_ids", [])]
         add(
             str(operation["module_id"]),
-            source_ids=[str(operation["source_id"])],
+            source_ids=[str(operation["source_id"])] + [item['source_element_id'] for item in (request['garment_spec'].get('design_intent') or {}).get('elements', []) if operation['kind'] == 'closure' and item.get('module_id') == operation['module_id'] and item.get('support_status') == 'supported' and item.get('included') is not False],
             piece_ids=[
                 str(item) for item in (
                     list(operation.get("target_piece_ids", []))

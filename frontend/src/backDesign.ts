@@ -7,7 +7,7 @@ export const isBackQuestion = (question: string) => /спин|задн/i.test(qu
 
 export function backAnswer(spec: GarmentSpec): string {
   const closure = spec.parameters.closure;
-  const names = {zipper: 'Молния', buttons: 'Пуговицы с навесными петлями', lacing: 'Шнуровка лентой', none: 'Без застёжки сзади'};
+  const names = {zipper: 'Молния', buttons: 'Пуговицы с навесными петлями', lacing: 'Шнуровка лентой', hooks: 'Крючки и петли', none: 'Без застёжки сзади'};
   return `${names[closure.type]}: ${closure.location === 'center_back' ? 'центр спинки' : 'спинка без застёжки'}. Глубина горловины сзади ${spec.parameters.neckline.back_depth_mm / 10} см.${closure.location === 'center_back' ? ` Длина разреза ${Number(closure.length_mm) / 10} см.` : ''}`;
 }
 

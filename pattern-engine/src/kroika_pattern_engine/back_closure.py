@@ -44,7 +44,7 @@ def _centers(pattern: Mapping[str, Any], prefix: str = "") -> list[tuple[dict, L
             continue
         base = pid.removeprefix(prefix)
         if base not in {"back_bodice", "back_skirt", "back_skirt_yoke"} and not base.startswith(
-            "back_skirt_panel_"
+            ("back_skirt_panel_", "back_bodice__", "back_skirt__")
         ):
             continue
         for edge in contour_from_data(piece["seam_contour"]).segments:
@@ -94,6 +94,7 @@ def apply_back_closure(pattern: Mapping[str, Any], request: Mapping[str, Any]) -
         "zipper": "Молния",
         "buttons": "Пуговицы с навесными петлями",
         "lacing": "Шнуровка лентой",
+        "hooks": "Крючки и петли",
     }
     for prefix in ("", "lining_", "overlay_", "interfacing_"):
         for piece, edge in _centers(result, prefix):
@@ -122,10 +123,14 @@ def apply_back_closure(pattern: Mapping[str, Any], request: Mapping[str, Any]) -
                             "kind": "double",
                         }
                     )
+            slit_paths = [contour_from_data(p) for p in piece["internal_paths"] if p["id"].endswith("_center_slit")]
+            closed_low = max([low, *[max(e.start.y_mm, e.end.y_mm) for p in slit_paths for e in p.segments]])
+            if slit_paths and stop < closed_low + 10:
+                _fail("BACK_OPENINGS_OVERLAP", "Разрез сверху и разрез юбки должны разделяться швом минимум 1 см.")
             closed_high = min(high, stop)
-            if closed_high > low + 1:
+            if closed_high > closed_low + 1:
                 pid = f"{piece['id']}_closed_center"
-                line = LineSegment(Point(0, closed_high), Point(0, low), f"{pid}_segment")
+                line = LineSegment(Point(0, closed_high), Point(0, closed_low), f"{pid}_segment")
                 piece["internal_paths"].append(_path(pid, [line]))
                 pair = _seam_pair(f"{pid}_join", piece["id"], [line.id], piece["id"], [line.id])
                 pair["copy_pairing"] = "mirrored_copies"
@@ -216,11 +221,14 @@ def apply_back_closure(pattern: Mapping[str, Any], request: Mapping[str, Any]) -
             )
             anchor = LineSegment(Point(0, y), Point(5, y), f"back_closure_loop_{index}_segment")
             path_id = f"back_closure_loop_{index}"
+            if typ == "hooks":
+                parameters[f"hook_{index}_y"] = y
+                interfaces.append(path_id)
             target["internal_paths"].append(_path(path_id, [anchor]))
             _note(
                 target,
                 f"loop_{index}_note",
-                f"Метка {index + 1}: {distance:g} мм от горловины. {'Петли с обеих сторон.' if typ == 'lacing' else 'Петля справа, пуговица слева; края сходятся без нахлёста.'}",
+                f"Метка {index + 1}: {distance:g} мм от горловины. {'Петли с обеих сторон.' if typ == 'lacing' else 'Крючок справа, петля слева; края сходятся.' if typ == 'hooks' else 'Петля справа, пуговица слева; края сходятся без нахлёста.'}",
                 y,
             )
             binding_anchor = LineSegment(
@@ -229,7 +237,7 @@ def apply_back_closure(pattern: Mapping[str, Any], request: Mapping[str, Any]) -
             binding["internal_paths"].append(
                 _path(f"binding_loop_{index}_attachment", [binding_anchor])
             )
-            for loop_end in ("left", "right"):
+            for loop_end in () if typ == "hooks" else ("left", "right"):
                 pair = _seam_pair(
                     f"{path_id}_{loop_end}_join",
                     binding["id"],
@@ -259,8 +267,14 @@ def apply_back_closure(pattern: Mapping[str, Any], request: Mapping[str, Any]) -
                     "kind": "single",
                 }
             )
-        result["pieces"].extend([binding, loops])
-        added += [binding["id"], loops["id"]]
+        result["pieces"].append(binding)
+        added.append(binding["id"])
+        if typ != "hooks":
+            result["pieces"].append(loops)
+            added.append(loops["id"])
+        else:
+            binding["annotations"][-1]["text_ru"] = "Парные обтачки разреза; по меткам пришить покупные крючки справа и петли слева. Края сходятся без нахлёста."
+            parameters["hook_count"] = count
         if typ == "lacing":
             modesty = _rectangle(
                 "back_lacing_underlap", "Подкладная планка под шнуровку", length, 80
@@ -304,6 +318,7 @@ def apply_back_closure(pattern: Mapping[str, Any], request: Mapping[str, Any]) -
         "zipper": "back_zipper_v1",
         "buttons": "back_button_loops_v1",
         "lacing": "back_lacing_v1",
+        "hooks": "back_hooks_v3",
     }[typ]
     result.setdefault("composite_operations", []).append(
         _operation(
@@ -349,4 +364,16 @@ def validate_back_closure_placements(pattern: Mapping[str, Any]) -> None:
                         < 1e-6
                         for edge in edges
                     ):
-                        raise ValueError("Линия застёжки отделилась от центрального среза спинки.")
+                        raise BlockConstructionError("BACK_OPENING_DETACHED", "Линия застёжки отделилась от центрального среза спинки.", "/pattern")
+
+    for operation in pattern.get('composite_operations', []):
+        if operation['module_id'] != 'back_hooks_v3':
+            continue
+        params = operation['parameters_mm']
+        for i in range(int(params['hook_count'])):
+            paths = [p for piece in pattern['pieces'] if piece['id'] in operation['target_piece_ids'] for p in piece['internal_paths'] if p['id'] == f'back_closure_loop_{i}']
+            if len(paths) != 1:
+                raise BlockConstructionError('BACK_HOOK_MARK_MISSING', 'Отсутствует метка крепления крючка.', '/pattern')
+            edge = contour_from_data(paths[0]).segments[0]
+            if abs(edge.start.x_mm) > 1e-5 or abs(edge.start.y_mm - params[f'hook_{i}_y']) > 1e-5 or abs(edge.end.x_mm - 5) > 1e-5 or abs(edge.end.y_mm - edge.start.y_mm) > 1e-5:
+                raise BlockConstructionError('BACK_HOOK_MARK_MOVED', 'Метка крючка сдвинута относительно заданного шага и центра спинки.', '/pattern')

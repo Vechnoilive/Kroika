@@ -1,4 +1,4 @@
-import {matchingModule, moduleIds} from './designModules';
+import {structuralConflicts, matchingModule, moduleIds} from './designModules';
 import {answerBackQuestions} from './backDesign';
 import type {
   DesignElementType,
@@ -228,6 +228,8 @@ export function finalizeDesignIntent(
   const evaluated = reevaluateDesignIntent(intent, spec, analysis);
   const includedLayers = evaluated.layers.filter((item) => item.included !== false);
   const includedElements = evaluated.elements.filter((item) => item.included !== false);
+  const structuralErrors = structuralConflicts({...spec, design_intent: evaluated});
+  if (structuralErrors.length) throw new Error(structuralErrors[0]);
   const activeModules = new Set(
     includedElements.map((item) => item.module_id).filter((item): item is string => item !== null),
   );
