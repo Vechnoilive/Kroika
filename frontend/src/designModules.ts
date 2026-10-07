@@ -10,6 +10,8 @@ export interface DesignModule {
   title_ru: string;
   rules: Rule[];
   dimensions?: {required: Record<string, Bounds>; optional: Record<string, Bounds>};
+  placement?: Record<string, Array<string | number>>;
+  parameter_labels_ru?: Record<string, string>;
 }
 
 export const DESIGN_MODULES = registry.modules as unknown as DesignModule[];
@@ -44,6 +46,27 @@ export function applicableRule(module: DesignModule, spec: GarmentSpec): Rule | 
     && !rule.configured_closure);
 }
 
+export function placementMatches(module: DesignModule, item: object): boolean {
+  const source = item as Item;
+  const placement = (source.placement ?? {}) as Item;
+  const allowed = module.placement ?? {};
+  if (Object.keys(placement).some((key) => !(key in allowed))) return false;
+  if (!Object.entries(placement).every(([key, value]) => ['side', 'edge'].includes(key)
+    ? allowed[key].includes(value as string)
+    : typeof value === 'number' && Number.isFinite(value) && value >= Number(allowed[key][0]) && value <= Number(allowed[key][1]))) return false;
+  if (['placed_edge_ruffle_v2', 'placed_edge_flounce_v2'].includes(module.id)) {
+    const location = String(source.location);
+    const edges = location.startsWith('skirt') ? ['hem', 'waist'] : location.startsWith('bodice') ? ['neckline', 'waist', 'shoulder'] : ['hem'];
+    if (!edges.includes(String(placement.edge ?? (location.startsWith('bodice') ? 'neckline' : 'hem')))) return false;
+  }
+  if (allowed.side) {
+    const side = placement.side ?? 'both';
+    return source.symmetry === 'symmetric' ? side === 'both' && source.count === 2
+      : ['left', 'right'].includes(String(side)) && source.count === 1;
+  }
+  return true;
+}
+
 const FIELD_NAMES: Record<string, string> = {
   garment_type: 'вид изделия', sleeve_type: 'тип рукава', variant: 'вариант',
   location: 'расположение', construction: 'конструкция', count: 'количество',
@@ -67,7 +90,7 @@ export function moduleDiagnosis(kind: string, item: object, spec: GarmentSpec): 
 } {
   const source = item as Item;
   if (source.included === false) return {label: 'Исключено вами', reasons: []};
-  const candidates = DESIGN_MODULES.filter((module) => module.kind === kind)
+  const candidates = DESIGN_MODULES.filter((module) => module.kind === kind && (source.selected_module_id == null || source.selected_module_id === module.id))
     .flatMap((module) => module.rules.filter((rule) => kind === 'element'
       ? rule.type?.includes(source.type) : rule.role?.includes(source.role)).map((rule) => {
       const reasons = Object.entries(rule).flatMap(([field, allowed]) => {
@@ -97,7 +120,9 @@ export function moduleDiagnosis(kind: string, item: object, spec: GarmentSpec): 
     });
     return {label: 'Проверьте размеры', reasons, module: structural};
   }
-  return candidates.length ? {label: 'Проверьте конструкцию', ...candidates[0]}
+  const candidate = candidates[0];
+  if (candidate && !placementMatches(candidate.module, item)) candidate.reasons.push('Проверьте размещение: симметричная пара — количество 2 и обе стороны; одиночная деталь — количество 1 и правая или левая сторона. Неиспользуемые параметры размещения оставьте пустыми.');
+  return candidates.length ? {label: 'Проверьте конструкцию', ...candidate}
     : {label: 'Геометрия ещё не реализована', reasons: ['Выберите готовую конструкцию, если она соответствует фотографии.']};
 }
 
@@ -106,7 +131,9 @@ export function matchingModule(
 ): DesignModule | undefined {
   const source = item as Item;
   return DESIGN_MODULES.find((module) => {
+    if (source.selected_module_id != null && module.id !== source.selected_module_id) return false;
     if (module.kind !== kind || !module.rules.some((rule) => ruleMatches(rule, source, spec))) return false;
+    if (!placementMatches(module, source)) return false;
     if (kind === 'proportions' && module.id === 'bounded_visual_proportions') return ['waist_shift_mm', 'waist_level_circumference_mm', 'back_waist_level_arc_mm', 'hem_delta_mm'].every((key) => source[key] == null);
     if (kind === 'proportions' && module.id === 'parametric_visual_proportions_v1') return proportionDimensionsMatch(source, spec, checkDimensions);
     if (kind !== 'element' || !checkDimensions) return true;
@@ -130,7 +157,8 @@ function proportionDimensionsMatch(item: Item, spec: GarmentSpec, checkDimension
   if (item.waist_position !== 'natural') {
     if (!['dress', 'sundress'].includes(spec.garment_type) || (checkDimensions && (!bounded(waistKeys[0], 10, 100) || !bounded(waistKeys[1], 400, 1800) || !bounded(waistKeys[2], 100, 1000) || (item[waistKeys[2]] as number) >= (item[waistKeys[1]] as number)))) return false;
   } else if (checkDimensions && waistKeys.some((key) => item[key] != null)) return false;
-  if (item.hem_shape !== 'straight') {
+  if (item.hem_shape === 'tiered' && (item.hem_delta_mm != null || !spec.design_intent?.elements.some((entry) => entry.included !== false && entry.support_status === 'supported' && ['tiered_hem_ruffle_v2', 'tiered_hem_flounce_v2'].includes(entry.module_id ?? '')))) return false;
+  if (!['straight', 'tiered'].includes(String(item.hem_shape))) {
     if (!['dress', 'sundress', 'skirt'].includes(spec.garment_type) || (checkDimensions && !bounded('hem_delta_mm', 20, 250)) || (item.hem_shape === 'asymmetric' && item.asymmetry !== 'yes')) return false;
   } else if (checkDimensions && item.hem_delta_mm != null) return false;
   return true;

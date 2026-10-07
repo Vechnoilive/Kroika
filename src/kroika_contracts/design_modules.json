@@ -1,5 +1,5 @@
 {
-  "registry_version": "1.4.0",
+  "registry_version": "1.5.0",
   "unit": "mm",
   "modules": [
     {
@@ -1692,7 +1692,8 @@
           "hem_shape": [
             "straight",
             "curved",
-            "asymmetric"
+            "asymmetric",
+            "tiered"
           ],
           "asymmetry": [
             "no",
@@ -1883,6 +1884,1043 @@
           ]
         },
         "optional": {}
+      }
+    },
+    {
+      "id": "placed_skirt_pleats_v2",
+      "group": "fullness",
+      "kind": "element",
+      "title_ru": "Складки переда или спинки юбки с размещением",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "pleat"
+          ],
+          "variant": [
+            "knife",
+            "box",
+            "inverted",
+            "accordion"
+          ],
+          "location": [
+            "skirt_front",
+            "skirt_back"
+          ],
+          "construction": [
+            "integrated"
+          ],
+          "count": [
+            2,
+            4,
+            6,
+            8,
+            10,
+            12,
+            14,
+            16
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            10,
+            200
+          ],
+          "depth": [
+            5,
+            40
+          ],
+          "length": [
+            30,
+            "skirt_length_minus_20"
+          ],
+          "spacing": [
+            10,
+            150
+          ]
+        },
+        "optional": {}
+      },
+      "parameter_labels_ru": {
+        "width": "Отступ первой линии от центра",
+        "spacing": "Интервал между линиями",
+        "depth": "Глубина складки / добавка на линию",
+        "length": "Длина контрольных линий"
+      }
+    },
+    {
+      "id": "placed_skirt_tucks_v2",
+      "group": "fullness",
+      "kind": "element",
+      "title_ru": "Защипы переда или спинки юбки с размещением",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "tuck"
+          ],
+          "variant": [
+            "standard",
+            "straight"
+          ],
+          "location": [
+            "skirt_front",
+            "skirt_back"
+          ],
+          "construction": [
+            "integrated"
+          ],
+          "count": [
+            2,
+            4,
+            6,
+            8,
+            10,
+            12,
+            14,
+            16
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            10,
+            200
+          ],
+          "depth": [
+            2,
+            20
+          ],
+          "length": [
+            30,
+            "skirt_length_minus_20"
+          ],
+          "spacing": [
+            10,
+            150
+          ]
+        },
+        "optional": {}
+      },
+      "parameter_labels_ru": {
+        "width": "Отступ первой линии от центра",
+        "spacing": "Интервал между линиями",
+        "depth": "Глубина защипа",
+        "length": "Длина застроченной части"
+      }
+    },
+    {
+      "id": "placed_skirt_gathers_v2",
+      "group": "fullness",
+      "kind": "element",
+      "title_ru": "Распределённая сборка талии переда или спинки юбки",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "gather"
+          ],
+          "variant": [
+            "gathered",
+            "soft"
+          ],
+          "location": [
+            "skirt_front",
+            "skirt_back"
+          ],
+          "construction": [
+            "integrated"
+          ],
+          "count": [
+            2,
+            4,
+            6,
+            8,
+            10,
+            12,
+            14,
+            16
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            10,
+            200
+          ],
+          "depth": [
+            10,
+            100
+          ],
+          "length": [
+            30,
+            "skirt_length_minus_20"
+          ],
+          "spacing": [
+            10,
+            150
+          ]
+        },
+        "optional": {}
+      },
+      "parameter_labels_ru": {
+        "width": "Отступ первой линии от центра",
+        "spacing": "Интервал между линиями",
+        "depth": "Добавка ширины каждой зоны",
+        "length": "Длина контрольных линий"
+      }
+    },
+    {
+      "id": "integrated_bodice_drape_v2",
+      "group": "fullness",
+      "kind": "element",
+      "title_ru": "Цельнокроеная вертикальная драпировка лифа",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest"
+          ],
+          "type": [
+            "drape"
+          ],
+          "variant": [
+            "soft",
+            "gathered"
+          ],
+          "location": [
+            "bodice_front",
+            "bodice_back"
+          ],
+          "construction": [
+            "integrated"
+          ],
+          "count": [
+            2,
+            4,
+            6,
+            8
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            10,
+            160
+          ],
+          "depth": [
+            10,
+            100
+          ],
+          "spacing": [
+            10,
+            120
+          ]
+        },
+        "optional": {
+          "length": [
+            30,
+            300
+          ]
+        }
+      },
+      "parameter_labels_ru": {
+        "width": "Отступ первой линии от центра",
+        "spacing": "Интервал между линиями",
+        "depth": "Добавка ширины каждой зоны",
+        "length": "Длина контрольных линий"
+      }
+    },
+    {
+      "id": "integrated_bodice_gather_v2",
+      "group": "fullness",
+      "kind": "element",
+      "title_ru": "Распределённая сборка горловины и талии лифа",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest"
+          ],
+          "type": [
+            "gather"
+          ],
+          "variant": [
+            "soft",
+            "gathered"
+          ],
+          "location": [
+            "bodice_front",
+            "bodice_back"
+          ],
+          "construction": [
+            "integrated"
+          ],
+          "count": [
+            2,
+            4,
+            6,
+            8
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            10,
+            160
+          ],
+          "depth": [
+            10,
+            100
+          ],
+          "spacing": [
+            10,
+            120
+          ]
+        },
+        "optional": {
+          "length": [
+            30,
+            300
+          ]
+        }
+      },
+      "parameter_labels_ru": {
+        "width": "Отступ первой линии от центра",
+        "spacing": "Интервал между линиями",
+        "depth": "Добавка ширины каждой зоны",
+        "length": "Длина контрольных линий"
+      }
+    },
+    {
+      "id": "separate_bodice_drape_v2",
+      "group": "fullness",
+      "kind": "element",
+      "title_ru": "Отдельная вертикальная драпировка переда или спинки",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest"
+          ],
+          "type": [
+            "drape"
+          ],
+          "variant": [
+            "soft"
+          ],
+          "location": [
+            "bodice_front",
+            "bodice_back"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "asymmetric",
+            "single"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            20,
+            80
+          ],
+          "depth": [
+            20,
+            200
+          ],
+          "spacing": [
+            10,
+            100
+          ]
+        },
+        "optional": {
+          "length": [
+            10,
+            150
+          ]
+        }
+      },
+      "placement": {
+        "side": [
+          "both",
+          "right",
+          "left"
+        ],
+        "offset_mm": [
+          0,
+          120
+        ]
+      },
+      "parameter_labels_ru": {
+        "width": "Ширина концов после сборки",
+        "depth": "Добавка на сборку концов",
+        "spacing": "Отступ от бокового края",
+        "length": "Добавка к свободному пролёту"
+      }
+    },
+    {
+      "id": "diagonal_bodice_drape_v2",
+      "group": "fullness",
+      "kind": "element",
+      "title_ru": "Одна диагональная драпировка полного переда",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest"
+          ],
+          "type": [
+            "drape"
+          ],
+          "variant": [
+            "soft"
+          ],
+          "location": [
+            "bodice_front"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1
+          ],
+          "symmetry": [
+            "asymmetric",
+            "single"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "width": [
+            20,
+            80
+          ],
+          "depth": [
+            20,
+            200
+          ],
+          "spacing": [
+            10,
+            100
+          ]
+        },
+        "optional": {
+          "length": [
+            10,
+            150
+          ]
+        }
+      },
+      "placement": {
+        "side": [
+          "both",
+          "right",
+          "left"
+        ],
+        "offset_mm": [
+          0,
+          120
+        ]
+      },
+      "parameter_labels_ru": {
+        "width": "Ширина концов после сборки",
+        "depth": "Добавка на сборку концов",
+        "spacing": "Отступ от бокового края",
+        "length": "Добавка к свободному пролёту"
+      }
+    },
+    {
+      "id": "placed_edge_ruffle_v2",
+      "group": "fullness",
+      "kind": "element",
+      "title_ru": "Оборка на выбранном участке среза",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "ruffle"
+          ],
+          "variant": [
+            "gathered",
+            "soft",
+            "straight"
+          ],
+          "location": [
+            "skirt_front",
+            "skirt_back"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "asymmetric",
+            "single"
+          ]
+        },
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest"
+          ],
+          "type": [
+            "ruffle"
+          ],
+          "variant": [
+            "gathered",
+            "soft",
+            "straight"
+          ],
+          "location": [
+            "bodice_front",
+            "bodice_back"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "asymmetric",
+            "single"
+          ]
+        },
+        {
+          "garment_type": [
+            "dress",
+            "top",
+            "blouse",
+            "shirt"
+          ],
+          "type": [
+            "ruffle"
+          ],
+          "variant": [
+            "gathered",
+            "soft",
+            "straight"
+          ],
+          "location": [
+            "sleeve"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "asymmetric",
+            "single"
+          ],
+          "sleeve_type": [
+            "short",
+            "long"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "length": [
+            30,
+            500
+          ],
+          "depth": [
+            20,
+            200
+          ],
+          "spacing": [
+            1,
+            1000
+          ],
+          "width": [
+            20,
+            400
+          ]
+        },
+        "optional": {}
+      },
+      "placement": {
+        "side": [
+          "both",
+          "right",
+          "left"
+        ],
+        "edge": [
+          "hem",
+          "neckline",
+          "waist",
+          "shoulder"
+        ]
+      },
+      "parameter_labels_ru": {
+        "length": "Длина участка крепления",
+        "spacing": "Начало участка вдоль среза",
+        "width": "Добавка на сборку",
+        "depth": "Глубина отделки"
+      }
+    },
+    {
+      "id": "placed_edge_flounce_v2",
+      "group": "fullness",
+      "kind": "element",
+      "title_ru": "Волан на выбранном участке среза",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "flounce"
+          ],
+          "variant": [
+            "circular",
+            "soft"
+          ],
+          "location": [
+            "skirt_front",
+            "skirt_back"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "asymmetric",
+            "single"
+          ]
+        },
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "top",
+            "blouse",
+            "shirt",
+            "vest"
+          ],
+          "type": [
+            "flounce"
+          ],
+          "variant": [
+            "circular",
+            "soft"
+          ],
+          "location": [
+            "bodice_front",
+            "bodice_back"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "asymmetric",
+            "single"
+          ]
+        },
+        {
+          "garment_type": [
+            "dress",
+            "top",
+            "blouse",
+            "shirt"
+          ],
+          "type": [
+            "flounce"
+          ],
+          "variant": [
+            "circular",
+            "soft"
+          ],
+          "location": [
+            "sleeve"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "asymmetric",
+            "single"
+          ],
+          "sleeve_type": [
+            "short",
+            "long"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "length": [
+            30,
+            500
+          ],
+          "depth": [
+            30,
+            200
+          ],
+          "spacing": [
+            1,
+            1000
+          ]
+        },
+        "optional": {}
+      },
+      "placement": {
+        "side": [
+          "both",
+          "right",
+          "left"
+        ],
+        "edge": [
+          "hem",
+          "neckline",
+          "waist",
+          "shoulder"
+        ],
+        "sweep_angle_deg": [
+          90,
+          270
+        ]
+      },
+      "parameter_labels_ru": {
+        "length": "Длина участка крепления",
+        "spacing": "Начало участка вдоль среза",
+        "depth": "Глубина отделки"
+      }
+    },
+    {
+      "id": "asymmetric_waist_peplum_v2",
+      "group": "fullness",
+      "kind": "element",
+      "title_ru": "Асимметричная баска на выбранной половине талии",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "peplum"
+          ],
+          "variant": [
+            "shaped",
+            "circular"
+          ],
+          "location": [
+            "skirt_front",
+            "skirt_back"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1
+          ],
+          "symmetry": [
+            "asymmetric",
+            "single"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "depth": [
+            60,
+            200
+          ],
+          "length": [
+            60,
+            200
+          ]
+        },
+        "optional": {}
+      },
+      "placement": {
+        "side": [
+          "right",
+          "left"
+        ],
+        "sweep_angle_deg": [
+          90,
+          270
+        ]
+      },
+      "parameter_labels_ru": {
+        "depth": "Глубина у первого конца",
+        "length": "Глубина у второго конца"
+      }
+    },
+    {
+      "id": "placed_cascade_flounce_v2",
+      "group": "fullness",
+      "kind": "element",
+      "title_ru": "Каскадный волан переда или спинки с заданным началом",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "flounce"
+          ],
+          "variant": [
+            "soft",
+            "circular"
+          ],
+          "location": [
+            "skirt_front",
+            "skirt_back"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            1,
+            2
+          ],
+          "symmetry": [
+            "symmetric",
+            "asymmetric",
+            "single"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "depth": [
+            40,
+            250
+          ],
+          "length": [
+            50,
+            "skirt_length_minus_20"
+          ],
+          "spacing": [
+            10,
+            200
+          ]
+        },
+        "optional": {}
+      },
+      "placement": {
+        "side": [
+          "both",
+          "right",
+          "left"
+        ],
+        "offset_mm": [
+          0,
+          300
+        ],
+        "sweep_angle_deg": [
+          90,
+          270
+        ]
+      },
+      "parameter_labels_ru": {
+        "length": "Длина крепления каскада",
+        "spacing": "Отступ от центра",
+        "depth": "Глубина волана"
+      }
+    },
+    {
+      "id": "tiered_hem_ruffle_v2",
+      "group": "fullness",
+      "kind": "element",
+      "title_ru": "Ярусные сборчатые оборки по низу юбки",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "ruffle"
+          ],
+          "variant": [
+            "gathered"
+          ],
+          "location": [
+            "hem"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            2,
+            3,
+            4
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "depth": [
+            50,
+            160
+          ],
+          "width": [
+            20,
+            300
+          ]
+        },
+        "optional": {}
+      },
+      "parameter_labels_ru": {
+        "depth": "Глубина каждого яруса",
+        "width": "Добавка на сборку каждой половины яруса"
+      }
+    },
+    {
+      "id": "tiered_hem_flounce_v2",
+      "group": "fullness",
+      "kind": "element",
+      "title_ru": "Ярусные круговые воланы по низу юбки",
+      "rules": [
+        {
+          "garment_type": [
+            "dress",
+            "sundress",
+            "skirt"
+          ],
+          "type": [
+            "flounce"
+          ],
+          "variant": [
+            "circular"
+          ],
+          "location": [
+            "hem"
+          ],
+          "construction": [
+            "separate_piece"
+          ],
+          "count": [
+            2,
+            3,
+            4
+          ],
+          "symmetry": [
+            "symmetric"
+          ]
+        }
+      ],
+      "dimensions": {
+        "required": {
+          "depth": [
+            50,
+            160
+          ]
+        },
+        "optional": {}
+      },
+      "placement": {
+        "sweep_angle_deg": [
+          90,
+          270
+        ]
+      },
+      "parameter_labels_ru": {
+        "depth": "Глубина каждого яруса"
       }
     }
   ]

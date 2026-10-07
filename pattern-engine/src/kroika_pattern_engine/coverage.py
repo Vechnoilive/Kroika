@@ -116,7 +116,10 @@ def compile_design_coverage(
             str(operation["module_id"]),
             source_ids=[source_id],
             piece_ids=[str(item) for item in operation.get("target_piece_ids", [])],
-            path_ids=[f"{source_id}_{suffix}" for suffix in suffixes.get(operation["kind"], ())],
+            path_ids=[f"{source_id}_{suffix}" for suffix in suffixes.get(operation["kind"], ())
+                      if operation['module_id'] in {'center_stitched_tuck_v1', 'paired_straight_decorative_stitch_v1'}]
+            + [path['id'] for piece in result['pieces'] if piece['id'] in operation.get('target_piece_ids', [])
+               for path in piece['internal_paths'] if path['id'].startswith(f'{source_id}_fullness_')],
             operation_ids=[str(operation["operation_id"])],
         )
 

@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import {DESIGN_ELEMENT_NAMES, finalizeDesignIntent, reevaluateDesignIntent} from './designIntent';
-import {applicableRule, DESIGN_MODULES, matchingModule, moduleDiagnosis} from './designModules';
+import {applicableRule, DESIGN_MODULES, matchingModule, moduleDiagnosis, type DesignModule} from './designModules';
 import {isBackQuestion} from './backDesign';
 import type {
   DesignElementType,
@@ -50,7 +50,7 @@ function modelingHint(item: Element, spec: GarmentSpec): string | null {
     .map(([field, bounds]) => {
       const max = bounds[1] === 'skirt_length_minus_20'
         ? spec.parameters.skirt.length_from_waist_mm - 20 : bounds[1];
-      return `${labels[field]} ${bounds[0] / 10}–${max / 10} см`;
+      return `${module.parameter_labels_ru?.[field] ?? labels[field]} ${bounds[0] / 10}–${max / 10} см`;
     }).join(', ');
   const required = describe(module.dimensions.required);
   const optional = describe(module.dimensions.optional);
@@ -82,18 +82,32 @@ export function DesignIntentEditor({
     && Object.keys(module.dimensions?.required ?? {}).length > 0
     && applicableRule(module, spec));
 
+  function defaultPlacement(module: DesignModule, symmetry: Element['symmetry'], location: Element['location'], previous?: Element['placement']): Element['placement'] {
+    if (!module.placement) return undefined;
+    const placement: NonNullable<Element['placement']> = {};
+    for (const key of Object.keys(module.placement) as Array<keyof NonNullable<Element['placement']>>) {
+      if (key === 'side') placement.side = symmetry === 'symmetric' ? 'both' : previous?.side === 'left' ? 'left' : 'right';
+      if (key === 'edge') placement.edge = previous?.edge ?? (location.startsWith('bodice') ? 'neckline' : 'hem');
+      if (key === 'offset_mm') placement.offset_mm = previous?.offset_mm ?? 0;
+      if (key === 'sweep_angle_deg') placement.sweep_angle_deg = previous?.sweep_angle_deg ?? 180;
+    }
+    return placement;
+  }
+
   function addCatalogElement() {
     const module = catalog.find((entry) => entry.id === catalogModule);
     if (!module) return;
     const rule = applicableRule(module, spec)!;
+    const symmetry = (rule.symmetry?.[0] ?? 'symmetric') as Element['symmetry'];
+    const count = module.placement?.side && symmetry === 'symmetric' ? 2 : (rule.count?.[0] ?? 1) as number;
     const element: Element = {
       source_element_id: manualId('catalog'), type: rule.type[0] as Element['type'],
       variant: rule.variant[0] as Element['variant'], location: rule.location[0] as Element['location'],
-      construction: rule.construction[0] as Element['construction'], count: (rule.count?.[0] ?? 1) as number,
-      symmetry: (rule.symmetry?.[0] ?? 'symmetric') as Element['symmetry'], description_ru: module.title_ru,
+      construction: rule.construction[0] as Element['construction'], count,
+      symmetry, placement: defaultPlacement(module, symmetry, rule.location[0] as Element['location']), description_ru: module.title_ru,
       confidence: 1, evidence_ru: 'Добавлено пользователем из каталога деталей.',
       requires_confirmation: false, included: true, confirmed_by_user: false,
-      dimensions_mm: {...EMPTY_DIMENSIONS}, support_status: 'needs_confirmation', module_id: null,
+      dimensions_mm: {...EMPTY_DIMENSIONS}, support_status: 'needs_confirmation', module_id: null, selected_module_id: module.id,
     };
     change({...intent, source: 'manual', elements: [...intent.elements, element]});
   }
@@ -125,11 +139,14 @@ export function DesignIntentEditor({
         dimensions[key] = item.dimensions_mm?.[key] ?? null;
       }
     }
+    const symmetry = choose('symmetry', item.symmetry) as Element['symmetry'];
+    const location = choose('location') as Element['location'];
     updateElement(item.source_element_id, {
       type: choose('type') as Element['type'], variant: choose('variant') as Element['variant'],
-      location: choose('location') as Element['location'], construction: choose('construction') as Element['construction'],
-      count: choose('count', item.count ?? 1) as number, symmetry: choose('symmetry', item.symmetry) as Element['symmetry'],
-      dimensions_mm: dimensions, confirmed_by_user: false,
+      location, construction: choose('construction') as Element['construction'],
+      count: module.placement?.side ? symmetry === 'symmetric' ? 2 : 1 : choose('count', item.count ?? 1) as number, symmetry,
+      placement: defaultPlacement(module, symmetry, location, item.placement),
+      selected_module_id: module.id, dimensions_mm: dimensions, confirmed_by_user: false,
     });
   }
 
@@ -230,6 +247,7 @@ export function DesignIntentEditor({
           const included = item.included !== false;
           const dimensions = item.dimensions_mm ?? EMPTY_DIMENSIONS;
           const diagnosis = moduleDiagnosis('element', item, spec);
+          const module = diagnosis.module;
           const recipes = DESIGN_MODULES.filter((module) => module.kind === 'element'
             && applicableRule(module, spec)
             && (item.type === 'other' || module.rules.some((rule) => rule.type?.includes(item.type))));
@@ -260,7 +278,7 @@ export function DesignIntentEditor({
                 <ul>{diagnosis.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
               </div>}
               {included && recipes.length > 0 && <label className="field-hint"><span>Выбрать готовую конструкцию</span>
-                <select aria-label={`Выбрать конструкцию детали ${index + 1}`} value="" onChange={(event) => selectConstruction(item, event.target.value)}>
+                <select aria-label={`Выбрать конструкцию детали ${index + 1}`} value={item.selected_module_id ?? item.module_id ?? ''} onChange={(event) => selectConstruction(item, event.target.value)}>
                   <option value="">Выберите, если соответствует фотографии</option>
                   {recipes.map((module) => <option key={module.id} value={module.id}>{module.title_ru}</option>)}
                 </select>
@@ -277,13 +295,20 @@ export function DesignIntentEditor({
               </div>
               <fieldset className="dimension-fields" disabled={!included}>
                 <legend>Параметры построения, см — заполняйте только известные</legend>
+                {module?.group === 'fullness' && <p className="field-hint">{module.id.startsWith('tiered_') ? 'Количество — число ярусов. Каждый ярус добавляет свою глубину к длине изделия.' : module.id.startsWith('placed_skirt_') || module.id.startsWith('integrated_bodice_') ? 'Количество указано на всё изделие: половина операций строится на каждой зеркальной половине.' : 'Правая и левая стороны указаны относительно человека, который носит изделие.'}</p>}
                 {modelingHint(item, spec) && <p className="field-hint">{modelingHint(item, spec)}</p>}
                 {([
                   ['width', 'Ширина'], ['length', 'Длина'], ['depth', 'Глубина'], ['spacing', 'Расстояние'],
                 ] as Array<[Dimension, string]>).map(([key, label]) => (
-                  <label key={key}><span>{label}</span><input aria-label={`${label} детали ${index + 1}, см`} type="number" inputMode="decimal" min="0.1" max="1000" step="0.1" value={dimensions[key] == null ? '' : dimensions[key] / 10} onChange={(event) => setDimension(item, key, event.target.value)} /></label>
+                  <label key={key}><span>{module?.parameter_labels_ru?.[key] ?? label}</span><input aria-label={`${label} детали ${index + 1}, см`} type="number" inputMode="decimal" min="0.1" max="1000" step="0.1" value={dimensions[key] == null ? '' : dimensions[key] / 10} onChange={(event) => setDimension(item, key, event.target.value)} /></label>
                 ))}
               </fieldset>
+              {included && module?.placement && <fieldset className="dimension-fields"><legend>Размещение детали</legend>
+                {module.placement.side && <label><span>Сторона изделия</span><select aria-label={`Сторона детали ${index + 1}`} value={item.placement?.side ?? ''} onChange={(event) => updateElement(item.source_element_id, {placement: {...item.placement, side: event.target.value as 'both' | 'left' | 'right'}, confirmed_by_user: false})}><option value="" disabled>Укажите сторону</option>{module.placement.side.map((side) => <option key={side} value={side}>{side === 'both' ? 'Обе стороны' : side === 'right' ? 'Правая' : 'Левая'}</option>)}</select></label>}
+                {module.placement.edge && <label><span>Срез крепления</span><select aria-label={`Срез крепления детали ${index + 1}`} value={item.placement?.edge ?? (item.location.startsWith('bodice') ? 'neckline' : 'hem')} onChange={(event) => updateElement(item.source_element_id, {placement: {...item.placement, edge: event.target.value as 'hem' | 'neckline' | 'waist' | 'shoulder'}, confirmed_by_user: false})}>{module.placement.edge.filter((edge) => item.location.startsWith('skirt') ? ['hem', 'waist'].includes(String(edge)) : item.location.startsWith('bodice') ? ['neckline', 'waist', 'shoulder'].includes(String(edge)) : edge === 'hem').map((edge) => <option key={edge} value={edge}>{({hem: 'Низ', neckline: 'Горловина', waist: 'Талия', shoulder: 'Плечо'} as Record<string, string>)[edge]}</option>)}</select></label>}
+                {module.placement.offset_mm && <label><span>Смещение начала вниз, см</span><input aria-label={`Смещение начала детали ${index + 1}, см`} type="number" min="0" step="0.1" value={(item.placement?.offset_mm ?? 0) / 10} onChange={(event) => updateElement(item.source_element_id, {placement: {...item.placement, offset_mm: Number(event.target.value) * 10}, confirmed_by_user: false})} /></label>}
+                {module.placement.sweep_angle_deg && <label><span>Угол сектора волана, °</span><input aria-label={`Угол сектора детали ${index + 1}`} type="number" min="90" max="270" value={item.placement?.sweep_angle_deg ?? 180} onChange={(event) => updateElement(item.source_element_id, {placement: {...item.placement, sweep_angle_deg: Number(event.target.value)}, confirmed_by_user: false})} /></label>}
+              </fieldset>}
               {included && <label className="review-check review-check--confirm"><input type="checkbox" checked={item.confirmed_by_user === true} onChange={(event) => updateElement(item.source_element_id, {confirmed_by_user: event.target.checked})} /><span>Я проверил(а) эту деталь по фотографии</span></label>}
             </article>
           );
@@ -324,6 +349,7 @@ export function DesignIntentEditor({
           <label><span>Форма низа</span><select value={intent.proportions.hem_shape} onChange={(event) => change({...intent, proportions: {...intent.proportions, hem_shape: event.target.value as GarmentDesignIntent['proportions']['hem_shape'], hem_delta_mm: null, confirmed_by_user: false}})}><option value="straight">Прямая</option><option value="curved">Скруглённая</option><option value="asymmetric">Асимметричная</option><option value="tiered">Ярусная</option><option value="unknown">Не знаю</option></select></label>
           <label><span>Асимметрия</span><select value={intent.proportions.asymmetry} onChange={(event) => change({...intent, proportions: {...intent.proportions, asymmetry: event.target.value as GarmentDesignIntent['proportions']['asymmetry'], confirmed_by_user: false}})}><option value="no">Нет</option><option value="yes">Есть</option><option value="unknown">Не знаю</option></select></label>
         </div>
+        {intent.proportions.hem_shape === 'tiered' && <p className="field-hint">Добавьте из каталога ярусную оборку или волан, укажите число ярусов и глубину каждого. Итоговая длина увеличится на сумму глубин.</p>}
         {intent.proportions.waist_position !== 'natural' && intent.proportions.waist_position !== 'unknown' && <div className="design-review-grid">
           {([['waist_shift_mm', 'Смещение линии талии, см'], ['waist_level_circumference_mm', 'Обхват на новой линии талии, см'], ['back_waist_level_arc_mm', 'Задняя дуга на новой линии талии, см']] as const).map(([key, label]) => <label key={key}><span>{label}</span><input type="number" step="0.1" value={intent.proportions[key] == null ? '' : intent.proportions[key]! / 10} onChange={(event) => change({...intent, proportions: {...intent.proportions, [key]: event.target.value === '' ? null : Number(event.target.value) * 10, confirmed_by_user: false}})} /></label>)}
         </div>}

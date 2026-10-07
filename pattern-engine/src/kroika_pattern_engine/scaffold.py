@@ -30,6 +30,8 @@ from .modeling import apply_modeling_transformations
 from .topology import apply_topology_transformations
 from .validation import validate_pattern_assembly
 from .back_closure import prepare_closure_foundation, apply_back_closure
+from .geometry import GeometryError
+from .fullness import apply_fullness_foundation, prepare_fullness_foundation, apply_fullness_details
 
 
 def _utc_now() -> datetime:
@@ -40,7 +42,7 @@ class GeometryPatternEngine:
     """Build a bounded experimental garment and return an auditable report."""
 
     engine_id = "kroika-geometry"
-    engine_version = "0.17.0"
+    engine_version = "0.18.0"
 
     def __init__(self, clock: Callable[[], datetime] = _utc_now):
         self._clock = clock
@@ -91,20 +93,23 @@ class GeometryPatternEngine:
             if yoke_first:
                 topology = apply_topology_transformations(silhouette, request)
                 modeling = apply_modeling_transformations(topology.pattern, request)
-                foundation = modeling.pattern
+                foundation = apply_fullness_foundation(modeling.pattern, request)
             else:
                 modeling = apply_modeling_transformations(silhouette, request)
-                topology = apply_topology_transformations(modeling.pattern, request)
+                expanded = apply_fullness_foundation(modeling.pattern, request)
+                topology = apply_topology_transformations(expanded, request)
                 foundation = topology.pattern
             foundation = prepare_advanced_foundation(foundation, request)
+            foundation = prepare_fullness_foundation(foundation, request)
             composite = apply_composite_transformations(foundation, request)
             details = apply_detail_transformations(composite.pattern, request)
             advanced = apply_advanced_details(details.pattern, request)
-            final_pattern = apply_back_closure(advanced.pattern, request)
+            finished = apply_fullness_details(advanced.pattern, request)
+            final_pattern = apply_back_closure(finished, request)
             final_residual = validate_pattern_assembly(final_pattern)
             coverage = compile_design_coverage(final_pattern, source_request)
             printable_pattern = apply_seam_allowances(coverage.pattern, request)
-        except BlockConstructionError as error:
+        except (BlockConstructionError, GeometryError) as error:
             checks.append({
                 "id": (
                     "engine.design_coverage"
@@ -122,7 +127,7 @@ class GeometryPatternEngine:
                 "code": error.code,
                 "severity": "blocking_error",
                 "message_ru": error.message_ru,
-                "json_pointer": error.json_pointer,
+                "json_pointer": getattr(error, "json_pointer", "/pattern"),
             })
         else:
             residual_names = (

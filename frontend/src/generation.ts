@@ -134,6 +134,15 @@ export function canonicalGenerationPayload(request: JsonObject): JsonObject {
   if (compositeElements.length > 0) garmentSpec.composite_elements = compositeElements;
   if (compositeLayers.length > 0) garmentSpec.composite_layers = compositeLayers;
   const coverage = coverageContract(garment);
+  const fullness = (garment.design_intent?.elements ?? [])
+    .filter((item: JsonObject) => item.included !== false && item.support_status === 'supported' && moduleIds('fullness').has(item.module_id))
+    .map((item: JsonObject) => Object.fromEntries(['source_element_id', 'type', 'variant', 'location', 'construction', 'count',
+      'symmetry', 'dimensions_mm', 'placement', 'module_id'].map((key) => [key, item[key] ?? null])))
+    .sort((a: JsonObject, b: JsonObject) => {
+      const left = `${a.module_id}\u0000${a.source_element_id}`, right = `${b.module_id}\u0000${b.source_element_id}`;
+      return left < right ? -1 : left > right ? 1 : 0;
+    });
+  if (fullness.length) garmentSpec.fullness_elements = fullness;
   const details: JsonObject = {};
   for (const [group, moduleGroup] of [['elements', 'detail_element'], ['layers', 'detail_layer']]) {
     const modules = moduleIds(moduleGroup);
@@ -160,7 +169,7 @@ export function canonicalGenerationPayload(request: JsonObject): JsonObject {
   if (coverage) garmentSpec.coverage_contract = coverage;
   const hasComposites = compositeElements.length > 0 || compositeLayers.length > 0;
   return {
-    hash_contract_version: garment.parameters.closure?.location === 'center_back' && ['buttons', 'lacing'].includes(garment.parameters.closure.type) ? '1.7.0' : hasAdvanced ? '1.6.0' : hasDetails ? '1.5.0' : topologyElements.length > 0
+    hash_contract_version: fullness.length ? '1.8.0' : garment.parameters.closure?.location === 'center_back' && ['buttons', 'lacing'].includes(garment.parameters.closure.type) ? '1.7.0' : hasAdvanced ? '1.6.0' : hasDetails ? '1.5.0' : topologyElements.length > 0
       ? '1.4.0'
       : coverage ? '1.3.0'
       : hasComposites

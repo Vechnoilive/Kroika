@@ -25,6 +25,36 @@ FIXED_LAYER_MODULES = module_ids('fixed_layer')
 DETAIL_ELEMENT_MODULES = module_ids('detail_element')
 DETAIL_LAYER_MODULES = module_ids('detail_layer')
 ADVANCED_ELEMENT_MODULES = module_ids('advanced_element')
+FULLNESS_MODULES = module_ids('fullness')
+
+
+def placement_matches(module: Mapping[str, Any], item: Mapping[str, Any]) -> bool:
+    placement = item.get('placement') or {}
+    if not isinstance(placement, Mapping):
+        return False
+    allowed = module.get('placement') or {}
+    if any(key not in allowed for key in placement):
+        return False
+    for key, value in placement.items():
+        bounds = allowed[key]
+        if key in {'side', 'edge'}:
+            if value not in bounds:
+                return False
+        elif isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not bounds[0] <= value <= bounds[1]:
+            return False
+    if module['id'] in {'placed_edge_ruffle_v2', 'placed_edge_flounce_v2'}:
+        location = item.get('location', '')
+        edges = {'hem', 'waist'} if location.startswith('skirt') else {'neckline', 'waist', 'shoulder'} if location.startswith('bodice') else {'hem'}
+        if placement.get('edge', 'neckline' if location.startswith('bodice') else 'hem') not in edges:
+            return False
+    if 'side' in allowed:
+        side = placement.get('side', 'both')
+        if item.get('symmetry') == 'symmetric':
+            if side != 'both' or item.get('count') != 2:
+                return False
+        elif side not in {'right', 'left'} or item.get('count') != 1:
+            return False
+    return True
 
 
 def _rule_matches(
@@ -64,6 +94,8 @@ def module_matches(
         return False
     if not any(_rule_matches(rule, item, spec) for rule in module['rules']):
         return False
+    if not placement_matches(module, item):
+        return False
     if kind == 'proportions' and module_id == 'bounded_visual_proportions':
         return all(item.get(key) is None for key in (
             'waist_shift_mm', 'waist_level_circumference_mm', 'back_waist_level_arc_mm', 'hem_delta_mm'))
@@ -96,6 +128,9 @@ def module_matches(
 def matching_module(
     item: Mapping[str, Any], spec: Mapping[str, Any], *, kind: str,
 ) -> str | None:
+    if item.get('selected_module_id') is not None or item.get('module_id') is not None:
+        selected = item.get('selected_module_id') or item['module_id']
+        return selected if module_matches(selected, item, spec, kind=kind) else None
     return next((module['id'] for module in MODULES
                  if module_matches(module['id'], item, spec, kind=kind)), None)
 
@@ -118,7 +153,16 @@ def proportion_dimensions_match(item: Mapping[str, Any], spec: Mapping[str, Any]
     elif check_dimensions and any(item.get(k) is not None for k in (
             'waist_shift_mm', 'waist_level_circumference_mm', 'back_waist_level_arc_mm')):
         return False
-    shaped = item.get('hem_shape') != 'straight'
+    tiered = item.get('hem_shape') == 'tiered'
+    if tiered:
+        if item.get('hem_delta_mm') is not None or not any(
+            entry.get('included') is not False and entry.get('module_id') in {
+                'tiered_hem_ruffle_v2', 'tiered_hem_flounce_v2',
+            } and entry.get('support_status') == 'supported'
+            for entry in (spec.get('design_intent') or {}).get('elements', [])
+        ):
+            return False
+    shaped = item.get('hem_shape') not in {'straight', 'tiered'}
     if shaped:
         if spec['garment_type'] not in {'dress', 'sundress', 'skirt'}:
             return False

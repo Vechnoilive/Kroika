@@ -64,6 +64,39 @@
     }
   },
   "$defs": {
+    "placement": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "side": {
+          "type": "string",
+          "enum": [
+            "both",
+            "right",
+            "left"
+          ]
+        },
+        "edge": {
+          "type": "string",
+          "enum": [
+            "hem",
+            "neckline",
+            "waist",
+            "shoulder"
+          ]
+        },
+        "offset_mm": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "sweep_angle_deg": {
+          "type": "number",
+          "minimum": 90,
+          "maximum": 270
+        }
+      }
+    },
     "support_status": {"type": "string", "enum": ["supported", "planned", "needs_confirmation", "excluded"]},
     "module_id": {
       "anyOf": [
@@ -76,6 +109,8 @@
       "additionalProperties": false,
       "required": ["source_element_id", "type", "variant", "description_ru", "location", "construction", "count", "symmetry", "confidence", "evidence_ru", "requires_confirmation", "support_status", "module_id"],
       "properties": {
+        "selected_module_id": {"$ref": "#/$defs/module_id"},
+        "placement": {"$ref": "#/$defs/placement"},
         "source_element_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{1,63}$"},
         "type": {"type": "string", "enum": ["waistband", "belt", "sash", "pleat", "tuck", "gather", "ruffle", "flounce", "peplum", "yoke", "panel", "overlay", "drape", "pocket", "closure", "slit", "vent", "hood", "collar", "cuff", "strap", "dart", "princess_seam", "decorative_seam", "other"]},
         "variant": {"type": "string", "enum": ["standard", "straight", "shaped", "elastic", "tie", "knife", "box", "inverted", "accordion", "soft", "circular", "gathered", "patch", "slash", "welt", "zipper", "buttons", "hooks", "concealed", "single", "double", "shirt", "notched", "shawl", "stand", "other", "unknown"]},

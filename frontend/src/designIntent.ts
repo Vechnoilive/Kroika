@@ -1,4 +1,4 @@
-import {matchingModule} from './designModules';
+import {matchingModule, moduleIds} from './designModules';
 import {answerBackQuestions} from './backDesign';
 import type {
   DesignElementType,
@@ -212,6 +212,10 @@ export function reevaluateDesignIntent(
       : {...intent.proportions, support_status: 'needs_confirmation', module_id: null},
     question_answers: alignedAnswers(intent),
   };
+  if (intent.proportions.confirmed_by_user === true) {
+    const support = proportionsSupport(intent.proportions, {...spec, design_intent: next});
+    next.proportions = {...next.proportions, support_status: support.status, module_id: support.moduleId};
+  }
   return {...next, status: deriveStatus(next)};
 }
 
@@ -227,6 +231,14 @@ export function finalizeDesignIntent(
   const activeModules = new Set(
     includedElements.map((item) => item.module_id).filter((item): item is string => item !== null),
   );
+  if (['diagonal_bodice_drape_v2', 'crossed_bodice_drape_v1'].some((id) => activeModules.has(id))
+      && includedElements.some((item) => item.location === 'bodice_front' && ['integrated_bodice_drape_v2', 'integrated_bodice_gather_v2'].includes(item.module_id ?? ''))) {
+    throw new Error('Параллельные раскрытия переда пока нельзя совмещать с драпировкой полного переда. Выберите одну конструкцию переда; раскрытия спинки допустимы.');
+  }
+  if (['paired_straight_skirt_yoke_v1', 'paired_equal_skirt_panels_v1'].some((id) => activeModules.has(id))
+      && [...moduleIds('fullness')].some((id) => activeModules.has(id))) {
+    throw new Error('Новые распределённые операции и отделка пока требуют юбку без кокетки и панелей.');
+  }
   if (includedElements.filter((item) => ['center_pleat_v1', 'waist_gather_allowance_v1',
     'center_stitched_tuck_v1'].includes(item.module_id ?? '')).length > 1) {
     throw new Error('Для центра переда юбки выберите одну добавку ширины: складку, сборку или защип.');

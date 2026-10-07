@@ -12,6 +12,7 @@ from .design_modules import (
     STAGE21_TOPOLOGY_MODULES, FIXED_ELEMENT_MODULES, FIXED_LAYER_MODULES,
     module_matches,
     DETAIL_ELEMENT_MODULES, DETAIL_LAYER_MODULES, ADVANCED_ELEMENT_MODULES,
+    FULLNESS_MODULES,
 )
 
 
@@ -223,7 +224,9 @@ def _validate_design_intent(
                      'Включённая деталь не может иметь статус excluded.')
             dimensions = item.get('dimensions_mm') if group == 'elements' else None
             module_id = item.get('module_id')
-            if module_id in DETAIL_ELEMENT_MODULES | DETAIL_LAYER_MODULES | ADVANCED_ELEMENT_MODULES:
+            if group == 'elements' and item.get('selected_module_id') is not None and item['support_status'] == 'supported' and item['selected_module_id'] != module_id:
+                _add(issues, 'DESIGN_SELECTED_MODULE_MISMATCH', pointer, 'Выбранную конструкцию нельзя подменять другим модулем.')
+            if module_id in DETAIL_ELEMENT_MODULES | DETAIL_LAYER_MODULES | ADVANCED_ELEMENT_MODULES | FULLNESS_MODULES:
                 if item['support_status'] != 'supported' or not module_matches(
                     module_id, item, spec, kind='element' if group == 'elements' else 'layer',
                 ):
@@ -325,6 +328,12 @@ def _validate_design_intent(
     skirt_topology = topology_modules & {
         'paired_straight_skirt_yoke_v1', 'paired_equal_skirt_panels_v1',
     }
+    full_front = any(item.get('module_id') in {'diagonal_bodice_drape_v2', 'crossed_bodice_drape_v1'} for item in active)
+    if full_front and any(item.get('module_id') in {'integrated_bodice_drape_v2', 'integrated_bodice_gather_v2'} and item.get('location') == 'bodice_front' for item in active):
+        _add(issues, 'DESIGN_FULLNESS_UNFOLD_CONFLICT', '/garment_spec/design_intent', 'Параллельные раскрытия переда пока нельзя совмещать с драпировкой полного переда. Выберите одну конструкцию переда; раскрытия спинки допустимы.')
+    if skirt_topology and any(item.get('module_id') in FULLNESS_MODULES for item in active):
+        _add(issues, 'DESIGN_TOPOLOGY_PIPELINE_CONFLICT', '/garment_spec/design_intent',
+             'Новые распределённые операции и отделка пока требуют юбку без кокетки и панелей.')
     if len(skirt_topology) > 1:
         _add(
             issues, 'DESIGN_TOPOLOGY_TARGET_CONFLICT',

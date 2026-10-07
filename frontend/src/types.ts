@@ -165,6 +165,13 @@ export interface GarmentDesignIntent {
       depth: number | null;
       spacing: number | null;
     };
+    selected_module_id?: string | null;
+  placement?: {
+      side?: 'both' | 'right' | 'left';
+      edge?: 'hem' | 'neckline' | 'waist' | 'shoulder';
+      offset_mm?: number;
+      sweep_angle_deg?: number;
+    };
     support_status: 'supported' | 'planned' | 'needs_confirmation' | 'excluded';
     module_id: string | null;
   }>;

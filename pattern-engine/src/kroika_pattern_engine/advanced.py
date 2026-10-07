@@ -6,6 +6,8 @@ fullness is added to separate draped panels, never guessed from an image.
 
 from __future__ import annotations
 
+from kroika_contracts.design_modules import FULLNESS_MODULES
+
 from copy import deepcopy
 from dataclasses import replace
 import math
@@ -112,12 +114,15 @@ def apply_silhouette(pattern: Mapping[str, Any], request: Mapping[str, Any]) -> 
             _open_shoulders(result, item)
     prop = (request["garment_spec"].get("design_intent") or {}).get("proportions") or {}
     if prop.get("module_id") == "parametric_visual_proportions_v1":
-        if prop["hem_shape"] != "straight":
+        if prop["hem_shape"] not in {"straight", "tiered"}:
             _shape_hem(result, prop)
         if (
             prop["asymmetry"] == "yes"
             and prop["hem_shape"] != "asymmetric"
             and "vertical_cascade_flounce_v1" not in modules
+            and not any(item.get('included') is not False and item.get('support_status') == 'supported'
+                        and item.get('symmetry') == 'asymmetric' and item.get('module_id') in FULLNESS_MODULES
+                        for item in (request['garment_spec'].get('design_intent') or {}).get('elements', []))
         ):
             raise _error(
                 "Асимметрия требует каскадного волана или разновысокого низа.",

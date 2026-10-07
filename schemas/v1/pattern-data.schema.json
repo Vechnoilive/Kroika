@@ -186,9 +186,9 @@
       "properties": {
         "operation_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
         "source_element_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
-        "kind": {"type": "string", "enum": ["pleat", "gather", "flounce", "waistband", "belt", "hem_adjustment", "tuck", "decorative_seam"]},
+        "kind": {"type": "string", "enum": ["pleat", "gather", "flounce", "waistband", "belt", "hem_adjustment", "tuck", "decorative_seam", "drape"]},
         "module_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
-        "formula_id": {"type": "string", "pattern": "^M18-[A-Z][0-9]{2}$"},
+        "formula_id": {"type": "string", "pattern": "^(M18|F02)-[A-Z][0-9]{2}$"},
         "target_piece_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}},
         "parameters_mm": {"type": "object", "additionalProperties": {"type": "number"}},
         "invariant_residual_mm": {"type": "number", "minimum": 0}
@@ -204,7 +204,7 @@
         "source_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
         "kind": {"type": "string", "enum": ["cuff", "collar", "patch_pocket", "lining", "overlay", "sash", "tie", "ruffle", "flounce", "peplum", "interfacing", "drape", "off_shoulder", "cascade", "proportions", "closure"]},
         "module_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
-        "formula_id": {"type": "string", "pattern": "^(M19|D02|A03)-[A-Z][0-9]{2}$"},
+        "formula_id": {"type": "string", "pattern": "^(M19|D02|A03|F02)-[A-Z][0-9]{2}$"},
         "target_piece_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}},
         "added_piece_ids": {"type": "array", "minItems": 0, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}},
         "interface_ids": {"type": "array", "minItems": 0, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}},

@@ -9,6 +9,7 @@ from .design_modules import (
     STAGE18_MODELING_MODULES, STAGE19_ELEMENT_MODULES, STAGE19_LAYER_MODULES,
     STAGE21_TOPOLOGY_MODULES,
     DETAIL_ELEMENT_MODULES, DETAIL_LAYER_MODULES, ADVANCED_ELEMENT_MODULES,
+    FULLNESS_MODULES,
 )
 
 
@@ -172,6 +173,14 @@ def canonical_generation_payload(request: Mapping[str, Any]) -> dict[str, Any]:
     composite_layers = _composite_layers(garment)
     coverage_contract = _coverage_contract(garment)
     details = _detail_inputs(garment)
+    fullness = [{key: element.get(key) for key in (
+        'source_element_id', 'type', 'variant', 'location', 'construction', 'count',
+        'symmetry', 'dimensions_mm', 'placement', 'module_id',
+    )} for element in (garment.get('design_intent') or {}).get('elements', [])
+        if element.get('included') is not False and element.get('support_status') == 'supported'
+        and element.get('module_id') in FULLNESS_MODULES]
+    if fullness:
+        garment_payload['fullness_elements'] = sorted(fullness, key=lambda item: (item['module_id'], item['source_element_id']))
     if details:
         garment_payload['details'] = details
     proportions = (garment.get('design_intent') or {}).get('proportions') or {}
@@ -193,7 +202,7 @@ def canonical_generation_payload(request: Mapping[str, Any]) -> dict[str, Any]:
     has_composites = bool(composite_elements or composite_layers)
     return {
         'hash_contract_version': (
-            '1.7.0' if garment['parameters'].get('closure', {}).get('location') == 'center_back' and (
+            '1.8.0' if fullness else '1.7.0' if garment['parameters'].get('closure', {}).get('location') == 'center_back' and (
                 garment['parameters']['closure']['type'] in {'buttons', 'lacing'})
             else '1.6.0' if advanced_proportions or any(
                 item['module_id'] in ADVANCED_ELEMENT_MODULES for item in details.get('elements', []))

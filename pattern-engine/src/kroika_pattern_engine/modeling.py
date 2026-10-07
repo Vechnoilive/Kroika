@@ -400,7 +400,7 @@ def validate_modeling_placements(pattern: Mapping[str, Any]) -> None:
     """Keep modeled marks anchored after later operations, manual edits and before export."""
     for operation in pattern.get("modeling_operations", []):
         kind = operation["kind"]
-        if kind not in {"tuck", "decorative_seam"}:
+        if operation['module_id'] not in {'center_stitched_tuck_v1', 'paired_straight_decorative_stitch_v1'}:
             continue
         source = operation["source_element_id"]
         piece = _piece(pattern, operation["target_piece_ids"][0], source)
