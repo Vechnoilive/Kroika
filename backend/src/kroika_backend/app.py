@@ -553,6 +553,19 @@ def create_app(
         validate_ai_analysis(result)
         return result
 
+    @app.post('/api/v1/patterns/preview', tags=['patterns'])
+    def preview_pattern(request_document: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        # Read-only calculation: does not save or activate a generation/revision.
+        validate_engine_request(request_document)
+        result = pattern_engine.generate(request_document)
+        pattern = result['pattern']
+        return {
+            'input_hash': result['input_hash'], 'engine_version': result['engine_version'],
+            'status': result['status'], 'issues': result['validation_report']['issues'],
+            'svg': render_pattern_svg(pattern, visible_layers={'seam', 'internal', 'fold', 'notches', 'labels'}) if pattern else None,
+            'piece_count': len(pattern['pieces']) if pattern else 0,
+        }
+
     @app.post("/api/v1/patterns/generate", tags=["patterns"])
     def generate_pattern(
         request_document: dict[str, Any] = Body(...),

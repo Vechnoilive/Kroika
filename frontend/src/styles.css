@@ -718,3 +718,9 @@ footer { min-height: 56px; display: flex; align-items: center; justify-content: 
 .placement-guide dd { margin: 3px 0 0 30px; font-weight: 600; }
 .placement-guide__caption, .placement-guide__order { margin-bottom: 0; font-size: .85rem; color: #475569; }
 @media (max-width: 580px) { .placement-guide__layout { grid-template-columns: 1fr; gap: 0; } }
+
+.construction-preview { border: 1px solid #cbd5e1; border-radius: 14px; padding: 16px; margin: 16px 0; background: #f8fafc; }
+.construction-preview h3 { margin-top: 0; }
+.construction-preview__image { display: block; width: 100%; max-height: 760px; object-fit: contain; margin-top: 16px; background: #fff; border: 1px solid #cbd5e1; }
+
+.construction-preview__viewport { max-height: 680px; overflow: auto; margin-top: 12px; }

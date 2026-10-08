@@ -278,11 +278,12 @@ def apply_detail_transformations(
                 f"Кушак: сложить вдоль; готовая ширина {width:g} мм. Завязать на талии."
             )
             result["pieces"].append(piece)
-            targets = [
-                p["id"]
-                for p in result["pieces"]
-                if p["id"] in {"front_skirt", "front_bodice", "front_trouser"}
-            ][:1]
+            from .attachments import descendants
+            targets = next(([p['id'] for p in descendants(result, root)]
+                            for root in ('front_skirt', 'front_bodice', 'front_trouser')
+                            if descendants(result, root)), [])
+            if not targets:
+                raise _error('Не найдена основа для кушака.', source, 'DETAIL_TARGET_MISSING')
             added, interfaces = [pid], [fold["id"]]
         elif module in {"placed_patch_pocket_v1", "rectangular_applied_panel_v1"}:
             kind = "patch_pocket" if module == "placed_patch_pocket_v1" else "overlay"

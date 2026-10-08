@@ -59,6 +59,9 @@ def apply_topology_transformations(
         ),
     )
 
+    grid = any(e['module_id'] == 'paired_straight_skirt_yoke_v1' for e in active) and any(e['module_id'] == 'paired_equal_skirt_panels_v1' for e in active)
+    if grid:
+        active.sort(key=lambda e: (0 if e['module_id'] == 'front_waist_to_side_dart_v1' else 1 if e['module_id'] == 'paired_equal_skirt_panels_v1' else 2))
     skirt_topology_seen = False
     for element in active:
         module_id = str(element["module_id"])
@@ -73,6 +76,29 @@ def apply_topology_transformations(
             ))
             continue
 
+        if grid and module_id == 'paired_straight_skirt_yoke_v1':
+            from .structural import cut_partition
+            from .placements import placement_frame
+            depth = _required_dimension(dimensions, 'depth', source_id)
+            target_ids = []
+            for root, location in [('front_skirt', 'skirt_front'), ('back_skirt', 'skirt_back')]:
+                _, box = placement_frame(result, root, source_id)
+                if depth >= box.height_mm - 80:
+                    raise _topology_error('TOPOLOGY_YOKE_REMAINDER_TOO_SHORT', 'Под кокеткой должно остаться минимум 80 мм основной детали.', source_id)
+                y = box.max_y_mm - depth
+                copied = {**element, 'location': location, 'source_element_id': source_id + '_' + root}
+                cut_partition(result, copied, LineSegment(Point(0, y), Point(box.max_x_mm, y)), 'yoke', root=root)
+                for op in result['composite_operations']:
+                    if op['source_id'] == copied['source_element_id']:
+                        op['source_id'] = source_id
+                from .attachments import descendants
+                target_ids += [p['id'] for p in descendants(result, root)]
+            operations.append(_operation(source_id, 'yoke', module_id, 'M21-Y01', target_ids, {'depth': depth}, _pair_residual(result)))
+            # The panel operation also refers to every final cell.
+            for op in operations:
+                if op['module_id'] == 'paired_equal_skirt_panels_v1':
+                    op['target_piece_ids'] = target_ids
+            continue
         if skirt_topology_seen:
             raise _topology_error(
                 "TOPOLOGY_SKIRT_TARGET_CONFLICT",
@@ -910,9 +936,10 @@ def _piece(pattern: Mapping[str, Any], piece_id: str, source_id: str) -> dict[st
 
 
 def _segment_length(piece: Mapping[str, Any], segment_id: str) -> float:
-    contour = contour_from_data(piece["seam_contour"])
+    segments = [e for path in [piece['seam_contour'], *piece['internal_paths']]
+                for e in contour_from_data(path).segments]
     try:
-        return next(segment.length_mm for segment in contour.segments if segment.id == segment_id)
+        return next(segment.length_mm for segment in segments if segment.id == segment_id)
     except StopIteration as error:
         raise BlockConstructionError(
             "TOPOLOGY_TARGET_SEGMENT_MISSING",

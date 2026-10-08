@@ -204,6 +204,10 @@ export const api = {
       `/api/v1/measurement-profiles/${encodeURIComponent(profile.profile_id)}`,
       {method: 'PUT', headers: {'If-Match': String(revision)}, body: JSON.stringify(profile)},
     ),
+  previewPattern: async (project: ProjectDocument, signal?: AbortSignal) =>
+    request<{input_hash: string; engine_version: string; status: string; issues: Array<{code: string; message_ru: string; severity: string; json_pointer: string}>; svg: string | null; piece_count: number}>('/api/v1/patterns/preview', {
+      method: 'POST', signal, body: JSON.stringify(await buildEngineRequest(project)),
+    }),
   generatePattern: async (project: ProjectDocument) =>
     request<PatternEngineResult>('/api/v1/patterns/generate', {
       method: 'POST',

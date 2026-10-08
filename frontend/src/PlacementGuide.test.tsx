@@ -29,14 +29,14 @@ describe('placement references before generation', () => {
       return <DesignIntentEditor intent={state} spec={spec} analysis={analysis} busy={false} onChange={setState} onSave={vi.fn()} />;
     }
     render(<Harness />);
-    const guide = screen.getByRole('figure');
+    const guide = screen.getByRole('img', {name: 'Направления размеров: карман'}).closest('figure')!;
     expect(within(guide).getByRole('img')).toHaveAccessibleDescription(/Ширина кармана: 8 см/);
     expect(within(guide).getByText(/Сначала стачайте швы членения/)).toBeInTheDocument();
     expect(within(guide).getByText(/без масштаба/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Ширина детали 1, см'), {target: {value: '9.5'}});
     expect(within(guide).getByRole('img')).toHaveAccessibleDescription(/Ширина кармана: 9,5 см/);
     fireEvent.click(screen.getAllByLabelText('Эта деталь действительно есть на изделии', {selector: 'input'})[0]);
-    expect(screen.queryByRole('figure')).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', {name: 'Направления размеров: карман'})).not.toBeInTheDocument();
   });
   it('distinguishes the bottom-based legacy reference from the top-based welt reference', () => {
     const pocket = {...item('placed_patch_pocket_v1'), placement: undefined};

@@ -39,7 +39,7 @@ async function save(onSave: ReturnType<typeof vi.fn>) {
 }
 
 describe('structural modules stage 3', () => {
-  it('does not offer collar replacement recipes forbidden by the shirt foundation', () => {
+  it('offers neck replacements supported by the shirt foundation', () => {
     const {spec, intent} = fixture();
     spec.garment_type = 'shirt';
     spec.parameters.sleeve.type = 'long';
@@ -47,7 +47,7 @@ describe('structural modules stage 3', () => {
     const catalog = screen.getByLabelText('Добавить деталь из каталога') as HTMLSelectElement;
     const ids = Array.from(catalog.options).map((option) => option.value);
     for (const id of ['fitted_two_piece_hood_v3', 'shaped_flat_collar_v3', 'shawl_collar_v3']) {
-      expect(ids).not.toContain(id);
+      expect(ids).toContain(id);
     }
     expect(ids).toContain('shaped_cuff_v3');
   });

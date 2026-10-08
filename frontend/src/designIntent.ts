@@ -231,16 +231,9 @@ export function finalizeDesignIntent(
   const includedElements = evaluated.elements.filter((item) => item.included !== false);
   const structuralErrors = structuralConflicts({...spec, design_intent: evaluated});
   if (structuralErrors.length) throw new Error(structuralErrors[0]);
-  const activeModules = new Set(
-    includedElements.map((item) => item.module_id).filter((item): item is string => item !== null),
-  );
   if (includedElements.filter((item) => ['center_pleat_v1', 'waist_gather_allowance_v1',
     'center_stitched_tuck_v1'].includes(item.module_id ?? '')).length > 1) {
     throw new Error('Для центра переда юбки выберите одну добавку ширины: складку, сборку или защип.');
-  }
-  if (activeModules.has('paired_straight_skirt_yoke_v1')
-      && activeModules.has('paired_equal_skirt_panels_v1')) {
-    throw new Error('Для одной юбки выберите либо кокетку, либо панельное членение.');
   }
   if (includedLayers.filter((item) => item.role === 'main').length !== 1) {
     throw new Error('Оставьте ровно один основной слой изделия.');

@@ -242,20 +242,19 @@ def structural_conflicts(spec: Mapping[str, Any]) -> list[str]:
     ids = [i.get('module_id') for i in active]
     messages = []
     groups = [set(group) for group in REGISTRY['combinations']['exclusive_groups']]
-    if any(sum(id in group for id in ids) > 1 and any(id in STRUCTURAL_MODULES for id in ids if id in group) for group in groups):
+    if any(sum(id in group for id in ids) > 1 for group in groups):
         messages.append('На один срез назначены две альтернативные конструктивные детали. Выберите одну конструкцию этого участка.')
-    cuts = {'front_bodice_yoke_v3', 'back_bodice_yoke_v3', 'offset_skirt_panel_v3', 'shoulder_princess_seam_v3', 'side_to_waist_dart_v3'}
+    # Dart relocation is a preparation operation; two competing relocations still conflict.
     for item in active:
-        if item.get('module_id') not in cuts:
-            continue
-        if any(other is not item and other.get('location') == item.get('location') and (other.get('module_id') in cuts | STAGE21_TOPOLOGY_MODULES) for other in active):
-            messages.append('Два членения одного участка требуют разных непересекающихся линий. Выберите одно членение участка.')
+        if item.get('module_id') == 'side_to_waist_dart_v3' and any(
+            other is not item and other.get('location') == item.get('location')
+            and other.get('module_id') == 'front_waist_to_side_dart_v1' for other in active
+        ):
+            messages.append('Для одной вытачки выберите одно направление переноса.')
     if any(id in ids for id in {'fitted_two_piece_hood_v3', 'shaped_flat_collar_v3', 'shawl_collar_v3'}) and any(id in ids for id in {'straight_shoulder_straps_v3', 'off_shoulder_bands_v1'}):
         messages.append('Воротник и капюшон требуют горловину с плечами; открытый верх под бретели использует другую конструкцию.')
     if 'straight_shoulder_straps_v3' in ids and any(id in ids for id in {'integrated_bodice_drape_v2', 'integrated_bodice_gather_v2'}):
         messages.append('Раскрытия до горловины и срезанный верх под бретели используют разные верхние срезы. Выберите раскрытие ниже верха или отдельную драпировку.')
-    if spec['garment_type'] == 'shirt' and any(id in ids for id in {'fitted_two_piece_hood_v3', 'shaped_flat_collar_v3', 'shawl_collar_v3'}):
-        messages.append('Рубашечная основа уже включает стойку и воротник; замена её воротника требует отдельного сопряжения.')
     layers = [layer for layer in intent.get('layers', []) if layer.get('included') is not False and layer.get('support_status') == 'supported' and layer.get('role') != 'main']
     for index, layer in enumerate(layers):
         scope = layer['coverage']

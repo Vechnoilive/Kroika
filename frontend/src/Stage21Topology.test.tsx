@@ -68,8 +68,7 @@ describe('stage 21 topology capability mapping', () => {
       source_element_id: 'panels', type: 'panel', location: 'full_garment', count: 3,
       dimensions_mm: {...emptyDimensions},
     }));
-    expect(() => finalizeDesignIntent(conflict, project.garment_spec, analysis))
-      .toThrow('выберите либо кокетку, либо панельное членение');
+    expect(finalizeDesignIntent(conflict, project.garment_spec, analysis).status).toBe('ready');
   });
 
   it('keeps unsupported variants closed and hashes topology as contract 1.4', () => {

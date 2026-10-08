@@ -4,6 +4,7 @@ import {AutosaveIndicator} from './AutosaveIndicator';
 import {loadLocalDraft, useDraftAutosave} from './autosave';
 import {configureGarment, easeForGarment, GARMENT_OPTIONS, methodForGarment, presetForGarment} from './garments';
 import {DesignIntentEditor} from './DesignIntentEditor';
+import {ConstructionPreview} from './ConstructionPreview';
 import {BACK_GARMENTS, answerBackQuestions, isBackQuestion} from './backDesign';
 import {buildDesignIntent, prepareDesignIntentForReview, reevaluateDesignIntent} from './designIntent';
 import type {
@@ -361,6 +362,8 @@ export function StyleEditor({
         onChange={(designIntent) => updateSpec({...spec, selection_status: 'proposed', confirmed_at: null, design_intent: designIntent})}
         onSave={saveDesignReview}
       />}
+
+      <ConstructionPreview project={{...project, garment_spec: spec}} analysis={analysis} />
 
       <div className="notice notice--warning">
         <strong>{selectedAcceptance?.name_ru ?? GARMENT_OPTIONS.find((item) => item.id === spec.garment_type)?.name}: пробный статус</strong>

@@ -312,11 +312,6 @@ def _validate_design_intent(
     for message in structural_conflicts(spec):
         _add(issues, 'DESIGN_STRUCTURAL_TARGET_CONFLICT', '/garment_spec/design_intent', message)
 
-    topology_modules = {
-        item.get('module_id')
-        for item in active
-        if item.get('module_id') in STAGE21_TOPOLOGY_MODULES
-    }
     topology_module_list = [
         item.get('module_id')
         for item in active
@@ -327,15 +322,6 @@ def _validate_design_intent(
             issues, 'DESIGN_TOPOLOGY_TARGET_CONFLICT',
             '/garment_spec/design_intent/elements',
             'Одну топологическую операцию нельзя назначить одному участку дважды.',
-        )
-    skirt_topology = topology_modules & {
-        'paired_straight_skirt_yoke_v1', 'paired_equal_skirt_panels_v1',
-    }
-    if len(skirt_topology) > 1:
-        _add(
-            issues, 'DESIGN_TOPOLOGY_TARGET_CONFLICT',
-            '/garment_spec/design_intent/elements',
-            'Для одной юбки выберите либо кокетку, либо панельное членение.',
         )
     if sum(item.get('module_id') in {
         'center_pleat_v1', 'waist_gather_allowance_v1', 'center_stitched_tuck_v1',

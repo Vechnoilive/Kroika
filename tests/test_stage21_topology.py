@@ -255,11 +255,9 @@ def test_topology_contract_rejects_mismatches_and_pipeline_conflicts() -> None:
 
     request["garment_spec"]["design_intent"] = _intent(_yoke(), _panels())
     request["input_hash"] = compute_input_hash(request)
-    with pytest.raises(SemanticContractError) as conflict:
-        validate_engine_request(request)
-    assert "DESIGN_TOPOLOGY_TARGET_CONFLICT" in {
-        issue.code for issue in conflict.value.issues
-    }
+    validate_engine_request(request)
+    result = GeometryPatternEngine().generate(request)
+    assert result['pattern'] is not None, result['validation_report']['issues']
 
 
 def test_stage21_local_launcher_and_ci_use_only_the_current_gate() -> None:

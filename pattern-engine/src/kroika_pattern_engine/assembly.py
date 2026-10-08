@@ -907,6 +907,11 @@ def _assemble_upper(request: Mapping[str, Any], blocks: BaseBlockSet) -> Garment
     back_waist = _segment(blocks.back_bodice, "back_waist").end.x_mm
     front_hem = front_waist + (blocks.formula_values["skirt_front_hip"] - front_waist) * ratio
     back_hem = back_waist + (blocks.formula_values["skirt_back_hip"] - back_waist) * ratio
+    replacement_neck = any(
+        e.get('included') is not False and e.get('support_status') == 'supported'
+        and e.get('module_id') in {'stand_collar_v1', 'shaped_flat_collar_v3', 'shawl_collar_v3', 'fitted_two_piece_hood_v3'}
+        for e in (spec.get('design_intent') or {}).get('elements', [])
+    )
     front_opening = garment_type in {"shirt", "vest"}
     back_on_fold = front_opening
     front = _extend_bodice(
@@ -953,7 +958,7 @@ def _assemble_upper(request: Mapping[str, Any], blocks: BaseBlockSet) -> Garment
         )
         pieces.extend((front_facing, back_facing))
 
-    if garment_type == "shirt":
+    if garment_type == "shirt" and not replacement_neck:
         front_neck = _length(front, ("front_neckline",))
         back_neck = _length(back, ("back_neckline",))
         band = _collar_band(front_neck, back_neck)
@@ -1022,7 +1027,7 @@ def _assemble_upper(request: Mapping[str, Any], blocks: BaseBlockSet) -> Garment
         )
     if sleeved and (spec["parameters"]["sleeve"]["type"] == "short" or garment_type == "top"):
         _append_pair(pairs, by_id, "sleeve_underarm_join", "base_sleeve", ("sleeve_front_seam",), "base_sleeve", ("sleeve_back_seam",))
-    if garment_type == "shirt":
+    if garment_type == "shirt" and not replacement_neck:
         _append_pair(
             pairs, by_id, "front_collar_band_join", "front_bodice", ("front_neckline",),
             "collar_band", ("collar_band_front_neckline",),

@@ -235,15 +235,13 @@ export function structuralConflicts(spec: GarmentSpec): string[] {
   const ids = active.map((i) => i.module_id ?? '');
   const messages: string[] = [];
   const groups = registry.combinations.exclusive_groups;
-  if (groups.some((group) => ids.filter((id) => group.includes(id)).length > 1 && ids.some((id) => group.includes(id) && moduleIds('structural').has(id)))) messages.push('На один срез назначены две альтернативные конструктивные детали. Выберите одну конструкцию этого участка.');
-  const cuts = ['front_bodice_yoke_v3', 'back_bodice_yoke_v3', 'offset_skirt_panel_v3', 'shoulder_princess_seam_v3', 'side_to_waist_dart_v3'];
-  for (const item of active.filter((i) => cuts.includes(i.module_id ?? ''))) {
-    if (active.some((other) => other !== item && other.location === item.location && [...cuts, ...moduleIds('topology')].includes(other.module_id ?? ''))) messages.push('Два членения одного участка требуют разных непересекающихся линий. Выберите одно членение участка.');
+  if (groups.some((group) => ids.filter((id) => group.includes(id)).length > 1)) messages.push('На один срез назначены две альтернативные конструктивные детали. Выберите одну конструкцию этого участка.');
+  for (const item of active.filter((i) => i.module_id === 'side_to_waist_dart_v3')) {
+    if (active.some((other) => other !== item && other.location === item.location && other.module_id === 'front_waist_to_side_dart_v1')) messages.push('Для одной вытачки выберите одно направление переноса.');
   }
   const neck = ['fitted_two_piece_hood_v3', 'shaped_flat_collar_v3', 'shawl_collar_v3'];
   if (ids.some((id) => neck.includes(id)) && ids.some((id) => ['straight_shoulder_straps_v3', 'off_shoulder_bands_v1'].includes(id))) messages.push('Воротник и капюшон требуют горловину с плечами; открытый верх под бретели использует другую конструкцию.');
   if (ids.includes('straight_shoulder_straps_v3') && ids.some((id) => ['integrated_bodice_drape_v2', 'integrated_bodice_gather_v2'].includes(id))) messages.push('Раскрытия до горловины и срезанный верх под бретели используют разные верхние срезы. Выберите раскрытие ниже верха или отдельную драпировку.');
-  if (spec.garment_type === 'shirt' && ids.some((id) => neck.includes(id))) messages.push('Рубашечная основа уже включает стойку и воротник; замена её воротника требует отдельного сопряжения.');
   const layers = (intent?.layers ?? []).filter((layer) => layer.included !== false && layer.support_status === 'supported' && layer.role !== 'main');
   layers.forEach((layer, index) => {
     if (spec.garment_type === 'jacket' && layer.role === 'lining' && ['full', 'bodice', 'sleeves'].includes(layer.coverage) && moduleIds('foundation_layer').has(layer.module_id ?? '')) messages.push('Полная подкладка жакета уже включена в основу. Не добавляйте второй слой подкладки на те же детали.');

@@ -1,5 +1,6 @@
 import {useState} from 'react';
 import {PlacementGuide} from './PlacementGuide';
+import {RecipeGuide} from './RecipeGuide';
 import {DESIGN_ELEMENT_NAMES, finalizeDesignIntent, reevaluateDesignIntent} from './designIntent';
 import {DESIGN_VARIANT_NAMES, DESIGN_LOCATION_NAMES, applicableRule, DESIGN_MODULES, matchingModule, moduleDiagnosis, type DesignModule} from './designModules';
 import {isBackQuestion} from './backDesign';
@@ -266,6 +267,7 @@ export function DesignIntentEditor({
         <button type="button" disabled={!catalogModule || busy} onClick={addCatalogElement}>Добавить выбранную деталь</button>
       </div>
 
+      {spec.garment_type === 'shirt' && <p className="field-hint">Конструкция горловины рубашки: выберите «Воротник основы» для штатной стойки и отлёта. Выбранная отдельная стойка, плоский или шалевый воротник либо капюшон заменят их; планка застёжки сохраняется.</p>}
       <div className="design-review-list">
         {intent.elements.map((item, index) => {
           const included = item.included !== false;
@@ -344,6 +346,7 @@ export function DesignIntentEditor({
                 {module.placement.outline_edge_index && <label><span>Номер ребра крепления</span><input aria-label={`Ребро крепления детали ${index + 1}`} type="number" min="1" max="24" value={(item.placement?.outline_edge_index ?? 0) + 1} onChange={(event) => updateElement(item.source_element_id, {placement: {...item.placement, outline_edge_index: Number(event.target.value) - 1}, confirmed_by_user: false})} /></label>}
                 {module.placement.sweep_angle_deg && <label><span>Угол сектора волана, °</span><input aria-label={`Угол сектора детали ${index + 1}`} type="number" min="90" max="270" value={item.placement?.sweep_angle_deg ?? 180} onChange={(event) => updateElement(item.source_element_id, {placement: {...item.placement, sweep_angle_deg: Number(event.target.value)}, confirmed_by_user: false})} /></label>}
               </fieldset>}
+              {included && <RecipeGuide item={item} module={module} />}
               {included && <PlacementGuide item={item} moduleId={module?.id} elements={intent.elements} />}
               {included && <label className="review-check review-check--confirm"><input type="checkbox" checked={item.confirmed_by_user === true} onChange={(event) => updateElement(item.source_element_id, {confirmed_by_user: event.target.checked})} /><span>Я проверил(а) эту деталь по фотографии</span></label>}
             </article>

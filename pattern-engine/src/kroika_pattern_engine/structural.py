@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import replace
+import re
 import math
 from typing import Any, Mapping
 
@@ -769,10 +770,50 @@ def apply_structural_details(pattern: Mapping[str, Any], request: Mapping[str, A
     return result
 
 
+def validate_partition_joins(pattern):
+    """Each physical internal cell boundary has exactly one continuous partner."""
+    protected = {key[:-14] for op in pattern.get('composite_operations', [])
+                 for key in op['parameters_mm'] if key.endswith('_cell_boundary')}
+    roots = ('front_bodice', 'back_bodice', 'front_skirt', 'back_skirt')
+    for root in roots:
+        pieces = descendants(pattern, root)
+        ids = {p['id'] for p in pieces}
+        for piece in pieces:
+            segments = {e.id: e for path in [piece['seam_contour'], *piece['internal_paths']]
+                        for e in contour_from_data(path).segments}
+            joins = [segments[sid] for pair in pattern['seam_pairs']
+                     if pair['first_piece_id'] in ids and pair['second_piece_id'] in ids
+                     and pair['first_piece_id'] != pair['second_piece_id']
+                     for side in ('first', 'second') if pair[side + '_piece_id'] == piece['id']
+                     for sid in pair[side + '_segment_ids'] if sid in segments]
+            for boundary in contour_from_data(piece['seam_contour']).segments:
+                if not isinstance(boundary, LineSegment) or not (boundary.id in protected or re.search(r'_panel_join_(?:left|right)', boundary.id)):
+                    continue
+                v = boundary.end-boundary.start
+                spans = []
+                for edge in joins:
+                    if not isinstance(edge, LineSegment):
+                        continue
+                    if max(abs((p-boundary.start).cross(v)) / v.length_mm for p in (edge.start, edge.end)) > .03:
+                        continue
+                    a, b = sorted((p-boundary.start).dot(v) / v.dot(v) for p in (edge.start, edge.end))
+                    a, b = max(0, a), min(1, b)
+                    if b-a > 1e-6:
+                        spans.append((a, b))
+                cursor = 0
+                for a, b in sorted(spans):
+                    if abs(a-cursor) > 1e-5:
+                        raise BlockConstructionError('STRUCTURAL_CELL_JOIN_COVERAGE', 'Внутренний шов членения имеет разрыв или несколько ответных участков.', f"/pattern/pieces/{piece['id']}/seam_contour/{boundary.id}")
+                    cursor = b
+                if abs(cursor-1) > 1e-5:
+                    raise BlockConstructionError('STRUCTURAL_CELL_JOIN_COVERAGE', 'У части внутреннего шва членения нет ответного участка.', f"/pattern/pieces/{piece['id']}/seam_contour/{boundary.id}")
+
+
 def validate_structural_placements(pattern):
     validate_placement_operations(pattern)
+    validate_partition_joins(pattern)
     for op in pattern.get("composite_operations", []):
-        if op["module_id"] not in STRUCTURAL_MODULES:
+        if op["module_id"] not in STRUCTURAL_MODULES and not op["parameters_mm"].get("partition_cut"):
             continue
         params = op["parameters_mm"]
         protected = {key[:-8] for key in params if key.endswith("_start_x")}
@@ -1132,6 +1173,23 @@ def _dart_reduction(piece, edges):
     return total
 
 
+def _join_chain(edges, source):
+    """Seam-pair IDs need not be stored in geometric traversal order."""
+    for seed in range(len(edges)):
+        for first in [edges[seed], edges[seed].reversed()]:
+            chain, remaining = [first], [edge for i, edge in enumerate(edges) if i != seed]
+            while remaining:
+                index = next((i for i, edge in enumerate(remaining)
+                              if min(chain[-1].end.distance_to(edge.start), chain[-1].end.distance_to(edge.end)) < .01), None)
+                if index is None:
+                    break
+                edge = remaining.pop(index)
+                chain.append(edge if chain[-1].end.distance_to(edge.start) < .01 else edge.reversed())
+            if not remaining:
+                return chain
+    raise _error('Участки исходного соединения не образуют непрерывную цепочку.', source, 'STRUCTURAL_JOIN_CHAIN_INVALID')
+
+
 def _split_source(pattern, target, parts, item, absorbed=0):
     """Preserve external edges, split existing joins and keep reductions at darts."""
     source = item["source_element_id"]
@@ -1139,6 +1197,23 @@ def _split_source(pattern, target, parts, item, absorbed=0):
     for piece, fragments in parts:
         for original, edge, offset in fragments:
             owners.setdefault(original, []).append((piece, edge, offset))
+    # Earlier cuts may bind to boundary subcurves stored as internal guides.
+    from .topology import _nearest_parameter, _partial_curve_length
+    for path in target['internal_paths']:
+        for original in contour_from_data(path).segments:
+            for piece, _ in parts:
+                for new_path in piece['internal_paths']:
+                    for edge in contour_from_data(new_path).segments:
+                        if edge.id == original.id or edge.id.startswith(original.id + '_' + source + '_'):
+                            if edge.id == original.id:
+                                t = 0
+                            elif isinstance(original, LineSegment):
+                                v = original.end-original.start
+                                t = max(0, min(1, (edge.start-original.start).dot(v) / v.dot(v)))
+                            else:
+                                t = _nearest_parameter(original, edge.start)
+                            offset = original.length_mm * t if isinstance(original, LineSegment) else _partial_curve_length(original, t)
+                            owners.setdefault(original.id, []).append((piece, edge, offset))
     for original in owners:
         owners[original].sort(key=lambda rec: rec[2])
     old_pairs = [
@@ -1171,8 +1246,9 @@ def _split_source(pattern, target, parts, item, absorbed=0):
             for path in [opposite["seam_contour"], *opposite["internal_paths"]]
             for e in contour_from_data(path).segments
         }
-        opp_edges = [all_opp[sid] for sid in pair[f"{other}_segment_ids"]]
-        original_edges = {e.id: e for e in contour_from_data(target["seam_contour"]).segments}
+        opp_edges = _join_chain([all_opp[sid] for sid in pair[f"{other}_segment_ids"]], source)
+        original_edges = {e.id: e for path in [target['seam_contour'], *target['internal_paths']]
+                          for e in contour_from_data(path).segments}
         own_chain = [original_edges[sid] for sid in pair[f"{side}_segment_ids"]]
         own_direction = own_chain[-1].end - own_chain[0].start
         opp_direction = opp_edges[-1].end - opp_edges[0].start
@@ -1253,13 +1329,43 @@ def _split_source(pattern, target, parts, item, absorbed=0):
             allocated_r += rr
         i = pattern["seam_pairs"].index(pair)
         pattern["seam_pairs"][i : i + 1] = newpairs
+        for key in ('composite_operations', 'topology_operations'):
+            for op in pattern.get(key, []):
+                if pair['id'] in op.get('interface_ids', []):
+                    op['interface_ids'] = [pid for old in op['interface_ids']
+                                           for pid in ([p['id'] for p in newpairs] if old == pair['id'] else [old])]
+        for piece in [opposite, *(p for p, _ in parts)]:
+            for notch in piece['notches']:
+                if notch.get('match_id') == pair['id']:
+                    candidates = [p for p in newpairs if piece['id'] in (p['first_piece_id'], p['second_piece_id'])]
+                    boundary = {e.id: e for path in [piece['seam_contour'], *piece['internal_paths']]
+                                for e in contour_from_data(path).segments}
+                    edge = boundary[notch['segment_id']]
+                    if isinstance(edge, LineSegment):
+                        point = edge.point_at(notch['distance_from_start_mm'] / edge.length_mm)
+                    else:
+                        from .topology import _parameter_at_length
+                        point = edge.point_at(_parameter_at_length(edge, notch['distance_from_start_mm']))
+                    matched = next((p for p in candidates if any(_point_on(boundary[sid], point)
+                                    for side in ('first', 'second') if p[f'{side}_piece_id'] == piece['id']
+                                    for sid in p[f'{side}_segment_ids'])), candidates[0])
+                    notch['match_id'] = matched['id']
     i = pattern["pieces"].index(target)
     pattern["pieces"][i : i + 1] = [p for p, _ in parts]
     # Existing operation references need to identify every resulting cut piece.
     for key in ("modeling_operations", "topology_operations", "composite_operations"):
         for op in pattern.get(key, []):
             params = op.get('parameters_mm', {})
+            paths = {path['id']: [new['id'] for piece, _ in parts for new in piece['internal_paths']
+                                 if new['id'] == path['id'] or new['id'].startswith(path['id'] + '_' + source + '_')]
+                     for path in target['internal_paths']}
+            if 'interface_ids' in op:
+                op['interface_ids'] = list(dict.fromkeys(pid for old in op['interface_ids']
+                                                        for pid in paths.get(old, [old])))
             for original, fragments in owners.items():
+                if params.pop(original + '_cell_boundary', None):
+                    for _, edge, _ in fragments:
+                        params[edge.id + '_cell_boundary'] = 1
                 if f'{original}_start_x' not in params:
                     continue
                 for end in ('start','end','control_1','control_2'):
@@ -1348,9 +1454,9 @@ def _make_part(target, contour, pid, name, source):
     return piece
 
 
-def _cut(pattern, item, line, kind, half_side=None):
+def _cut(pattern, item, line, kind, half_side=None, target=None):
     source = item["source_element_id"]
-    target = _find(pattern, _target_id(item["location"]))
+    target = target or _find(pattern, _target_id(item["location"]))
     contour = contour_from_data(target["seam_contour"])
     (ai, at, a), (bi, bt, b) = _boundary_hits(contour, line, source, half_side)
     _check_line(target, LineSegment(a, b), source, boundary=True)
@@ -1424,7 +1530,7 @@ def _cut(pattern, item, line, kind, half_side=None):
         [target["id"]],
         [p["id"] for p in (pa, pb) if p["id"] != target["id"]],
         [pair["id"]],
-        {"cut_length": a.distance_to(b)},
+        {"cut_length": a.distance_to(b), 'partition_cut': 1, f'{source}_cut_a_cell_boundary': 1, f'{source}_cut_b_cell_boundary': 1},
     )
 
 
@@ -1447,9 +1553,34 @@ def _carry_notches(target, parts):
                     break
 
 
+def cut_partition(pattern, item, line, kind, root=None, half_side=None):
+    """Apply one source-space line to all cells it crosses, including previous cuts."""
+    source = item['source_element_id']
+    root = root or _target_id(item['location'])
+    candidates = descendants(pattern, root)
+    direction = line.end - line.start
+    affected = []
+    for piece in candidates:
+        contour = contour_from_data(piece['seam_contour'])
+        points = [p for edge in contour.segments for _, p in curve_points(edge, 0.02)]
+        if half_side and not any(p.x_mm > 0.01 if half_side == 'right' else p.x_mm < -0.01 for p in points):
+            continue
+        signed = [(p-line.start).cross(direction) / direction.length_mm for p in points]
+        if min(signed) < -0.01 and max(signed) > 0.01:
+            affected.append(piece)
+    if not affected:
+        raise _error('Линия членения не пересекает внутреннюю область основы или совпадает с уже выполненным швом. Измените положение.',
+                     source, 'STRUCTURAL_CUT_NO_NEW_CELLS')
+    for index, piece in enumerate(affected):
+        logical = {**item, 'source_element_id': source if len(candidates) == 1 else f'{source}_cell_{index}'}
+        _cut(pattern, logical, line, kind, half_side, piece)
+        pattern['composite_operations'][-1]['source_id'] = source
+
+
 def prepare_structural_foundation(pattern, request):
     result = deepcopy(dict(pattern))
-    for item in _active(request):
+    ordered = sorted(_active(request), key=lambda e: (0 if e['module_id'] == 'side_to_waist_dart_v3' else 1 if e['module_id'] == 'shoulder_princess_seam_v3' else 2))
+    for item in ordered:
         d, module = item["dimensions_mm"], item["module_id"]
         if module not in FOUNDATION:
             continue
@@ -1461,36 +1592,24 @@ def prepare_structural_foundation(pattern, request):
             before = len(result.get("composite_operations", []))
             _open_shoulders(result, item)
             result["composite_operations"] = result.get("composite_operations", [])[:before]
-        elif module in {"front_bodice_yoke_v3", "back_bodice_yoke_v3"}:
-            target = _find(result, _target_id(item["location"]))
-            box = contour_from_data(target["seam_contour"]).bounding_box
-            y = box.max_y_mm - d["depth"]
-            delta = d.get("width") or 0
-            line = LineSegment(Point(0, y), Point(box.max_x_mm, y - delta))
-            try:
-                _boundary_hits(contour_from_data(target['seam_contour']), line, item['source_element_id'])
-            except BlockConstructionError as error:
-                if box.min_x_mm >= -1 or error.code != 'STRUCTURAL_CUT_INTERSECTIONS':
-                    raise
-                for side in ('right', 'left'):
-                    source = item['source_element_id']
-                    copied = {**item, 'source_element_id': source + '_' + side}
-                    cut_line = line if side == 'right' else LineSegment(Point(0,y), Point(box.min_x_mm,y-delta))
-                    _cut(result, copied, cut_line, 'yoke', side)
-                    result['composite_operations'][-1]['source_id'] = source
+        elif module in {"front_bodice_yoke_v3", "back_bodice_yoke_v3", "offset_skirt_panel_v3"}:
+            root = _target_id(item['location'])
+            _, box = placement_frame(result, root, item['source_element_id'])
+            if module == 'offset_skirt_panel_v3':
+                x = d['width']
+                line = LineSegment(Point(x, box.max_y_mm), Point(x + (d.get('depth') or 0), box.min_y_mm))
+                cut_partition(result, item, line, 'panel')
             else:
-                _cut(result, item, line, 'yoke')
-        elif module == "offset_skirt_panel_v3":
-            target = _find(result, _target_id(item["location"]))
-            box = contour_from_data(target["seam_contour"]).bounding_box
-            x = d["width"]
-            delta = d.get("depth") or 0
-            _cut(
-                result,
-                item,
-                LineSegment(Point(x, box.max_y_mm), Point(x + delta, box.min_y_mm)),
-                "panel",
-            )
+                y, delta = box.max_y_mm - d['depth'], d.get('width') or 0
+                if any(e.id.startswith('mirror_') for p in descendants(result, root) for e in contour_from_data(p['seam_contour']).segments):
+                    for side, end in [('right', box.max_x_mm), ('left', box.min_x_mm)]:
+                        copied = {**item, 'source_element_id': item['source_element_id'] + '_' + side}
+                        cut_partition(result, copied, LineSegment(Point(0, y), Point(end, y-delta)), 'yoke', half_side=side)
+                        for op in result['composite_operations']:
+                            if op['source_id'] == copied['source_element_id']:
+                                op['source_id'] = item['source_element_id']
+                else:
+                    cut_partition(result, item, LineSegment(Point(0, y), Point(box.max_x_mm, y-delta)), 'yoke')
         elif module == "shoulder_princess_seam_v3":
             _princess(result, item)
         elif module == "side_to_waist_dart_v3":
@@ -1502,8 +1621,11 @@ def _princess(pattern, item):
     source = item["source_element_id"]
     target = _find(pattern, _target_id(item["location"]))
     contour = contour_from_data(target["seam_contour"])
-    waist = next(e for e in contour.segments if e.id.endswith("_waist"))
-    shoulder = next(e for e in contour.segments if e.id.endswith("_shoulder"))
+    waist = next((e for e in contour.segments if e.id.endswith("_waist")), None)
+    extended = waist is None
+    if extended:
+        waist = next((e for e in contour.segments if e.id.endswith("_upper_hem")), None)
+    shoulder = next((e for e in contour.segments if e.id.endswith("_shoulder")), None)
     dart_path = next((p for p in target["internal_paths"] if "waist_dart" in p["id"]), None)
     if (
         dart_path is None
@@ -1524,13 +1646,15 @@ def _princess(pattern, item):
     si = contour.segments.index(shoulder)
     if wi != 0 or si < 2:
         raise _error("Исходный контур рельефа уже изменён другой операцией.", source)
-    left_waist = LineSegment(waist.start, a, f"{waist.id}_{source}_center")
-    right_waist = LineSegment(b, waist.end, f"{waist.id}_{source}_side")
+    lower = Point((a.x_mm+b.x_mm)/2, waist.start.y_mm) if extended else None
+    left_waist = LineSegment(waist.start, lower or a, f"{waist.id}_{source}_center")
+    right_waist = LineSegment(lower or b, waist.end, f"{waist.id}_{source}_side")
     shoulder_outer = replace(_subcurve(shoulder, 0, t), id=f"{shoulder.id}_{source}_side")
     shoulder_inner = replace(_subcurve(shoulder, t, 1), id=f"{shoulder.id}_{source}_center")
     # The two waist-dart legs become the lower part of the actual princess seam.
     centre_edges = [
         left_waist,
+        *([LineSegment(lower, a, f"{source}_center_extension")] if extended else []),
         LineSegment(a, apex, f"{source}_center_lower"),
         LineSegment(apex, upper, f"{source}_center_upper"),
         shoulder_inner,
@@ -1542,6 +1666,7 @@ def _princess(pattern, item):
         shoulder_outer,
         LineSegment(upper, apex, f"{source}_side_upper"),
         LineSegment(apex, b, f"{source}_side_lower"),
+        *([LineSegment(b, lower, f"{source}_side_extension")] if extended else []),
     ]
     cc = Contour(tuple(centre_edges), id=contour.id)
     sc = Contour(tuple(side_edges), id=f"{source}_side_seam")
@@ -1566,7 +1691,7 @@ def _princess(pattern, item):
         *[(e.id, e, 0.0) for e in contour.segments[si + 1 :]],
     ]
     sf = [
-        (waist.id, right_waist, waist.start.distance_to(b)),
+        (waist.id, right_waist, waist.start.distance_to(lower or b)),
         *[(e.id, e, 0.0) for e in contour.segments[1:si]],
         (shoulder.id, shoulder_outer, 0.0),
     ]
@@ -1581,9 +1706,9 @@ def _princess(pattern, item):
     pair = _seam_pair(
         f"{source}_princess_join",
         centre["id"],
-        [f"{source}_center_lower", f"{source}_center_upper"],
+        [*([f"{source}_center_extension"] if extended else []), f"{source}_center_lower", f"{source}_center_upper"],
         side["id"],
-        [f"{source}_side_lower", f"{source}_side_upper"],
+        [f"{source}_side_upper", f"{source}_side_lower", *([f"{source}_side_extension"] if extended else [])],
     )
     pattern["seam_pairs"].append(pair)
     _record(
@@ -1593,7 +1718,7 @@ def _princess(pattern, item):
         [centre["id"]],
         [side["id"]],
         [pair["id"]],
-        {"absorbed_intake": a.distance_to(b), "dart_leg_residual": residual},
+        {"absorbed_intake": a.distance_to(b), "dart_leg_residual": residual, **{f"{source}_{name}_cell_boundary": 1 for name in (*(["center_extension", "side_extension"] if extended else []), "center_lower", "center_upper", "side_lower", "side_upper")}},
     )
 
 

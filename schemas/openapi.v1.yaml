@@ -517,6 +517,36 @@ paths:
       responses:
         '204': {description: Профиль мерок удалён}
         '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/patterns/preview:
+    post:
+      operationId: previewPattern
+      summary: Рассчитать предварительный вид по меркам без сохранения генерации
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./v1/pattern-engine-request.schema.json
+      responses:
+        '200':
+          description: Рассчитанные линии и ошибки размещения; состояние проекта не изменено
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [input_hash, engine_version, status, issues, svg, piece_count]
+                properties:
+                  input_hash: {type: string}
+                  engine_version: {type: string}
+                  status: {type: string, enum: [succeeded, failed, rejected]}
+                  issues:
+                    type: array
+                    items: {$ref: ./v1/common.schema.json#/$defs/issue}
+                  svg: {type: [string, 'null']}
+                  piece_count: {type: integer, minimum: 0}
+        '422':
+          $ref: '#/components/responses/ContractError'
   /api/v1/patterns/generate:
     post:
       operationId: generatePattern

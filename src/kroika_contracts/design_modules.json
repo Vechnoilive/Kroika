@@ -1,5 +1,5 @@
 {
-  "registry_version": "1.9.0",
+  "registry_version": "2.0.0",
   "unit": "mm",
   "modules": [
     {
@@ -625,7 +625,8 @@
             "sundress",
             "top",
             "blouse",
-            "vest"
+            "vest",
+            "shirt"
           ],
           "type": [
             "collar"
@@ -655,6 +656,9 @@
           ]
         },
         "optional": {}
+      },
+      "parameter_labels_ru": {
+        "width": "Готовая высота стойки"
       }
     },
     {
@@ -3482,7 +3486,8 @@
             "sundress",
             "top",
             "blouse",
-            "vest"
+            "vest",
+            "shirt"
           ],
           "type": [
             "hood"
@@ -4045,7 +4050,8 @@
             "sundress",
             "top",
             "blouse",
-            "vest"
+            "vest",
+            "shirt"
           ],
           "type": [
             "collar"
@@ -4099,7 +4105,8 @@
             "sundress",
             "top",
             "blouse",
-            "vest"
+            "vest",
+            "shirt"
           ],
           "type": [
             "collar"
@@ -4446,6 +4453,10 @@
           ],
           "symmetry": [
             "symmetric"
+          ],
+          "bodice_fit": [
+            "fitted",
+            "semi_fitted"
           ]
         }
       ],
@@ -4783,7 +4794,8 @@
         "fitted_two_piece_hood_v3",
         "shaped_flat_collar_v3",
         "shawl_collar_v3",
-        "stand_collar_v1"
+        "stand_collar_v1",
+        "bounded_collar"
       ],
       [
         "doubled_cuff_v3",

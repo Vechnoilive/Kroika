@@ -122,13 +122,13 @@ def test_main_material_evidence_includes_the_actual_bodice_cut_fragments():
 
 
 @pytest.mark.parametrize('module', ['fitted_two_piece_hood_v3', 'shaped_flat_collar_v3', 'shawl_collar_v3'])
-def test_catalogue_does_not_offer_recipes_that_cannot_replace_a_shirt_collar(module):
+def test_catalogue_offers_supported_shirt_neck_replacements(module):
     r = make_request(module)
     r['garment_spec']['garment_type'] = 'shirt'
     e = r['garment_spec']['design_intent']['elements'][0]
-    assert matching_module(e, r['garment_spec'], kind='element') is None
+    assert matching_module(e, r['garment_spec'], kind='element') == module
     recipe = next(m for m in MODULES if m['id'] == module)
-    assert all('shirt' not in rule['garment_type'] for rule in recipe['rules'])
+    assert any('shirt' in rule['garment_type'] for rule in recipe['rules'])
 
 
 @pytest.mark.parametrize('fit', ['loose', 'oversized'])
