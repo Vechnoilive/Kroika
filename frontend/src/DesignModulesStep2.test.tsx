@@ -102,7 +102,7 @@ describe('module expansion step 2', () => {
     expect(reevaluateDesignIntent(excluded, spec, analysis).status).toBe('partial');
     expect(excluded.elements[0].dimensions_mm?.depth).toBe(80);
   });
-  it('blocks unresolved full-front unfolding combinations while allowing back fullness', () => {
+  it('supports full-front unfolding combinations and back fullness', () => {
     const {spec, intent} = fixture();
     const base = {source_element_id: 'parallel', type: 'drape' as const, variant: 'soft' as const, location: 'bodice_front' as const,
       construction: 'integrated' as const, count: 2, symmetry: 'symmetric' as const, description_ru: 'Драпировка', confidence: 1,
@@ -112,7 +112,7 @@ describe('module expansion step 2', () => {
     intent.elements = [base, {...base, source_element_id: 'diagonal', construction: 'separate_piece', count: 1, symmetry: 'asymmetric',
       module_id: 'diagonal_bodice_drape_v2', selected_module_id: 'diagonal_bodice_drape_v2',
       dimensions_mm: {width: 30, depth: 60, spacing: 15, length: null}, placement: {side: 'right'}}];
-    expect(() => finalizeDesignIntent(intent, spec, analysis)).toThrow('Параллельные раскрытия переда');
+    expect(finalizeDesignIntent(intent, spec, analysis).status).toBe('ready');
     intent.elements[0].location = 'bodice_back';
     expect(finalizeDesignIntent(intent, spec, analysis).status).toBe('ready');
   });

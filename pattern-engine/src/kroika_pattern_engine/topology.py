@@ -285,10 +285,10 @@ def _panelize_skirt(
         hem = next(
             (segment for segment in contour.segments if segment.id.endswith("_hem")), None
         )
-        if not isinstance(waist, LineSegment) or not isinstance(hem, LineSegment):
+        if not isinstance(waist, LineSegment) or hem is None:
             raise _topology_error(
                 "TOPOLOGY_PANEL_CONTOUR_UNSUPPORTED",
-                "Панели требуют прямые линии талии и низа базовой юбки.",
+                "Панели требуют прямую линию талии и непрерывный срез низа.",
                 source_id,
             )
         waist_pair, skirt_side = _waist_pair(pattern, piece_id, source_id)
@@ -308,7 +308,7 @@ def _panelize_skirt(
         other_reduction = float(waist_pair[f"{other_side}_length_reduction_mm"])
         finished_waist = waist.length_mm - skirt_reduction
         top_width = finished_waist / panel_count
-        bottom_width = hem.length_mm / panel_count
+        bottom_width = abs(hem.end.x_mm - hem.start.x_mm) / panel_count
         length = contour.bounding_box.height_mm
         if min(top_width, bottom_width) <= 20.0:
             raise _topology_error(
@@ -329,12 +329,13 @@ def _panelize_skirt(
                 else f"{panel_id}_panel_join_right"
             )
             p0 = Point(index * top_width, 0.0)
-            p1 = Point(index * bottom_width, -length)
-            p2 = Point((index + 1) * bottom_width, -length)
+            p1 = hem.point_at(index / panel_count)
+            p2 = hem.point_at((index + 1) / panel_count)
             p3 = Point((index + 1) * top_width, 0.0)
             panel_contour = Contour((
                 LineSegment(p0, p1, left_id),
-                LineSegment(p1, p2, f"{panel_id}_hem"),
+                replace(_panel_hem(hem, index / panel_count, (index + 1) / panel_count),
+                        id=f"{panel_id}_hem"),
                 LineSegment(p2, p3, right_id),
                 LineSegment(p3, p0, f"{panel_id}_waist"),
             ), id=f"{panel_id}_seam")
@@ -443,6 +444,12 @@ def _panelize_skirt(
             targets.extend(replacement_targets.get(piece_id, [piece_id]))
         operation["target_piece_ids"] = sorted(set(targets))
     return created, _pair_residual(pattern)
+
+
+def _panel_hem(edge, start, end):
+    # Retain exact cubic/arc geometry and the shape selected before partitioning.
+    from .fullness import _subcurve
+    return _subcurve(edge, start, end)
 
 
 def _transfer_front_dart(

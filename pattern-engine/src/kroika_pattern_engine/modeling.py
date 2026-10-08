@@ -151,7 +151,7 @@ def apply_modeling_transformations(
         source_id = str(element["source_element_id"])
         dimensions = element.get("dimensions_mm") or {}
         if module_id in {"center_pleat_v1", "waist_gather_allowance_v1", "center_stitched_tuck_v1"}:
-            target_id = "front_skirt"
+            target_id = _piece(result, 'front_skirt', source_id)['id']
             if target_id in occupied_targets:
                 raise _model_error(
                     "MODEL_TARGET_CONFLICT",
@@ -211,6 +211,7 @@ def apply_modeling_transformations(
             ))
         elif module_id == "paired_straight_decorative_stitch_v1":
             target_id = "front_skirt" if element["location"] == "skirt_front" else "back_skirt"
+            target_id = _piece(result, target_id, source_id)['id']
             length = _required_dimension(dimensions, "length", source_id)
             spacing = _required_dimension(dimensions, "spacing", source_id)
             _decorative_stitch(result, target_id, length, spacing, source_id)
@@ -257,7 +258,7 @@ def apply_modeling_transformations(
 def _skirt_top_id(piece: Mapping[str, Any]) -> str:
     return next(
         edge["id"] for edge in piece["seam_contour"]["segments"]
-        if edge["id"] in {"front_skirt_waist", "front_skirt_yoke_join"}
+        if edge["id"].endswith("_waist") or edge["id"] == "front_skirt_yoke_join"
     )
 
 
@@ -436,15 +437,9 @@ def _add_hem_flounces(
     source_id: str,
     request: Mapping[str, Any],
 ) -> tuple[list[str], float]:
-    targets = [
-        piece_id for piece_id in ("front_skirt", "back_skirt") if _has_piece(pattern, piece_id)
-    ]
-    if len(targets) != 2:
-        raise _model_error(
-            "MODEL_FLOUNCE_TARGET_REQUIRED",
-            "Круговой волан этапа 18 поддержан только для переда и спинки юбки.",
-            source_id,
-        )
+    from .attachments import terminal_records, boundary_edges, rename_boundary_references
+    targets = [p['id'] for root in ('front_skirt', 'back_skirt')
+               for p, _ in terminal_records(pattern, root, 'hem', source_id)]
     added: list[str] = []
     records = []
     for target_id in targets:
@@ -452,8 +447,7 @@ def _add_hem_flounces(
         contour = contour_from_data(target["seam_contour"])
         hem_id_map = {
             segment.id: f"{segment.id.removesuffix('_hem')}_flounce_join"
-            for segment in contour.segments
-            if segment.id.endswith("_hem")
+            for segment in boundary_edges(target, 'hem')
         }
         renamed_contour = Contour(
             tuple(
@@ -471,10 +465,13 @@ def _add_hem_flounces(
             )
         validate_simple_contour(renamed_contour)
         target["seam_contour"] = contour_to_data(renamed_contour)
-        for notch in target["notches"]:
-            notch["segment_id"] = hem_id_map.get(notch["segment_id"], notch["segment_id"])
+        rename_boundary_references(pattern, target, hem_id_map)
         hem_length = sum(segment.length_mm for segment in hem_segments)
         inner, outer = flounce_radii_mm(hem_length, depth_mm)
+        if inner <= request['fit_settings']['seam_allowances_mm']['normal']:
+            raise _model_error('MODEL_FLOUNCE_ALLOWANCE_CONFLICT',
+                               'Срез слишком короткий для полукругового волана с заданным припуском. Увеличьте длину среза, уменьшите обычный припуск или выберите волан с меньшим углом сектора.',
+                               source_id)
         piece_id = f"{target_id}_flounce"
         flounce = Contour(
             (
@@ -491,7 +488,7 @@ def _add_hem_flounces(
         pattern["pieces"].append(
             {
                 "id": piece_id,
-                "name_ru": f"Волан · {'перед' if target_id == 'front_skirt' else 'спинка'}",
+                "name_ru": f"Волан · {'перед' if 'front' in target_id else 'спинка'}",
                 "cut_quantity": target["cut_quantity"] * (2 if target["cut_on_fold"] else 1),
                 "cut_on_fold": False,
                 "mirrored_pair": target["cut_on_fold"] or target["mirrored_pair"],
@@ -528,15 +525,17 @@ def _add_hem_flounces(
         added.append(piece_id)
         records.append((target, pattern["pieces"][-1], hem_segments))
     new_interfaces = finish_edge_joins(pattern, records, request, "hem", True, source_id, "side")
-    for pair_id in new_interfaces:
+    for pair_id in new_interfaces if len(targets) == 2 else []:
         pair = next(pair for pair in pattern["seam_pairs"] if pair["id"] == pair_id)
-        pair["id"] = (
+        candidate = (
             "flounce_side_left_join"
             if pair["first_piece_id"] != pair["second_piece_id"]
             else "flounce_side_right_join"
             if pair["first_piece_id"] == added[0]
             else "flounce_center_back_join"
         )
+        if not any(other['id'] == candidate for other in pattern['seam_pairs']):
+            pair['id'] = candidate
     return added, abs(
         _segment_length(_piece(pattern, added[0], source_id), f"{added[0]}_side_left") - depth_mm
     )
@@ -640,6 +639,10 @@ def _piece(pattern: Mapping[str, Any], piece_id: str, source_id: str) -> dict[st
     try:
         return next(piece for piece in pattern["pieces"] if piece["id"] == piece_id)
     except StopIteration as error:
+        from .attachments import descendants, boundary_edges
+        candidates = [p for p in descendants(pattern, piece_id) if boundary_edges(p, 'center')]
+        if len(candidates) == 1:
+            return candidates[0]
         raise _model_error(
             "MODEL_TARGET_PIECE_MISSING", f"Не найдена целевая деталь «{piece_id}».", source_id
         ) from error
@@ -650,9 +653,10 @@ def _has_piece(pattern: Mapping[str, Any], piece_id: str) -> bool:
 
 
 def _segment_length(piece: Mapping[str, Any], segment_id: str) -> float:
-    contour = contour_from_data(piece["seam_contour"])
+    paths = [piece["seam_contour"], *piece.get("internal_paths", [])]
     try:
-        return next(segment.length_mm for segment in contour.segments if segment.id == segment_id)
+        return next(segment.length_mm for path in paths for segment in contour_from_data(path).segments
+                    if segment.id == segment_id)
     except StopIteration as error:
         raise BlockConstructionError(
             "MODEL_TARGET_SEGMENT_MISSING", "Не найден целевой участок модельной операции.",

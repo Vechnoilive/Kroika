@@ -30,6 +30,25 @@ STRUCTURAL_MODULES = module_ids('structural')
 FOUNDATION_LAYER_MODULES = module_ids('foundation_layer')
 
 
+def composition_order(spec):
+    """Composition order is geometry, so unlike tiers cannot share a cache key."""
+    active = [e for e in (spec.get('design_intent') or {}).get('elements', [])
+              if e.get('included') is not False and e.get('support_status') == 'supported']
+    ids = {e.get('module_id') for e in active}
+    partitions = set(REGISTRY['combinations']['partition_modules']) | {
+        'paired_straight_skirt_yoke_v1', 'paired_equal_skirt_panels_v1'}
+    trims = set(REGISTRY['combinations']['sequential_hem_modules'])
+    interactions = {m['id'] for m in MODULES if m['group'] in {
+        'modeling', 'fullness', 'structural', 'composite_element', 'detail_element', 'advanced_element'}
+        and m['id'] not in partitions}
+    legacy_layers = any(layer.get('included') is not False and layer.get('module_id') in REGISTRY['combinations']['deferred_layer_modules'] for layer in (spec.get('design_intent') or {}).get('layers', []))
+    composed = (bool(ids & partitions) and (bool(ids & interactions) or legacy_layers)
+                or sum(e.get('module_id') in trims and e.get('location') == 'hem' for e in active) > 1
+                or bool(ids & {'diagonal_bodice_drape_v2', 'crossed_bodice_drape_v1'})
+                and bool(ids & {'integrated_bodice_drape_v2', 'integrated_bodice_gather_v2'}))
+    return [[e['source_element_id'], e['module_id']] for e in active] if composed else []
+
+
 def placement_matches(module: Mapping[str, Any], item: Mapping[str, Any]) -> bool:
     placement = item.get('placement') or {}
     if not isinstance(placement, Mapping):
@@ -220,27 +239,19 @@ def structural_conflicts(spec: Mapping[str, Any]) -> list[str]:
     active = [i for i in intent.get('elements', []) if i.get('included') is not False and i.get('support_status') == 'supported']
     ids = [i.get('module_id') for i in active]
     messages = []
-    groups = [
-        {'fitted_two_piece_hood_v3', 'shaped_flat_collar_v3', 'shawl_collar_v3', 'stand_collar_v1'},
-        {'doubled_cuff_v3', 'shaped_cuff_v3', 'sleeve_cuff_band_v1'},
-        {'back_skirt_slit_v3', 'back_skirt_vent_v3'},
-        {'elastic_waistband_v3', 'adjustable_straight_waistband_v1'},
-        {'straight_shoulder_straps_v3', 'off_shoulder_bands_v1'},
-    ]
+    groups = [set(group) for group in REGISTRY['combinations']['exclusive_groups']]
     if any(sum(id in group for id in ids) > 1 and any(id in STRUCTURAL_MODULES for id in ids if id in group) for group in groups):
         messages.append('На один срез назначены две альтернативные конструктивные детали. Выберите одну конструкцию этого участка.')
     cuts = {'front_bodice_yoke_v3', 'back_bodice_yoke_v3', 'offset_skirt_panel_v3', 'shoulder_princess_seam_v3', 'side_to_waist_dart_v3'}
     for item in active:
         if item.get('module_id') not in cuts:
             continue
-        if any(other is not item and other.get('location') == item.get('location') and (other.get('module_id') in cuts | FULLNESS_MODULES | STAGE21_TOPOLOGY_MODULES | {'crossed_bodice_drape_v1'}) for other in active):
-            messages.append('Сочетание членения с другим преобразованием той же детали ещё не проверено; оно входит в этап 5.')
-        if any(layer.get('included') is not False and layer.get('role') != 'main' and layer.get('module_id') not in FOUNDATION_LAYER_MODULES for layer in intent.get('layers', [])):
-            messages.append('Перенос всех слоёв через новые швы членения входит в этапы 4–5. Для этой конструкции пока выберите основной слой.')
-    if any(id in ids for id in {'fitted_two_piece_hood_v3', 'shaped_flat_collar_v3', 'shawl_collar_v3'}) and any(id in ids for id in {'front_bodice_yoke_v3', 'back_bodice_yoke_v3', 'straight_shoulder_straps_v3', 'off_shoulder_bands_v1', 'crossed_bodice_drape_v1', 'diagonal_bodice_drape_v2'}):
-        messages.append('Привязка капюшона/воротника к изменённому верхнему срезу ещё не проверена; сочетание входит в этап 5.')
-    if 'straight_shoulder_straps_v3' in ids and any(id in ids for id in cuts | {'crossed_bodice_drape_v1', 'diagonal_bodice_drape_v2', 'integrated_bodice_drape_v2', 'integrated_bodice_gather_v2'}):
-        messages.append('Бретели пока требуют лиф без членения и дополнительных раскрытий; сочетание входит в этап 5.')
+        if any(other is not item and other.get('location') == item.get('location') and (other.get('module_id') in cuts | STAGE21_TOPOLOGY_MODULES) for other in active):
+            messages.append('Два членения одного участка требуют разных непересекающихся линий. Выберите одно членение участка.')
+    if any(id in ids for id in {'fitted_two_piece_hood_v3', 'shaped_flat_collar_v3', 'shawl_collar_v3'}) and any(id in ids for id in {'straight_shoulder_straps_v3', 'off_shoulder_bands_v1'}):
+        messages.append('Воротник и капюшон требуют горловину с плечами; открытый верх под бретели использует другую конструкцию.')
+    if 'straight_shoulder_straps_v3' in ids and any(id in ids for id in {'integrated_bodice_drape_v2', 'integrated_bodice_gather_v2'}):
+        messages.append('Раскрытия до горловины и срезанный верх под бретели используют разные верхние срезы. Выберите раскрытие ниже верха или отдельную драпировку.')
     if spec['garment_type'] == 'shirt' and any(id in ids for id in {'fitted_two_piece_hood_v3', 'shaped_flat_collar_v3', 'shawl_collar_v3'}):
         messages.append('Рубашечная основа уже включает стойку и воротник; замена её воротника требует отдельного сопряжения.')
     layers = [layer for layer in intent.get('layers', []) if layer.get('included') is not False and layer.get('support_status') == 'supported' and layer.get('role') != 'main']

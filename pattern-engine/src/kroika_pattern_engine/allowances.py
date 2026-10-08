@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 import math
+import re
 from typing import Any, Mapping
 
 from .blocks import BlockConstructionError
@@ -31,15 +32,17 @@ PRINT_LAYOUT_SPEC = {
 def edge_type_for_segment(piece: Mapping[str, Any], segment_id: str) -> str:
     """Classify a stable drafting segment into its sewing edge category."""
 
-    if segment_id.endswith("sleeve_hem"):
+    if segment_id.endswith('_join'):
+        return 'normal'
+    if re.search(r'(?:^|_)sleeve_hem(?:_|$)', segment_id):
         return "sleeve_hem"
-    if segment_id.endswith("neckline"):
+    if re.search(r'(?:^|_)neckline(?:_|$)', segment_id):
         return "neckline"
-    if segment_id.endswith("armhole"):
+    if re.search(r'(?:^|_)armhole(?:_|$)', segment_id):
         return "armhole"
-    if segment_id.endswith("_hem"):
+    if re.search(r'(?:^|_)hem(?:_|$)', segment_id):
         return "hem"
-    if segment_id.endswith("_center"):
+    if re.search(r'(?:^|_)center(?:_|$)', segment_id):
         return "fold" if piece["cut_on_fold"] else "zipper"
     return "normal"
 

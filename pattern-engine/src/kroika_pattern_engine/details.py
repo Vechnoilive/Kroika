@@ -29,6 +29,7 @@ from .geometry import (
 )
 from .geometry.primitives import curve_points
 from .geometry.intersections import line_line_intersections
+from .attachments import boundary_records, terminal_records
 
 
 def _error(
@@ -89,30 +90,15 @@ def _edges(pattern: Mapping[str, Any], location: str, source: str) -> list[tuple
     else:
         targets = (
             ["front_skirt", "back_skirt"]
-            if "front_skirt" in ids
+            if any(pid.startswith("front_skirt") for pid in ids)
             else ["front_bodice", "back_bodice"]
         )
         suffix = "_hem"
-    if not set(targets) <= ids:
-        raise _error(
-            "Для детали отсутствуют нужные базовые лекала.", source, "DETAIL_TARGET_MISSING"
-        )
     targets += [f"overlay_{pid}" for pid in list(targets) if f"overlay_{pid}" in ids]
     result = []
     for pid in targets:
-        piece = _find(pattern, pid)
-        edges = [
-            seg
-            for seg in contour_from_data(piece["seam_contour"]).segments
-            if seg.id.endswith(suffix)
-        ]
-        if not edges:
-            raise _error(
-                "Срез для присоединения детали отсутствует или занят другим модулем.",
-                source,
-                "DETAIL_TARGET_EDGE_MISSING",
-            )
-        result.append((piece, edges))
+        resolve = terminal_records if location == 'hem' else boundary_records
+        result.extend(resolve(pattern, pid, suffix.rsplit('_', 1)[-1], source))
     return result
 
 
@@ -134,14 +120,8 @@ def _rename_edges(pattern: dict[str, Any], target: dict, edges: list, source: st
     contour = contour_from_data(target["seam_contour"])
     changed = [replace(seg, id=mapping.get(seg.id, seg.id)) for seg in contour.segments]
     target["seam_contour"] = contour_to_data(Contour(tuple(changed), id=contour.id))
-    for notch in target["notches"]:
-        notch["segment_id"] = mapping.get(notch["segment_id"], notch["segment_id"])
-    for pair in pattern["seam_pairs"]:
-        for side in ["first", "second"]:
-            if pair[f"{side}_piece_id"] == target["id"]:
-                pair[f"{side}_segment_ids"] = [
-                    mapping.get(sid, sid) for sid in pair[f"{side}_segment_ids"]
-                ]
+    from .attachments import rename_boundary_references
+    rename_boundary_references(pattern, target, mapping)
     return [seg for seg in changed if seg.id in mapping.values()]
 
 
@@ -225,7 +205,7 @@ def apply_detail_transformations(
         active,
         key=lambda entry: (
             0 if entry[0] == "layers" else 1,
-            entry[1]["module_id"],
+            active.index(entry),
             entry[1].get("source_element_id", entry[1].get("source_layer_id")),
         ),
     ):
@@ -418,7 +398,7 @@ def apply_detail_transformations(
             )
             location = "waist" if kind == "peplum" else item["location"]
             slot = f"edge:{location}"
-            if slot in occupied:
+            if slot in occupied and location != "hem":
                 raise _error(
                     "На один срез назначены две отделочные детали.",
                     source,
@@ -654,14 +634,18 @@ def finish_edge_joins(
         opening = closure["location"] == (
             "center_front" if "front" in target["id"] else "center_back"
         )
-        closed = target["cut_on_fold"] or not opening
+        has_center = (any('_center' in e.id for e in contour_from_data(target['seam_contour']).segments)
+                      or any(pair.get('copy_pairing') == 'mirrored_copies'
+                             and pair['first_piece_id'] == target['id'] == pair['second_piece_id']
+                             for pair in pattern['seam_pairs']))
+        closed = (target["cut_on_fold"] or not opening) and has_center
         if opening and location == "hem":
             total = request["garment_spec"]["parameters"]["skirt"]["length_from_waist_mm"]
             if garment != "skirt":
                 total += request["body_measurements"]["values"]["front_neck_to_waist_over_bust"][
                     "value"
                 ]
-            closed = float(closure.get("length_mm") or 0) < total - 1
+            closed = has_center and float(closure.get("length_mm") or 0) < total - 1
         if closed and piece["cut_quantity"] == 2:
             sid = f"{pid}_{suffix}_{center}"
             pair = _seam_pair(f"{source}_{pid}_center_copies", pid, [sid], pid, [sid])
@@ -679,6 +663,35 @@ def finish_edge_joins(
                 }
             )
     for layer, group in by_layer.items():
+        if len(group) > 2:
+            by_target = {target['id']: (target, piece, edges) for target, piece, edges in records
+                         if target['id'].startswith('overlay_') == layer}
+            for join in list(pattern['seam_pairs']):
+                a, b = join['first_piece_id'], join['second_piece_id']
+                if a == b or a not in by_target or b not in by_target:
+                    continue
+                endpoints = []
+                for name, pid in [('first', a), ('second', b)]:
+                    target, detail, edges = by_target[pid]
+                    borders = [e for e in contour_from_data(target['seam_contour']).segments
+                               if e.id in join[f'{name}_segment_ids']]
+                    if not borders:
+                        break
+                    distances = [min(point.distance_to(end) for border in borders
+                                     for end in (border.start, border.end))
+                                 for point in (edges[0].start, edges[-1].end)]
+                    if min(distances) > 0.1:
+                        break
+                    at_start = distances[0] < distances[1]
+                    edge_side = 'right' if at_start == circular else 'left'
+                    endpoints.append((detail['id'], f"{detail['id']}_{suffix}_{edge_side}"))
+                if len(endpoints) == 2:
+                    pair = _seam_pair(f'{source}_{join["id"]}_trim_join',
+                                      endpoints[0][0], [endpoints[0][1]],
+                                      endpoints[1][0], [endpoints[1][1]])
+                    pattern['seam_pairs'].append(pair)
+                    interfaces.append(pair['id'])
+            continue
         if len(group) != 2:
             raise _error("Для бокового соединения нужны передняя и задняя детали.", source)
         (_, front, fs), (_, back, bs) = group

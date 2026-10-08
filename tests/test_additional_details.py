@@ -196,8 +196,10 @@ def test_placement_and_edge_conflicts_reject_geometry_instead_of_dropping_elemen
         element(CASES[4], "ruffle_1"),
         element(CASES[4], "ruffle_2"),
     ]
-    with pytest.raises(BlockConstructionError, match="две отделочные"):
-        apply_detail_transformations(pattern, req)
+    transformed = apply_detail_transformations(pattern, req).pattern
+    first, second = transformed["composite_operations"]
+    assert set(second["target_piece_ids"]) == set(first["added_piece_ids"])
+    assert first["interface_ids"] and second["interface_ids"]
 
 
 def test_gathering_reduction_changes_both_cut_length_and_hash():

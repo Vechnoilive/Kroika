@@ -24,7 +24,8 @@ from .blocks import (
 from .composites import apply_composite_transformations
 from .details import apply_detail_transformations
 from .coverage import compile_design_coverage
-from .layers import apply_foundation_layers
+from .layers import apply_foundation_layers, defer_composed_layers
+from .composition import defer_hem_sequence, apply_hem_sequence
 from .garment_catalogue import garment_acceptance
 from .geometry import run_core_diagnostics
 from .modeling import apply_modeling_transformations
@@ -44,7 +45,7 @@ class GeometryPatternEngine:
     """Build a bounded experimental garment and return an auditable report."""
 
     engine_id = "kroika-geometry"
-    engine_version = "0.20.0"
+    engine_version = "0.21.0"
 
     def __init__(self, clock: Callable[[], datetime] = _utc_now):
         self._clock = clock
@@ -87,27 +88,30 @@ class GeometryPatternEngine:
                 blocks = build_base_blocks(request)
             assembly = assemble_garment(prepare_closure_foundation(request), blocks)
             silhouette = apply_silhouette(assembly.pattern, request)
+            phase_request = defer_hem_sequence(request)
             yoke_first = any(
                 item.get("included") is not False
-                and item.get("module_id") == "paired_straight_skirt_yoke_v1"
+                and item.get("module_id") in {"paired_straight_skirt_yoke_v1", "paired_equal_skirt_panels_v1"}
                 for item in (request["garment_spec"].get("design_intent") or {}).get("elements", [])
             )
             if yoke_first:
                 topology = apply_topology_transformations(silhouette, request)
-                modeling = apply_modeling_transformations(topology.pattern, request)
+                modeling = apply_modeling_transformations(topology.pattern, phase_request)
                 foundation = apply_fullness_foundation(modeling.pattern, request)
             else:
-                modeling = apply_modeling_transformations(silhouette, request)
+                modeling = apply_modeling_transformations(silhouette, phase_request)
                 expanded = apply_fullness_foundation(modeling.pattern, request)
                 topology = apply_topology_transformations(expanded, request)
                 foundation = topology.pattern
             foundation = prepare_advanced_foundation(foundation, request)
             foundation = prepare_fullness_foundation(foundation, request)
             foundation = prepare_structural_foundation(foundation, request)
-            composite = apply_composite_transformations(foundation, request)
-            details = apply_detail_transformations(composite.pattern, request)
+            layer_request = defer_composed_layers(phase_request)
+            composite = apply_composite_transformations(foundation, layer_request)
+            details = apply_detail_transformations(composite.pattern, layer_request)
             advanced = apply_advanced_details(details.pattern, request)
-            finished = apply_fullness_details(advanced.pattern, request)
+            finished = apply_fullness_details(advanced.pattern, phase_request)
+            finished = apply_hem_sequence(finished, request)
             finished = apply_structural_details(finished, request)
             final_pattern = apply_back_closure(finished, request)
             final_pattern = apply_foundation_layers(final_pattern, request)

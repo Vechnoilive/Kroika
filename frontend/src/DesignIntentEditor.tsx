@@ -132,6 +132,14 @@ export function DesignIntentEditor({
     });
   }
 
+  function moveElement(index: number, delta: number) {
+    const elements = [...intent.elements];
+    const target = index + delta;
+    if (target < 0 || target >= elements.length) return;
+    [elements[index], elements[target]] = [elements[target], elements[index]];
+    change({...intent, source: 'manual', elements});
+  }
+
   function selectConstruction(item: Element, moduleId: string) {
     const module = DESIGN_MODULES.find((entry) => entry.id === moduleId);
     if (!module) return;
@@ -248,6 +256,7 @@ export function DesignIntentEditor({
         </span>
       </div>
       <p>Исправьте распознавание, исключите лишнее и укажите известные размеры. Сайт сохранит и ваш выбор, и исходную подсказку модели.</p>
+      <p className="field-hint">Полные ярусы отделки идут в порядке списка: следующий пришивается к свободному краю предыдущего. Перемещайте оборку и волан выше или ниже, чтобы изменить их порядок.</p>
       <div className="review-fields">
         <label><span>Добавить деталь из каталога</span><select value={catalogModule} onChange={(event) => setCatalogModule(event.target.value)}>
           <option value="">Выберите конструкцию</option>
@@ -276,6 +285,10 @@ export function DesignIntentEditor({
                   {diagnosis.label}
                 </span>
               </header>
+              {intent.elements.length > 1 && <div className="review-fields">
+                <button type="button" disabled={busy || index === 0} aria-label={`Поднять деталь ${index + 1}`} onClick={() => moveElement(index, -1)}>Выше</button>
+                <button type="button" disabled={busy || index === intent.elements.length - 1} aria-label={`Опустить деталь ${index + 1}`} onClick={() => moveElement(index, 1)}>Ниже</button>
+              </div>}
               <label className="review-check">
                 <input
                   type="checkbox"

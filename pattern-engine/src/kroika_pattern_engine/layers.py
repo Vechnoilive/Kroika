@@ -3,9 +3,10 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import replace
+import re
 from typing import Any, Mapping
 
-from kroika_contracts.design_modules import FOUNDATION_LAYER_MODULES
+from kroika_contracts.design_modules import FOUNDATION_LAYER_MODULES, REGISTRY, composition_order
 from .blocks import BlockConstructionError
 from .composites import _clone_piece, _operation, _seam_pair
 from .geometry import Contour, LineSegment, Point, contour_from_data, validate_simple_contour
@@ -37,22 +38,34 @@ def _targets(pattern, layer):
     else:
         bases = BODY if coverage == "bodice" else SKIRT if coverage == "skirt" else SLEEVE if coverage == "sleeves" else BODY | SKIRT | SLEEVE
         ids = {p["id"] for p in pattern["pieces"] if _base_id(p["id"]) in bases}
+    if layer['module_id'] == 'skirt_overlay_layer_v1':
+        # Preserve the legacy overlay recipe's sewn hem trim, now resolved last.
+        trim_ids = {pid for key in ('composite_operations', 'modeling_operations')
+                    for op in pattern.get(key, [])
+                    if op['module_id'] in REGISTRY['combinations']['sequential_hem_modules']
+                    for pid in op.get('added_piece_ids', op['target_piece_ids'])}
+        while True:
+            children = {pair['second_piece_id'] for pair in pattern['seam_pairs']
+                        if pair['first_piece_id'] in ids and pair['second_piece_id'] in trim_ids}
+            if children <= ids:
+                break
+            ids.update(children)
     if not ids:
         _fail("Для выбранного покрытия в изделии нет деталей.", layer["source_layer_id"], "LAYER_COVERAGE_EMPTY")
     return sorted(ids)
 
 
-def _shorten(piece, amount, source):
+def _shorten(piece, amount, source, level=None):
     """Clip below a horizontal hem line; exact subcurves retain their source IDs."""
     if not amount:
         return deepcopy(piece)
     contour = contour_from_data(piece["seam_contour"])
-    if not any(e.id.startswith(("front_skirt_hem", "back_skirt_hem", "sleeve_hem", "front_hem", "back_hem")) for e in contour.segments):
+    if not any(re.search(r'(?:^|_)hem(?:_|$)', e.id) for e in contour.segments):
         return deepcopy(piece)
     box = contour.bounding_box
     # Skirts and sleeves run downward; trouser blocks use the opposite Y direction.
     trousers = _base_id(piece["id"]) in {"front_trouser", "back_trouser"}
-    level = box.max_y_mm - amount if trousers else box.min_y_mm + amount
+    level = (box.max_y_mm - amount if trousers else box.min_y_mm + amount) if level is None else level
     line = LineSegment(Point(box.min_x_mm - 20, level), Point(box.max_x_mm + 20, level))
     (ai, at, a), (bi, bt, b) = _boundary_hits(contour, line, source)
     arcs = []
@@ -101,16 +114,30 @@ def apply_foundation_layers(pattern: Mapping[str, Any], request: Mapping[str, An
         for role in NAMES:
             if p["id"].startswith(role + "_"):
                 occupied.add((role, p["id"][len(role) + 1:]))
-    active = sorted((layer for layer in (request["garment_spec"].get("design_intent") or {}).get("layers", []) if layer.get("included") is not False and layer.get("support_status") == "supported" and layer.get("module_id") in FOUNDATION_LAYER_MODULES), key=lambda item: item["source_layer_id"])
+    modules = FOUNDATION_LAYER_MODULES | deferred_layer_modules(request)
+    active = sorted((layer for layer in (request["garment_spec"].get("design_intent") or {}).get("layers", []) if layer.get("included") is not False and layer.get("support_status") == "supported" and layer.get("module_id") in modules), key=lambda item: item["source_layer_id"])
     for layer in active:
         source, role = layer["source_layer_id"], layer["role"]
         targets = _targets(pattern, layer)
         if any((role, pid) in occupied for pid in targets):
             _fail("Два слоя одной роли покрывают одну деталь. Выберите непересекающиеся покрытия.", source, "LAYER_ROLE_OVERLAP")
         occupied.update((role, pid) for pid in targets)
-        prefix = f"{role}_{source}"
+        prefix = role if layer["module_id"] in REGISTRY["combinations"]["deferred_layer_modules"] else f"{role}_{source}"
         amount = float(layer.get("hem_shortening_mm") or 0)
-        derived = {pid: _shorten(base[pid], amount, source) for pid in targets}
+        levels = {}
+        def family(pid):
+            root = _base_id(pid)
+            return 'skirt' if root in {'front_skirt', 'back_skirt'} else root
+        for root in {family(pid) for pid in targets}:
+            hem_parts = [pid for pid in targets if family(pid) == root and
+                         any(re.search(r'(?:^|_)hem(?:_|$)', e.id)
+                             for e in contour_from_data(base[pid]['seam_contour']).segments)]
+            if not hem_parts or not amount:
+                continue
+            boxes = [contour_from_data(base[pid]['seam_contour']).bounding_box for pid in hem_parts]
+            level = min(box.max_y_mm for box in boxes)-amount if root in {'front_trouser','back_trouser'} else max(box.min_y_mm for box in boxes)+amount
+            levels.update({pid: round(level, 6) for pid in hem_parts})
+        derived = {pid: _shorten(base[pid], amount, source, levels.get(pid)) for pid in targets}
         clones = {pid: _clone_piece(derived[pid], prefix) for pid in targets}
         interfaces = []
         for pid, clone in clones.items():
@@ -126,7 +153,7 @@ def apply_foundation_layers(pattern: Mapping[str, Any], request: Mapping[str, An
             if attach.id not in {e.id for e in contour_from_data(base[pid]["seam_contour"]).segments}:
                 _fail("Не найден сохранённый срез крепления слоя.", source)
             attach_ids = [e.id for e in edges if e.id.endswith("_neckline")] if attach.id.endswith("_neckline") else [e.id for e in edges if "sleeve_cap_" in e.id] if "sleeve_cap_" in attach.id else [attach.id]
-            pair = _seam_pair(f"{prefix}_{pid}_attachment", pid, attach_ids, clone["id"], [f"{prefix}_{sid}" for sid in attach_ids])
+            pair = _seam_pair(f"{prefix}_{pid}_layer_attachment", pid, attach_ids, clone["id"], [f"{prefix}_{sid}" for sid in attach_ids])
             result["seam_pairs"].append(pair)
             interfaces.append(pair["id"])
         for pair in pairs:
@@ -146,12 +173,12 @@ def apply_foundation_layers(pattern: Mapping[str, Any], request: Mapping[str, An
             if amount:
                 ease = abs(lengths[0] - lengths[1])
                 if ease > max(5, pair["allowed_ease_mm"] + 1):
-                    _fail("Укороченный слой требует уточнения парных боковых швов.", source)
+                    _fail(f"Укороченный слой требует уточнения шва {pair['id']}: {lengths[0]:.2f} и {lengths[1]:.2f} мм.", source)
                 copied["allowed_ease_mm"] = round(ease, 6)
             result["seam_pairs"].append(copied)
             interfaces.append(copied["id"])
         result["pieces"].extend(clones.values())
-        result.setdefault("composite_operations", []).append(_operation(source, "layer", role, layer["module_id"], "L04-L01", targets, [clones[pid]["id"] for pid in targets], interfaces, {"hem_shortening": amount}))
+        result.setdefault("composite_operations", []).append(_operation(source, "layer", role, layer["module_id"], "L04-L01", targets, [clones[pid]["id"] for pid in targets], interfaces, {"hem_shortening": amount, **{f'clip_level_{pid}': level for pid,level in levels.items()}}))
     validate_foundation_layers(result)
     return result
 
@@ -160,16 +187,35 @@ def validate_foundation_layers(pattern):
     """Recheck layer identity in generation, manual edits and exports."""
     pieces = {p["id"]: p for p in pattern["pieces"]}
     for op in pattern.get("composite_operations", []):
-        if op["module_id"] not in FOUNDATION_LAYER_MODULES:
+        if op['formula_id'] != 'L04-L01':
             continue
         if len(op["target_piece_ids"]) != len(op["added_piece_ids"]):
             _fail("Потеряны лекала материального слоя.", op["source_id"])
-        prefix = f"{op['kind']}_{op['source_id']}"
+        prefix = op["kind"] if op["module_id"] in REGISTRY["combinations"]["deferred_layer_modules"] else f"{op['kind']}_{op['source_id']}"
         for pid, cid in zip(op["target_piece_ids"], op["added_piece_ids"]):
             if pid not in pieces or cid not in pieces:
                 _fail("Потеряны лекала материального слоя.", op["source_id"])
-            expected = _clone_piece(_shorten(pieces[pid], op["parameters_mm"]["hem_shortening"], op["source_id"]), prefix)
+            expected = _clone_piece(_shorten(pieces[pid], op["parameters_mm"]["hem_shortening"], op["source_id"], op['parameters_mm'].get(f'clip_level_{pid}')), prefix)
             actual = pieces[cid]
             for field in ("seam_contour", "internal_paths", "cut_quantity", "cut_on_fold", "mirrored_pair", "grainline", "notches"):
                 if actual[field] != expected[field]:
                     _fail("Слой расходится с геометрией основы или количеством кроя; перестройте комплект.", op["source_id"], "LAYER_FOUNDATION_MISMATCH")
+
+
+def deferred_layer_modules(request):
+    spec = request['garment_spec']
+    active = {e.get('module_id') for e in (spec.get('design_intent') or {}).get('elements', [])
+              if e.get('included') is not False and e.get('support_status') == 'supported'}
+    partitions = set(REGISTRY['combinations']['partition_modules']) | {
+        'paired_equal_skirt_panels_v1', 'paired_straight_skirt_yoke_v1'}
+    return set(REGISTRY['combinations']['deferred_layer_modules']) if composition_order(spec) or active & partitions else set()
+
+
+def defer_composed_layers(request):
+    modules = deferred_layer_modules(request)
+    if not modules:
+        return request
+    result = deepcopy(request)
+    intent = result['garment_spec'].get('design_intent')
+    intent['layers'] = [layer for layer in intent['layers'] if layer.get('module_id') not in modules]
+    return result

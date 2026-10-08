@@ -234,36 +234,13 @@ export function finalizeDesignIntent(
   const activeModules = new Set(
     includedElements.map((item) => item.module_id).filter((item): item is string => item !== null),
   );
-  if (['diagonal_bodice_drape_v2', 'crossed_bodice_drape_v1'].some((id) => activeModules.has(id))
-      && includedElements.some((item) => item.location === 'bodice_front' && ['integrated_bodice_drape_v2', 'integrated_bodice_gather_v2'].includes(item.module_id ?? ''))) {
-    throw new Error('Параллельные раскрытия переда пока нельзя совмещать с драпировкой полного переда. Выберите одну конструкцию переда; раскрытия спинки допустимы.');
-  }
-  if (['paired_straight_skirt_yoke_v1', 'paired_equal_skirt_panels_v1'].some((id) => activeModules.has(id))
-      && [...moduleIds('fullness')].some((id) => activeModules.has(id))) {
-    throw new Error('Новые распределённые операции и отделка пока требуют юбку без кокетки и панелей.');
-  }
   if (includedElements.filter((item) => ['center_pleat_v1', 'waist_gather_allowance_v1',
     'center_stitched_tuck_v1'].includes(item.module_id ?? '')).length > 1) {
     throw new Error('Для центра переда юбки выберите одну добавку ширины: складку, сборку или защип.');
   }
   if (activeModules.has('paired_straight_skirt_yoke_v1')
-      && ['center_stitched_tuck_v1', 'paired_straight_decorative_stitch_v1'].some((id) => activeModules.has(id))) {
-    throw new Error('Защип и декоративная строчка пока строятся на юбке без кокетки.');
-  }
-  if (activeModules.has('paired_straight_skirt_yoke_v1')
       && activeModules.has('paired_equal_skirt_panels_v1')) {
     throw new Error('Для одной юбки выберите либо кокетку, либо панельное членение.');
-  }
-  const incompatibleTopologyModules = [
-    'center_pleat_v1', 'waist_gather_allowance_v1',
-    'center_stitched_tuck_v1', 'paired_straight_decorative_stitch_v1', 'circular_hem_flounce_v1',
-    'paired_patch_pocket_v1',
-  ];
-  if (activeModules.has('paired_equal_skirt_panels_v1')
-      && incompatibleTopologyModules.some((moduleId) => activeModules.has(moduleId))) {
-    throw new Error(
-      'Панели пока нельзя совмещать со складкой, сборкой, воланом, защипом, декоративной строчкой или накладными карманами.',
-    );
   }
   if (includedLayers.filter((item) => item.role === 'main').length !== 1) {
     throw new Error('Оставьте ровно один основной слой изделия.');

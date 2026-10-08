@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kroika-pattern-engine"
-version = "0.20.0"
+version = "0.21.0"
 description = "Deterministic experimental garment generator with auditable pattern topology"
 requires-python = ">=3.12"
 dependencies = ["reportlab>=4.4,<4.5"]

@@ -7,6 +7,7 @@ import json
 from typing import Any
 
 from kroika_contracts.contract_io import load_schema
+from kroika_contracts.design_modules import REGISTRY
 
 
 COMMON_SYSTEM_PROMPT = """Ты — ассистент конструктора одежды Kroika.
@@ -63,7 +64,8 @@ def analysis_instruction(
     image_views: list[str] | None = None,
 ) -> str:
     allowed = json.dumps(
-        {"supported_garment_categories": supported_categories, "supported_features": supported_features},
+        {"supported_garment_categories": supported_categories, "supported_features": supported_features,
+         "design_capabilities": recognition_capabilities()},
         ensure_ascii=False,
         separators=(",", ":"),
     )
@@ -84,8 +86,23 @@ def analysis_instruction(
         "основной, накладные и остальные дополнительные слои, proportions — только "
         "визуальные категории без сантиметров. "
         "Не объединяй несколько разных деталей в один element."
+        " Возможности построения приведены для словаря; не скрывай другие видимые признаки "
+        "и не назначай геометрические модули самостоятельно. Подтверждение размеров выполняет пользователь."
         + view_hint
         + " Допустимый словарь: " + allowed
         + "\nОтвет обязан соответствовать этой JSON Schema: "
         + json.dumps(provider_analysis_schema(), ensure_ascii=False, separators=(",", ":"))
     )
+
+
+def recognition_capabilities():
+    """Compact view of the same registry used by review and deterministic geometry."""
+    variants = {}
+    for module in REGISTRY['modules']:
+        if module['kind'] != 'element':
+            continue
+        for rule in module['rules']:
+            for typ in rule.get('type', []):
+                variants.setdefault(typ, set()).update(rule.get('variant', []))
+    return {'registry_version': REGISTRY['registry_version'],
+            'element_variants': {typ: sorted(values) for typ,values in sorted(variants.items())}}

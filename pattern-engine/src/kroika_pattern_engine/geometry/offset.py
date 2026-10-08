@@ -23,6 +23,7 @@ from .primitives import (
     curve_points,
 )
 from .validation import validate_simple_contour
+from .intersections import line_line_intersections
 
 
 @dataclass(frozen=True, slots=True)
@@ -296,6 +297,9 @@ def offset_contour_by_segment(
     if len(output) < 3:
         raise OffsetCollapseError("Переменное смещение схлопнуло контур.")
 
+    if uses_approximation:
+        output = _trim_approximation_loops(output, edges, tolerance)
+
     segments = tuple(
         LineSegment(start, output[(index + 1) % len(output)], f"{contour.id}_cut_{index + 1}")
         for index, start in enumerate(output)
@@ -317,6 +321,57 @@ def offset_contour_by_segment(
         flatness if uses_approximation else 0.0,
         join,
     )
+
+
+def _trim_approximation_loops(points, source_edges, tolerance):
+    """Trim local offset overlaps at curved concave joins, preserving the seam.
+
+    The discarded cycle must be local (at most 12 flattened edges), smaller than
+    the retained cycle, and bounded by the allowance squared. Large folds and
+    holes still fail closed; the final outline must contain every seam sample.
+    """
+    changed = False
+    for _ in range(32):
+        crossing = None
+        for i in range(len(points)):
+            first = LineSegment(points[i], points[(i+1) % len(points)])
+            for j in range(i+2, min(len(points), i+13)):
+                if i == 0 and j == len(points)-1:
+                    continue
+                second = LineSegment(points[j], points[(j+1) % len(points)])
+                hits = line_line_intersections(first, second, tolerance)
+                if hits:
+                    crossing = (i,j,hits[0].point)
+                    break
+            if crossing:
+                break
+        if crossing is None:
+            break
+        i,j,hit = crossing
+        local = [hit, *points[i+1:j+1]]
+        area = abs(sum(a.x_mm*b.y_mm-b.x_mm*a.y_mm
+                       for a,b in zip(local, local[1:]+local[:1])))/2
+        maximum = max(distance for _,_,distance in source_edges)
+        retained = [*points[:i+1], hit, *points[j+1:]]
+        retained_area = abs(sum(a.x_mm*b.y_mm-b.x_mm*a.y_mm
+                               for a,b in zip(retained, retained[1:]+retained[:1])))/2
+        if area > maximum**2 or area >= retained_area or j-i > 12:
+            raise OffsetCollapseError('Припуск образовал большой замкнутый перегиб.')
+        points = retained
+        changed = True
+    if changed:
+        def inside(point):
+            crossings = 0
+            for a,b in zip(points, points[1:]+points[:1]):
+                if abs(point.distance_to(a)+point.distance_to(b)-a.distance_to(b)) < tolerance.absolute_mm:
+                    return True
+                if (a.y_mm > point.y_mm) != (b.y_mm > point.y_mm):
+                    x = a.x_mm+(point.y_mm-a.y_mm)*(b.x_mm-a.x_mm)/(b.y_mm-a.y_mm)
+                    crossings += x > point.x_mm
+            return bool(crossings % 2)
+        if not all(inside(point) for a,b,_ in source_edges for point in (a,b)):
+            raise OffsetCollapseError('После устранения перегиба припуск пересекает линию шва.')
+    return points
 
 
 def _append_unique(

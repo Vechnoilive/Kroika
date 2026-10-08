@@ -504,12 +504,11 @@ def test_attachment_intervals_must_be_disjoint_on_the_same_physical_side():
 
 
 @pytest.mark.parametrize("index", [3, 4])
-def test_front_unfolding_conflict_is_explicit_before_geometry(index):
+def test_front_unfolding_combination_uses_new_composition_contract(index):
     req = request([element(index, location="bodice_front"), element(6)])
     req["input_hash"] = compute_input_hash(req)
-    with pytest.raises(SemanticContractError) as error:
-        validate_engine_request(req)
-    assert any(issue.code == "DESIGN_FULLNESS_UNFOLD_CONFLICT" for issue in error.value.issues)
+    validate_engine_request(req)
+    assert canonical_generation_payload(req)["hash_contract_version"] == "1.11.0"
 
 
 def test_geometry_failure_returns_a_rejected_report_instead_of_crashing(monkeypatch):

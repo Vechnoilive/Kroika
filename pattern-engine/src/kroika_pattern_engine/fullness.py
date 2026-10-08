@@ -13,6 +13,7 @@ from typing import Any, Mapping
 
 from kroika_contracts.design_modules import FULLNESS_MODULES
 from .composites import _operation, _pair_residual, _seam_pair
+from .attachments import boundary_records, boundary_edges, descendants
 from .details import (
     _error,
     _find,
@@ -65,7 +66,7 @@ def active(request: Mapping[str, Any]) -> list[dict]:
             and item.get("support_status") == "supported"
             and item.get("module_id") in FULLNESS_MODULES
         ],
-        key=lambda item: (item["module_id"], item["source_element_id"]),
+        key=lambda item: next(index for index, original in enumerate(request["garment_spec"]["design_intent"]["elements"]) if original is item),
     )
 
 
@@ -191,9 +192,35 @@ def _reject_dart_slash(piece: dict, x: float, source: str):
 def apply_fullness_foundation(pattern: Mapping[str, Any], request: Mapping[str, Any]) -> dict:
     result = deepcopy(dict(pattern))
     selected = [item for item in active(request) if item["module_id"] in FOUNDATION_MODULES]
+    if any(item['location'] == 'bodice_front' for item in selected) and any(
+            item.get('included') is not False and item.get('support_status') == 'supported'
+            and item.get('module_id') in {'diagonal_bodice_drape_v2', 'crossed_bodice_drape_v1'}
+            for item in (request['garment_spec'].get('design_intent') or {}).get('elements', [])):
+        from .advanced import true_front_neckline
+        true_front_neckline(result)
     groups: dict[str, list[dict]] = {}
     for item in selected:
-        groups.setdefault(_target_id(item["location"]), []).append(item)
+        root = _target_id(item['location'])
+        # Skirt fullness starts at the lower yoke join, not at the anatomical waist.
+        parts = [p for p in descendants(result, root) if not p['id'].endswith('_yoke')]
+        if len(parts) == 1:
+            groups.setdefault(parts[0]['id'], []).append(item)
+            continue
+        allocated = {}
+        for index in range(item['count'] // 2):
+            x = item['dimensions_mm']['width'] + index * item['dimensions_mm']['spacing']
+            owners = []
+            for part in parts:
+                contour = contour_from_data(part['seam_contour'])
+                hits = [edge.point_at(t).y_mm for edge in contour.segments for t in _roots(edge, x)]
+                if len(set(round(y, 5) for y in hits)) == 2:
+                    owners.append(part)
+            if len(owners) != 1:
+                raise _error('Раскрытие должно находиться внутри одной панели. Измените отступ или интервал.',
+                             item['source_element_id'], 'FULLNESS_PARTITION_PLACEMENT')
+            allocated.setdefault(owners[0]['id'], []).append(index)
+        for pid, indices in allocated.items():
+            groups.setdefault(pid, []).append({**item, '_slash_indices': indices})
     for pid, items in sorted(groups.items()):
         piece = _find(result, pid)
         original = contour_from_data(piece["seam_contour"])
@@ -210,7 +237,7 @@ def apply_fullness_foundation(pattern: Mapping[str, Any], request: Mapping[str, 
             if item["type"] == "tuck":
                 factor = 2
             addition = dimensions["depth"] * factor
-            for index in range(number):
+            for index in item.get('_slash_indices', range(number)):
                 x = legacy + dimensions["width"] + index * dimensions["spacing"]
                 if any(abs(edge.start.x_mm - x) < 0.1 for edge in original.segments):
                     raise _error(
@@ -322,7 +349,7 @@ def apply_fullness_foundation(pattern: Mapping[str, Any], request: Mapping[str, 
                 parameters[f"addition_{i}"] = amount
             parameters["full_garment_count"] = item["count"]
             op = dict(
-                operation_id=f"fullness_{source}",
+                operation_id=f"fullness_{source}_{pid}" if '_slash_indices' in item else f"fullness_{source}",
                 source_element_id=source,
                 kind=item["type"],
                 module_id=item["module_id"],
@@ -335,7 +362,8 @@ def apply_fullness_foundation(pattern: Mapping[str, Any], request: Mapping[str, 
             piece["annotations"].append(
                 dict(
                     id=f"{source}_fullness_note",
-                    position=[parameters["mark_0_1_x"], parameters["mark_0_1_y"] - 15],
+                    position=[parameters[f"mark_{item.get('_slash_indices', [0])[0]}_1_x"],
+                              parameters[f"mark_{item.get('_slash_indices', [0])[0]}_1_y"] - 15],
                     text_ru=f"{item['description_ru']} Всего {item['count']}; на этой половине {item['count'] // 2}. Добавленный раствор закрыть по контрольным линиям; длины соединений указаны после закрытия.",
                 )
             )
@@ -471,12 +499,7 @@ def _slice_distance(edges, offset, length, source):
 
 
 def _edge_for(target, edge_name, source):
-    suffix = "hem" if target["id"] == "base_sleeve" and edge_name == "hem" else "_" + edge_name
-    edges = [
-        edge
-        for edge in contour_from_data(target["seam_contour"]).segments
-        if edge.id.endswith(suffix)
-    ]
+    edges = boundary_edges(target, edge_name)
     if not edges:
         raise _error(
             "Выбранный срез отсутствует либо уже занят отделкой.", source, "FULLNESS_EDGE_MISSING"
@@ -504,13 +527,78 @@ def _attach(pattern, target, edges, panel, source, reduction=0, target_reduction
     return [path_id, pair["id"]]
 
 
+def _attach_records(pattern, records, panel, source, addition=0, join_id=None):
+    """One continuous detail may be sewn across several partitioned pieces."""
+    if len(records) == 1 and join_id is None:
+        target, edges, reduction = records[0]
+        return _attach(pattern, target, edges, panel, source, addition, reduction)
+    join = next(e for e in contour_from_data(panel['seam_contour']).segments
+                if e.id == (join_id or panel['id'] + '_join'))
+    total = sum(sum(e.length_mm for e in edges) - reduction
+                for _, edges, reduction in records)
+    cursor, interfaces = 0.0, []
+    for index, (target, edges, reduction) in enumerate(records):
+        length = sum(e.length_mm for e in edges) - reduction
+        extra = addition * length / total
+        match = _slice_distance([join], cursor, length + extra, f'{source}_{index}')
+        panel['internal_paths'].append(_path(f'{source}_{index}_match', match))
+        anchors = [replace(e, id=f'{source}_{index}_anchor_segment_{i}')
+                   for i, e in enumerate(edges)]
+        path_id = f'{source}_{index}_anchor'
+        target['internal_paths'].append(_path(path_id, anchors))
+        pair = _seam_pair(f'{source}_{index}_attachment', target['id'],
+                          [e.id for e in anchors], panel['id'], [e.id for e in match])
+        pair.update(first_length_reduction_mm=reduction, second_length_reduction_mm=extra)
+        pattern['seam_pairs'].append(pair)
+        interfaces.extend([path_id, pair['id']])
+        cursor += length + extra
+    return interfaces
+
+
+def _line_records(pattern, root, line, source):
+    """Clip a continuous anchor at cut boundaries; reject missing intervals."""
+    found = []
+    for target in descendants(pattern, root):
+        contour = contour_from_data(target['seam_contour'])
+        polygon = [p for edge in contour.segments for _, p in curve_points(edge, 0.03)[:-1]]
+        roots = [0.0, 1.0]
+        for edge in contour.segments:
+            try:
+                roots.extend(hit.first_parameter for hit in intersections(line, edge))
+            except OverlappingGeometryError:
+                pass
+        roots = sorted(set(round(t, 9) for t in roots))
+        for a, b in zip(roots, roots[1:]):
+            if b-a > 1e-8 and _inside(line.point_at((a+b)/2), polygon):
+                edge = replace(_subcurve(line, a, b), id=f'{source}_{target["id"]}_anchor_segment')
+                found.append((a, b, target, edge))
+    found.sort(key=lambda record: record[0])
+    cursor = 0.0
+    for a, b, _, _ in found:
+        if abs(a-cursor) > 1e-6:
+            raise _error('Крепление выходит за контур или попадает в перекрытие деталей.', source,
+                         'FULLNESS_ANCHOR_OUTSIDE')
+        cursor = b
+    if abs(cursor-1) > 1e-6:
+        raise _error('Крепление выходит за контур детали.', source, 'FULLNESS_ANCHOR_OUTSIDE')
+    return [(target, [edge], 0) for _, _, target, edge in found]
+
+
 def _local_edge(pattern, item, request):
     source, dims = item["source_element_id"], item["dimensions_mm"]
     placement = item.get("placement") or {}
-    target = _find(pattern, _target_id(item["location"]))
     edge_name = placement.get("edge", _default_edge(item["location"]))
-    edges = _edge_for(target, edge_name, source)
-    selected = _slice_distance(edges, dims["spacing"], dims["length"], source)
+    records = boundary_records(pattern, _target_id(item['location']), edge_name, source)
+    selected, cursor = [], 0.0
+    for target, edges in records:
+        size = sum(e.length_mm for e in edges)
+        offset = max(0, dims['spacing'] - cursor)
+        length = min(size, dims['spacing'] + dims['length'] - cursor) - offset
+        if length > 1e-6:
+            selected.append((target, _slice_distance(edges, offset, length, f'{source}_{len(selected)}'), 0))
+        cursor += size
+    if abs(sum(sum(e.length_mm for e in edges) for _, edges, _ in selected) - dims['length']) > 0.05:
+        raise _error('Участок отделки выходит за выбранный срез.', source, 'FULLNESS_EDGE_INTERVAL_OUTSIDE')
     _hem_depth(request, dims["depth"], source)
     quantity = item["count"]
     addition = dims["width"] if item["type"] == "ruffle" else 0
@@ -539,12 +627,12 @@ def _local_edge(pattern, item, request):
         f" Притачать на {SIDE_RU[placement.get('side', 'both')]}; срез {EDGE_RU[edge_name]}. Сборка: {dims['length'] + addition:g} → {dims['length']:g} мм."
     )
     pattern["pieces"].append(panel)
-    interfaces = _attach(pattern, target, selected, panel, source, addition)
+    interfaces = _attach_records(pattern, selected, panel, source, addition)
     _record(
         pattern,
         item,
         item["type"],
-        [target["id"]],
+        [target['id'] for target, _, _ in selected],
         [pid],
         interfaces,
         dict(
@@ -556,10 +644,9 @@ def _local_edge(pattern, item, request):
 
 def _peplum(pattern, item, request):
     source, dims = item["source_element_id"], item["dimensions_mm"]
-    target = _find(pattern, _target_id(item["location"]))
-    edges = _edge_for(target, "waist", source)
-    reduction = _reduction(pattern, target["id"], [edge.id for edge in edges])
-    seam = sum(edge.length_mm for edge in edges) - reduction
+    records = [(target, edges, _reduction(pattern, target['id'], [e.id for e in edges]))
+               for target, edges in boundary_records(pattern, _target_id(item['location']), 'waist', source)]
+    seam = sum(sum(e.length_mm for e in edges) - reduction for _, edges, reduction in records)
     _hem_depth(request, min(dims["depth"], dims["length"]), source)
     pid = f"{source}_peplum"
     panel = _annular_piece(
@@ -576,13 +663,14 @@ def _peplum(pattern, item, request):
         f" Разместить только на {SIDE_RU[(item.get('placement') or {})['side']]} {LOCATION_RU[item['location']]}."
     )
     pattern["pieces"].append(panel)
-    copied = [replace(edge, id=f"{source}_anchor_segment_{i}") for i, edge in enumerate(edges)]
-    interfaces = _attach(pattern, target, copied, panel, source, target_reduction=reduction)
+    copied = [(target, [replace(e, id=f'{source}_{j}_anchor_segment_{i}') for i, e in enumerate(edges)], r)
+              for j, (target, edges, r) in enumerate(records)]
+    interfaces = _attach_records(pattern, copied, panel, source)
     _record(
         pattern,
         item,
         "peplum",
-        [target["id"]],
+        [target['id'] for target, _, _ in records],
         [pid],
         interfaces,
         dict(depth=dims["depth"], end_depth=dims["length"], joining_length=seam),
@@ -592,9 +680,9 @@ def _peplum(pattern, item, request):
 def _cascade(pattern, item, request):
     source, dims = item["source_element_id"], item["dimensions_mm"]
     placement = item.get("placement") or {}
-    target = _find(pattern, _target_id(item["location"]))
+    root = _target_id(item['location'])
     _hem_depth(request, dims["depth"], source)
-    top = contour_from_data(target["seam_contour"]).bounding_box.max_y_mm - placement.get(
+    top = max(contour_from_data(p['seam_contour']).bounding_box.max_y_mm for p in descendants(pattern, root)) - placement.get(
         "offset_mm", 0
     )
     line = LineSegment(
@@ -613,7 +701,8 @@ def _cascade(pattern, item, request):
         request=request,
     )
     pattern["pieces"].append(panel)
-    interfaces = _attach(pattern, target, [line], panel, source)
+    records = _line_records(pattern, root, line, source)
+    interfaces = _attach_records(pattern, records, panel, source)
     panel["annotations"][0]["text_ru"] += (
         f" Сторона: {SIDE_RU[placement.get('side', 'both')]}; начало ниже талии на {placement.get('offset_mm', 0):g} мм."
     )
@@ -621,7 +710,7 @@ def _cascade(pattern, item, request):
         pattern,
         item,
         "cascade",
-        [target["id"]],
+        [target['id'] for target, _, _ in records],
         [pid],
         interfaces,
         dict(
@@ -642,15 +731,16 @@ def _drape_panel(pattern, item):
         item.get("placement") or {},
     )
     target = _find(pattern, _target_id(item["location"]))
-    contour = contour_from_data(target["seam_contour"])
-    polygon = [p for edge in contour.segments for _, p in curve_points(edge, 0.05)[:-1]]
-    upper_y = contour.bounding_box.max_y_mm - 40 - placement.get("offset_mm", 0)
+    parts = descendants(pattern, _target_id(item['location']))
+    contours = [contour_from_data(p['seam_contour']) for p in parts]
+    polygons = [[p for edge in contour.segments for _, p in curve_points(edge, 0.05)[:-1]] for contour in contours]
+    upper_y = max(c.bounding_box.max_y_mm for c in contours) - 40 - placement.get("offset_mm", 0)
     lower_y = 20.0
 
     def outside_x(y):
         xs = [
             a.x_mm + (y - a.y_mm) * (b.x_mm - a.x_mm) / (b.y_mm - a.y_mm)
-            for a, b in zip(polygon, polygon[1:] + polygon[:1])
+            for polygon in polygons for a, b in zip(polygon, polygon[1:] + polygon[:1])
             if (a.y_mm > y) != (b.y_mm > y)
         ]
         return max(xs, default=0) - dims["spacing"] - dims["width"]
@@ -662,7 +752,7 @@ def _drape_panel(pattern, item):
             source,
             "FULLNESS_DRAPE_OUTSIDE",
         )
-    full = contour.bounding_box.min_x_mm < -1
+    full = min(c.bounding_box.min_x_mm for c in contours) < -1
     diagonal = item["module_id"] == "diagonal_bodice_drape_v2"
     if diagonal and not full:
         raise _error(
@@ -753,7 +843,8 @@ def _drape_panel(pattern, item):
         pattern,
         item,
         "drape",
-        [target["id"]],
+        [part['id'] for part in parts if any(path['id'].startswith(source) and 'anchor' in path['id']
+                                           for path in part['internal_paths'])],
         [pid],
         interfaces,
         dict(
@@ -787,7 +878,7 @@ def _tiers(pattern, item, request):
             pid = (
                 f"{source}_tier_{tier + 1}_{target['id']}"
                 if tier == 0
-                else f"{source}_tier_{tier + 1}_{'overlay_' if target['id'].startswith('overlay_') else ''}{'front' if 'front' in target['id'] else 'back'}_skirt"
+                else f"{source}_tier_{tier + 1}_{target['id']}"
             )
             addition = 0 if circular else dims["width"]
             panel = (
@@ -957,58 +1048,48 @@ def _check_line(target, line, source, boundary=False, allow_darts=False):
                 )
 
 
+def _validate_marker_fragments(targets, path_id, start, end, source):
+    intervals = []
+    for target in targets:
+        for path in target['internal_paths']:
+            if path['id'] != path_id and not path['id'].startswith(path_id + '_'):
+                continue
+            for edge in contour_from_data(path).segments:
+                if not isinstance(edge, LineSegment) or max(abs(edge.start.x_mm-start.x_mm), abs(edge.end.x_mm-start.x_mm)) > 0.01:
+                    raise _error('Контрольная линия раскрытия повреждена.', source, 'FULLNESS_MARK_CHANGED')
+                a, b = sorted((start.y_mm-edge.start.y_mm, start.y_mm-edge.end.y_mm))
+                if a < -0.01 or b > start.distance_to(end)+0.01:
+                    raise _error('Контрольная линия вышла за заданный интервал.', source, 'FULLNESS_MARK_CHANGED')
+                intervals.append((a,b))
+                _check_line(target, edge, source, boundary=True)
+    cursor = 0.0
+    for a,b in sorted(set(intervals)):
+        if abs(a-cursor) > 0.01:
+            raise _error('Фрагменты контрольной линии не стыкуются.', source, 'FULLNESS_MARK_MISSING')
+        cursor = b
+    if abs(cursor-start.distance_to(end)) > 0.01 or not intervals:
+        raise _error('Обязательная контрольная линия отсутствует на лекале.', source, 'FULLNESS_MARK_MISSING')
+
+
 def validate_fullness_placements(pattern: Mapping[str, Any]) -> None:
     anchors_by_piece = {}
     for operation in pattern.get("modeling_operations", []):
         if operation["module_id"] not in FOUNDATION_MODULES:
             continue
         source, params = operation["source_element_id"], operation["parameters_mm"]
-        target = _find(pattern, operation["target_piece_ids"][0])
-        expected = [
-            key.removeprefix("mark_").removesuffix("_x")
-            for key in params
-            if key.startswith("mark_") and key.endswith("_x")
-        ]
+        expected = [key.removeprefix("mark_").removesuffix("_x")
+                    for key in params if key.startswith("mark_") and key.endswith("_x")]
+        targets = [_find(pattern, pid) for pid in operation['target_piece_ids']]
         for suffix in expected:
-            path = next(
-                (
-                    path
-                    for path in target["internal_paths"]
-                    if path["id"] == f"{source}_fullness_{suffix}"
-                ),
-                None,
-            )
-            if path is None:
-                raise _error(
-                    "Обязательная контрольная линия отсутствует на лекале.",
-                    source,
-                    "FULLNESS_MARK_MISSING",
-                )
-            edges = contour_from_data(path).segments
-            if len(edges) != 1 or not isinstance(edges[0], LineSegment):
-                raise _error(
-                    "Контрольная линия раскрытия повреждена.", source, "FULLNESS_MARK_CHANGED"
-                )
-            line = edges[0]
-            if (
-                line.start.distance_to(
-                    Point(params[f"mark_{suffix}_x"], params[f"mark_{suffix}_y"])
-                )
-                > 0.01
-                or line.end.distance_to(
-                    Point(
-                        params[f"mark_{suffix}_x"],
-                        params[f"mark_{suffix}_y"] - params[f"mark_{suffix}_length"],
-                    )
-                )
-                > 0.01
-            ):
-                raise _error(
-                    "Контрольная линия не соответствует размещению и размерам.",
-                    source,
-                    "FULLNESS_MARK_CHANGED",
-                )
-            _check_line(target, line, source, boundary=True)
+            pid = f'{source}_fullness_{suffix}'
+            start = Point(params[f'mark_{suffix}_x'], params[f'mark_{suffix}_y'])
+            end = Point(start.x_mm, start.y_mm - params[f'mark_{suffix}_length'])
+            _validate_marker_fragments(targets, pid, start, end, source)
+            if any(path['id'].startswith('mirror_' + pid) for target in targets
+                   for path in target['internal_paths']):
+                _validate_marker_fragments(targets, 'mirror_' + pid,
+                                           Point(-start.x_mm, start.y_mm),
+                                           Point(-end.x_mm, end.y_mm), source)
     for operation in pattern.get("composite_operations", []):
         if operation["module_id"] not in FULLNESS_MODULES:
             continue

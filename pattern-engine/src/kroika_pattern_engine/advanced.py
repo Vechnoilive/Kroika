@@ -384,7 +384,7 @@ def _unfold_front(pattern: dict) -> dict:
     # True the round half-neckline at the fold before unfolding: the
     # original block's vertical end tangent otherwise creates a cusp.
     for i, edge in enumerate(edges):
-        if edge.id == "front_neckline" and isinstance(edge, CubicBezier):
+        if edge.id == "front_neckline" and isinstance(edge, CubicBezier) and abs(edge.end.x_mm) < 1e-6:
             edges[i] = replace(edge, control_2=Point(edge.start.x_mm * 0.4, edge.end.y_mm))
             facing = next((p for p in pattern["pieces"] if p["id"] == "front_facing"), None)
             if facing:
@@ -459,6 +459,25 @@ def _unfold_front(pattern: dict) -> dict:
     return target
 
 
+def true_front_neckline(pattern):
+    """True the half-neck before it is fragmented by a spread operation."""
+    target = _find(pattern, 'front_bodice')
+    contour = contour_from_data(target['seam_contour'])
+    original = next((e for e in contour.segments if e.id == 'front_neckline'
+                     and isinstance(e, CubicBezier)), None)
+    if original is None:
+        return
+    edge = replace(original, control_2=Point(original.start.x_mm * 0.4, original.end.y_mm))
+    target['seam_contour'] = contour_to_data(Contour(tuple(edge if e.id == original.id else e
+                                                         for e in contour.segments), id=contour.id))
+    for facing in pattern['pieces']:
+        if facing['id'] != 'front_facing':
+            continue
+        fc = contour_from_data(facing['seam_contour'])
+        facing['seam_contour'] = contour_to_data(Contour(tuple(replace(edge.reversed(), id='front_facing_neckline')
+            if e.id == 'front_facing_neckline' else e for e in fc.segments), id=fc.id))
+
+
 def _anchor(
     pattern: dict,
     target: dict,
@@ -468,6 +487,12 @@ def _anchor(
     edge_id: str,
     reduction: float = 0,
 ) -> str:
+    from .attachments import descendants
+    if len(descendants(pattern, target['id'])) > 1:
+        from .fullness import _line_records, _attach_records
+        records = _line_records(pattern, target['id'], line, path_id)
+        interfaces = _attach_records(pattern, records, piece, path_id, reduction, edge_id)
+        return interfaces[-1]
     path = _path(path_id, [line])
     target["internal_paths"].append(path)
     pair = _seam_pair(f"{path_id}_join", target["id"], [line.id], piece["id"], [edge_id])
@@ -496,20 +521,22 @@ def _anchor(
 
 
 def _drape(pattern: dict, item: Mapping[str, Any]) -> None:
+    from .attachments import boundary_records, descendants
     source, d = item["source_element_id"], item["dimensions_mm"]
     target = _find(pattern, "front_bodice")
-    contour = contour_from_data(target["seam_contour"])
+    contours = [contour_from_data(p['seam_contour']) for p in descendants(pattern, 'front_bodice')]
     w, extra, inset = d["width"], d["depth"], d["spacing"]
-    waist = next(e for e in contour.segments if e.id == "front_waist")
-    top = next(e for e in contour.segments if e.id == "front_neckline")
-    shoulder = next((e for e in contour.segments if e.id == "front_shoulder"), None)
+    waist = max((e for _, edges in boundary_records(pattern, 'front_bodice', 'waist', source) for e in edges),
+                key=lambda e: max(e.start.x_mm, e.end.x_mm))
+    top = next(e for _, edges in boundary_records(pattern, 'front_bodice', 'neckline', source) for e in edges)
+    shoulder = next((e for contour in contours for e in contour.segments if e.id == "front_shoulder"), None)
     upper_y = (shoulder.start.y_mm - 30) if shoulder else top.end.y_mm - 15
     lower_y = 20
     x = waist.end.x_mm - inset - w
-    polygon = [point for edge in contour.segments for _, point in curve_points(edge, 0.05)[:-1]]
+    polygons = [[point for edge in contour.segments for _, point in curve_points(edge, 0.05)[:-1]] for contour in contours]
     crossings = [
         a.x_mm + (upper_y - a.y_mm) * (b.x_mm - a.x_mm) / (b.y_mm - a.y_mm)
-        for a, b in zip(polygon, polygon[1:] + polygon[:1])
+        for polygon in polygons for a, b in zip(polygon, polygon[1:] + polygon[:1])
         if (a.y_mm > upper_y) != (b.y_mm > upper_y)
     ]
     upper_x = max(crossings, default=0) - inset - w
@@ -572,7 +599,8 @@ def _drape(pattern: dict, item: Mapping[str, Any]) -> None:
         source,
         "drape",
         item["module_id"],
-        [target["id"]],
+        [p['id'] for p in descendants(pattern, 'front_bodice')
+         if any(path['id'].startswith(source) and 'anchor' in path['id'] for path in p['internal_paths'])],
         added,
         interfaces,
         parameters,

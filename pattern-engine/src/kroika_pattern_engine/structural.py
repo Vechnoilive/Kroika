@@ -27,6 +27,7 @@ from .geometry import (
 from .geometry.primitives import curve_points
 from .fullness import _subcurve, _slice_distance, _edge_for, _annular_piece, _check_line
 from .modeling import _resize_waistbands
+from .attachments import boundary_edges, boundary_records
 
 FOUNDATION = {
     "side_skirt_slit_v3",
@@ -66,7 +67,8 @@ def _active(request):
             and i.get("support_status") == "supported"
             and i.get("module_id") in STRUCTURAL_MODULES
         ],
-        key=lambda i: (i["module_id"], i["source_element_id"]),
+        key=lambda i: (0 if i['module_id'] == 'straight_shoulder_straps_v3' else 1,
+                       i["module_id"], i["source_element_id"]),
     )
 
 
@@ -170,15 +172,15 @@ def _neck_edges(pattern, source):
                 p,
                 [
                     e
-                    for e in contour_from_data(p["seam_contour"]).segments
-                    if e.id.endswith("_neckline")
+                    for e in boundary_edges(p, 'neckline')
+                    if not e.id.startswith('mirror_')
                 ],
             )
             for p in pattern["pieces"]
             if p["id"] == f"{prefix}_bodice" or p["id"].startswith(f"{prefix}_bodice__")
         ]
         records += [(p, e) for p, e in group if e]
-    if len(records) != 2:
+    if len(records) < 2:
         raise _error("Нужны отдельные свободные срезы горловины переда и спинки.", source)
     return records
 
@@ -253,13 +255,11 @@ def _hood_or_collar(pattern, item, request):
             "Кроить четыре половины: верх и подворотник. Стачать внешний край, вывернуть; соединить половины по центру спинки. Это плоский воротник без лацкана и стойки.",
         )
     inner = contour_from_data(piece["seam_contour"]).segments[0]
-    split = [
-        replace(e, id=f"{pid}_join_{i}")
-        for i, e in enumerate(
-            _slice_distance([inner], 0, lengths[0], source)
-            + _slice_distance([inner], lengths[0], lengths[1], source)
-        )
-    ]
+    split, cursor = [], 0.0
+    for index, length in enumerate(lengths):
+        split.extend(replace(e, id=f'{pid}_join_{index}')
+                     for e in _slice_distance([inner], cursor, length, source))
+        cursor += length
     contour = contour_from_data(piece["seam_contour"])
     piece["seam_contour"] = contour_to_data(
         Contour(tuple([*split, *contour.segments[1:]]), id=contour.id)
@@ -277,6 +277,31 @@ def _hood_or_collar(pattern, item, request):
                 reduction=_reduction(pattern, target["id"], [e.id for e in edges]),
             )
         )
+    # A full front has two physical neckline halves, including after a yoke.
+    unused = [(i, length) for i, ((target, _), length) in enumerate(zip(records, lengths))
+              if target['id'].startswith('front_')]
+    mirrored_records = []
+    for target in pattern['pieces']:
+        if not target['id'].startswith('front_bodice'):
+            continue
+        edges = [e for e in boundary_edges(target, 'neckline') if e.id.startswith('mirror_')]
+        if not edges:
+            continue
+        length = sum(e.length_mm for e in edges)-_reduction(pattern, target['id'], [e.id for e in edges])
+        if not unused:
+            raise _error('Не найдена парная половина горловины.', source)
+        match = min(range(len(unused)), key=lambda i: abs(unused[i][1]-length))
+        index, expected = unused.pop(match)
+        if abs(expected-length) > 1:
+            raise _error('Для разных половин горловины нужен асимметричный воротник.', source)
+        pair = _seam_pair(f'{source}_{target["id"]}_neck_mirror', target['id'],
+                          [e.id for e in edges], pid, [split[index].id])
+        pair.update(first_length_reduction_mm=_reduction(pattern, target['id'], [e.id for e in edges]),
+                    second_instance='mirror')
+        pattern['seam_pairs'].append(pair)
+        joins.append(pair['id'])
+        mirrored_records.append((target, edges, index))
+    records_for_coverage = records + [(target, edges) for target, edges, _ in mirrored_records]
     if kind == "collar":
         from .composites import _clone_piece
 
@@ -286,7 +311,7 @@ def _hood_or_collar(pattern, item, request):
         added.append(under["id"])
         seam_edges = contour_from_data(piece["seam_contour"]).segments
         free_edges = [
-            e for e in seam_edges if e.id not in {split[0].id, split[1].id, f"{pid}_end_left"}
+            e for e in seam_edges if e.id not in {*(edge.id for edge in split), f"{pid}_end_left"}
         ]
         pair = _seam_pair(
             f"{source}_collar_layers",
@@ -318,14 +343,23 @@ def _hood_or_collar(pattern, item, request):
             )
             pattern["seam_pairs"].append(pair)
             joins.append(pair["id"])
+    if kind == 'collar':
+        for target, edges, index in mirrored_records:
+            pair = _seam_pair(f'{source}_{target["id"]}_undercollar_mirror', target['id'],
+                              [e.id for e in edges], under['id'], ['under_'+split[index].id])
+            pair.update(first_length_reduction_mm=_reduction(pattern, target['id'], [e.id for e in edges]),
+                        second_instance='mirror')
+            pattern['seam_pairs'].append(pair)
+            joins.append(pair['id'])
     _record(
         pattern,
         item,
         kind,
-        [p["id"] for p, _ in records],
+        [p["id"] for p, _ in records_for_coverage],
         added,
         joins,
-        {"front_neck_join": lengths[0], "back_neck_join": lengths[1]},
+        {"front_neck_join": sum(length for (target, _), length in zip(records, lengths) if target["id"].startswith("front_")),
+         "back_neck_join": sum(length for (target, _), length in zip(records, lengths) if target["id"].startswith("back_"))},
     )
 
 
@@ -734,6 +768,8 @@ def validate_structural_placements(pattern):
             target = _find(pattern, pid)
             for path in [target["seam_contour"], *target["internal_paths"]]:
                 for edge in contour_from_data(path).segments:
+                    if edge.id not in protected and not path['id'].startswith(op['source_id'] + '_'):
+                        continue
                     for end in (
                         "start",
                         "end",
@@ -953,10 +989,14 @@ def _straps(pattern, item):
     joins = []
     targets = []
     for prefix, end_name in [("front", "end_left"), ("back", "end_right")]:
-        target = _find(pattern, f"{prefix}_bodice")
-        edges = _edge_for(target, "neckline", source)
-        if len(edges) != 1 or not isinstance(edges[0], LineSegment):
+        records = boundary_records(pattern, f'{prefix}_bodice', 'neckline', source)
+        candidates = [(target, edges) for target, edges in records
+                      if len(edges) == 1 and isinstance(edges[0], LineSegment)
+                      and min(edges[0].start.x_mm, edges[0].end.x_mm) <= d['spacing']
+                      and max(edges[0].start.x_mm, edges[0].end.x_mm) >= d['spacing'] + width]
+        if len(candidates) != 1:
             raise _error("Для бретели нужен прямой верх лифа.", source)
+        target, edges = candidates[0]
         edge = edges[0]
         center = Point(0, edge.start.y_mm)
         start = Point(d["spacing"], center.y_mm)
@@ -987,7 +1027,7 @@ def _straps(pattern, item):
     _record(pattern, item, "strap", targets, [pid], joins, {"cut_width": 2 * width})
 
 
-def _boundary_hits(contour, line, source):
+def _boundary_hits(contour, line, source, half_side=None):
     direction = line.end - line.start
     hits = []
     for i, edge in enumerate(contour.segments):
@@ -1015,6 +1055,8 @@ def _boundary_hits(contour, line, source):
             roots.append(1.0)
         for t in roots:
             p = edge.point_at(t)
+            if half_side == 'right' and p.x_mm < -1e-6 or half_side == 'left' and p.x_mm > 1e-6:
+                continue
             if not any(p.distance_to(h[2]) < 0.01 for h in hits):
                 hits.append((i, t, p))
     if len(hits) != 2:
@@ -1035,7 +1077,7 @@ def _point_on(edge, p):
 
 
 def _dart_reduction(piece, edges):
-    total = 0.0
+    total = sum(e.length_mm for e in edges if '_bridge_' in e.id)
     for path in piece["internal_paths"]:
         if "dart" not in path["id"]:
             continue
@@ -1190,6 +1232,18 @@ def _split_source(pattern, target, parts, item, absorbed=0):
     # Existing operation references need to identify every resulting cut piece.
     for key in ("modeling_operations", "topology_operations", "composite_operations"):
         for op in pattern.get(key, []):
+            params = op.get('parameters_mm', {})
+            for original, fragments in owners.items():
+                if f'{original}_start_x' not in params:
+                    continue
+                for end in ('start','end','control_1','control_2'):
+                    for axis in ('x','y'):
+                        params.pop(f'{original}_{end}_{axis}', None)
+                for _, edge, _ in fragments:
+                    for end in ('start','end', *(['control_1','control_2'] if isinstance(edge, CubicBezier) else [])):
+                        point = getattr(edge,end)
+                        params[f'{edge.id}_{end}_x'] = point.x_mm
+                        params[f'{edge.id}_{end}_y'] = point.y_mm
             for field in ("target_piece_ids", "added_piece_ids"):
                 if target["id"] in op.get(field, []):
                     op[field] = list(
@@ -1222,16 +1276,12 @@ def _make_part(target, contour, pid, name, source):
         )
         if allinside:
             paths.append(deepcopy(path))
-        elif anyinside and "dart" not in path["id"]:
+        elif "dart" not in path["id"]:
             from .geometry.intersections import intersections
             from .geometry.errors import OverlappingGeometryError
 
             clipped = []
             for line in shape.segments:
-                if not isinstance(line, LineSegment):
-                    raise _error(
-                        "Не удалось перенести кривую контрольную линию через членение.", source
-                    )
                 roots = [0.0, 1.0]
                 for border in contour.segments:
                     try:
@@ -1272,11 +1322,11 @@ def _make_part(target, contour, pid, name, source):
     return piece
 
 
-def _cut(pattern, item, line, kind):
+def _cut(pattern, item, line, kind, half_side=None):
     source = item["source_element_id"]
     target = _find(pattern, _target_id(item["location"]))
     contour = contour_from_data(target["seam_contour"])
-    (ai, at, a), (bi, bt, b) = _boundary_hits(contour, line, source)
+    (ai, at, a), (bi, bt, b) = _boundary_hits(contour, line, source, half_side)
     _check_line(target, LineSegment(a, b), source, boundary=True)
 
     # Arc A goes forward from A to B; arc B wraps around the remaining original outline.
@@ -1390,7 +1440,20 @@ def prepare_structural_foundation(pattern, request):
             box = contour_from_data(target["seam_contour"]).bounding_box
             y = box.max_y_mm - d["depth"]
             delta = d.get("width") or 0
-            _cut(result, item, LineSegment(Point(0, y), Point(box.max_x_mm, y - delta)), "yoke")
+            line = LineSegment(Point(0, y), Point(box.max_x_mm, y - delta))
+            try:
+                _boundary_hits(contour_from_data(target['seam_contour']), line, item['source_element_id'])
+            except BlockConstructionError as error:
+                if box.min_x_mm >= -1 or error.code != 'STRUCTURAL_CUT_INTERSECTIONS':
+                    raise
+                for side in ('right', 'left'):
+                    source = item['source_element_id']
+                    copied = {**item, 'source_element_id': source + '_' + side}
+                    cut_line = line if side == 'right' else LineSegment(Point(0,y), Point(box.min_x_mm,y-delta))
+                    _cut(result, copied, cut_line, 'yoke', side)
+                    result['composite_operations'][-1]['source_id'] = source
+            else:
+                _cut(result, item, line, 'yoke')
         elif module == "offset_skirt_panel_v3":
             target = _find(result, _target_id(item["location"]))
             box = contour_from_data(target["seam_contour"]).bounding_box

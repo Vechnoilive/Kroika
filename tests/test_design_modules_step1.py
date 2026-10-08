@@ -113,15 +113,16 @@ def test_tuck_outside_its_recipe_is_not_marked_supported(field, value):
 
 @pytest.mark.parametrize('new_element', [tuck(), stitch()])
 @pytest.mark.parametrize('topology', ['panel', 'yoke'])
-def test_unintegrated_topology_combinations_are_rejected_before_generation(new_element, topology):
+def test_topology_combinations_keep_source_geometry(new_element, topology):
     other = _element('topology', topology, 'straight', 'full_garment' if topology == 'panel' else 'waist',
                      'separate_piece', 2,
                      'paired_equal_skirt_panels_v1' if topology == 'panel' else 'paired_straight_skirt_yoke_v1',
                      _dimensions() if topology == 'panel' else _dimensions(depth=100))
     req = request([deepcopy(new_element), other])
-    with pytest.raises(SemanticContractError) as error:
-        validate_engine_request(req)
-    assert 'DESIGN_TOPOLOGY_PIPELINE_CONFLICT' in str(error.value)
+    validate_engine_request(req)
+    pattern = generate(req)
+    coverage = next(c for c in pattern["design_coverage"]["modules"] if c["module_id"] == new_element["module_id"])
+    assert new_element["source_element_id"] in coverage["source_evidence"]
 
 
 def test_central_width_operations_cannot_silently_overwrite_each_other():

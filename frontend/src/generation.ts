@@ -1,4 +1,4 @@
-import {moduleIds} from './designModules';
+import {moduleIds, compositionOrder} from './designModules';
 import type {ProjectDocument} from './types';
 
 type JsonObject = Record<string, any>;
@@ -177,8 +177,10 @@ export function canonicalGenerationPayload(request: JsonObject): JsonObject {
   if (foundationLayers.length) garmentSpec.foundation_layers = foundationLayers;
   const stage4 = foundationLayers.length > 0 || ['loose', 'oversized'].includes(garment.parameters.bodice_fit) || (garment.parameters.neckline?.type ?? 'round') !== 'round' || garment.parameters.skirt?.type === 'straight' || (garment.parameters.sleeve?.type ?? 'sleeveless') !== 'sleeveless' || (['dress', 'top'].includes(garment.garment_type) && garment.parameters.sleeve?.type === 'long') || (advancedProportions && (proportions.waist_position !== 'natural' || !['dress', 'sundress', 'skirt'].includes(garment.garment_type)));
   const hasComposites = compositeElements.length > 0 || compositeLayers.length > 0;
+  const order = compositionOrder(garment);
+  if (order.length) garmentSpec.composition_order = order;
   return {
-    hash_contract_version: stage4 ? '1.10.0' : structural.length || garment.parameters.closure?.type === 'hooks' ? '1.9.0' : fullness.length ? '1.8.0' : garment.parameters.closure?.location === 'center_back' && ['buttons', 'lacing'].includes(garment.parameters.closure.type) ? '1.7.0' : hasAdvanced ? '1.6.0' : hasDetails ? '1.5.0' : topologyElements.length > 0
+    hash_contract_version: order.length ? '1.11.0' : stage4 ? '1.10.0' : structural.length || garment.parameters.closure?.type === 'hooks' ? '1.9.0' : fullness.length ? '1.8.0' : garment.parameters.closure?.location === 'center_back' && ['buttons', 'lacing'].includes(garment.parameters.closure.type) ? '1.7.0' : hasAdvanced ? '1.6.0' : hasDetails ? '1.5.0' : topologyElements.length > 0
       ? '1.4.0'
       : coverage ? '1.3.0'
       : hasComposites

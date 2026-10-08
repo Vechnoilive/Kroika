@@ -1,5 +1,5 @@
 {
-  "registry_version": "1.7.0",
+  "registry_version": "1.8.0",
   "unit": "mm",
   "modules": [
     {
@@ -3210,6 +3210,7 @@
             "separate_piece"
           ],
           "count": [
+            1,
             2,
             3,
             4
@@ -3262,6 +3263,7 @@
             "separate_piece"
           ],
           "count": [
+            1,
             2,
             3,
             4
@@ -4746,5 +4748,71 @@
         "optional": {}
       }
     }
-  ]
+  ],
+  "combinations": {
+    "partition_modules": [
+      "front_bodice_yoke_v3",
+      "back_bodice_yoke_v3",
+      "offset_skirt_panel_v3",
+      "shoulder_princess_seam_v3",
+      "side_to_waist_dart_v3"
+    ],
+    "attachment_modules": [
+      "placed_edge_ruffle_v2",
+      "placed_edge_flounce_v2",
+      "placed_cascade_flounce_v2",
+      "asymmetric_waist_peplum_v2",
+      "separate_bodice_drape_v2",
+      "diagonal_bodice_drape_v2",
+      "crossed_bodice_drape_v1",
+      "tiered_hem_ruffle_v2",
+      "tiered_hem_flounce_v2"
+    ],
+    "exclusive_groups": [
+      [
+        "fitted_two_piece_hood_v3",
+        "shaped_flat_collar_v3",
+        "shawl_collar_v3",
+        "stand_collar_v1"
+      ],
+      [
+        "doubled_cuff_v3",
+        "shaped_cuff_v3",
+        "sleeve_cuff_band_v1"
+      ],
+      [
+        "back_skirt_slit_v3",
+        "back_skirt_vent_v3"
+      ],
+      [
+        "elastic_waistband_v3",
+        "adjustable_straight_waistband_v1"
+      ],
+      [
+        "straight_shoulder_straps_v3",
+        "off_shoulder_bands_v1"
+      ]
+    ],
+    "invariants": [
+      "actual_boundary_lengths",
+      "continuous_attachment_intervals",
+      "retained_control_lines",
+      "final_layer_geometry",
+      "source_scoped_coverage"
+    ],
+    "deferred_layer_modules": [
+      "skirt_full_lining_v1",
+      "skirt_overlay_layer_v1",
+      "bodice_interfacing_v1",
+      "bodice_overlay_layer_v1",
+      "sleeve_overlay_layer_v1"
+    ],
+    "sequential_hem_modules": [
+      "circular_hem_flounce_v1",
+      "gathered_edge_ruffle_v1",
+      "circular_edge_flounce_v1",
+      "tiered_hem_ruffle_v2",
+      "tiered_hem_flounce_v2"
+    ]
+  }
 }

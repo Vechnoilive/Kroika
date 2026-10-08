@@ -12,7 +12,7 @@ from tests.test_advanced_design import elements, proportions, generate
 from tests.test_stage19_composites import _element, _dimensions, _layer
 from tests.test_stage11_workflow import client, project_document, engine_request
 from kroika_contracts.hashing import compute_input_hash
-from kroika_contracts.semantic import validate_engine_request, SemanticContractError
+from kroika_contracts.semantic import validate_engine_request
 from kroika_pattern_engine import render_pattern_svg, render_pattern_pdf
 from kroika_pattern_engine.blocks import BlockConstructionError
 from kroika_pattern_engine.coverage import compile_design_coverage
@@ -267,14 +267,15 @@ def test_save_reopen_edit_parameters_and_cache_keep_all_modules(tmp_path, combin
         )
 
 
-def test_unsupported_panel_gather_combination_remains_explicit():
+def test_panel_gather_combination_has_a_cuttable_center_panel():
     panel = detail("panels", "panel", "straight", "full_garment", 3, "paired_equal_skirt_panels_v1")
     req = request([panel, gather()])
     req["input_hash"] = compute_input_hash(req)
-    with pytest.raises(SemanticContractError) as error:
-        validate_engine_request(req)
-    assert "DESIGN_TOPOLOGY_PIPELINE_CONFLICT" in {issue.code for issue in error.value.issues}
-    assert all(item["included"] for item in req["garment_spec"]["design_intent"]["elements"])
+    validate_engine_request(req)
+    pattern = generate(req)
+    operation = next(o for o in pattern["modeling_operations"] if o["module_id"] == "waist_gather_allowance_v1")
+    assert operation["target_piece_ids"] == ["front_skirt_panel_1"]
+    validate_pattern_assembly(pattern)
 
 
 def test_panel_lining_preserves_topology_and_proportion_references():

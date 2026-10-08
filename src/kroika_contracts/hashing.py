@@ -10,6 +10,7 @@ from .design_modules import (
     STAGE21_TOPOLOGY_MODULES,
     DETAIL_ELEMENT_MODULES, DETAIL_LAYER_MODULES, ADVANCED_ELEMENT_MODULES,
     FULLNESS_MODULES, STRUCTURAL_MODULES, FOUNDATION_LAYER_MODULES,
+    composition_order,
 )
 
 
@@ -214,9 +215,12 @@ def canonical_generation_payload(request: Mapping[str, Any]) -> dict[str, Any]:
     if foundation_layers:
         garment_payload['foundation_layers'] = sorted(foundation_layers, key=lambda item: (item['module_id'], item['source_layer_id']))
     has_composites = bool(composite_elements or composite_layers)
+    order = composition_order(garment)
+    if order:
+        garment_payload['composition_order'] = order
     return {
         'hash_contract_version': (
-            '1.10.0' if stage4 else '1.9.0' if structural or garment['parameters'].get('closure', {}).get('type') == 'hooks' else '1.8.0' if fullness else '1.7.0' if garment['parameters'].get('closure', {}).get('location') == 'center_back' and (
+            '1.11.0' if order else '1.10.0' if stage4 else '1.9.0' if structural or garment['parameters'].get('closure', {}).get('type') == 'hooks' else '1.8.0' if fullness else '1.7.0' if garment['parameters'].get('closure', {}).get('location') == 'center_back' and (
                 garment['parameters']['closure']['type'] in {'buttons', 'lacing'})
             else '1.6.0' if advanced_proportions or any(
                 item['module_id'] in ADVANCED_ELEMENT_MODULES for item in details.get('elements', []))

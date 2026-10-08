@@ -331,46 +331,17 @@ def _validate_design_intent(
     skirt_topology = topology_modules & {
         'paired_straight_skirt_yoke_v1', 'paired_equal_skirt_panels_v1',
     }
-    full_front = any(item.get('module_id') in {'diagonal_bodice_drape_v2', 'crossed_bodice_drape_v1'} for item in active)
-    if full_front and any(item.get('module_id') in {'integrated_bodice_drape_v2', 'integrated_bodice_gather_v2'} and item.get('location') == 'bodice_front' for item in active):
-        _add(issues, 'DESIGN_FULLNESS_UNFOLD_CONFLICT', '/garment_spec/design_intent', 'Параллельные раскрытия переда пока нельзя совмещать с драпировкой полного переда. Выберите одну конструкцию переда; раскрытия спинки допустимы.')
-    if skirt_topology and any(item.get('module_id') in FULLNESS_MODULES for item in active):
-        _add(issues, 'DESIGN_TOPOLOGY_PIPELINE_CONFLICT', '/garment_spec/design_intent',
-             'Новые распределённые операции и отделка пока требуют юбку без кокетки и панелей.')
     if len(skirt_topology) > 1:
         _add(
             issues, 'DESIGN_TOPOLOGY_TARGET_CONFLICT',
             '/garment_spec/design_intent/elements',
             'Для одной юбки выберите либо кокетку, либо панельное членение.',
         )
-    incompatible_skirt_modules = {
-        item.get('module_id')
-        for item in active
-        if item.get('module_id') in {
-            'center_pleat_v1', 'waist_gather_allowance_v1',
-            'center_stitched_tuck_v1', 'paired_straight_decorative_stitch_v1',
-            'circular_hem_flounce_v1', 'paired_patch_pocket_v1',
-        }
-    }
     if sum(item.get('module_id') in {
         'center_pleat_v1', 'waist_gather_allowance_v1', 'center_stitched_tuck_v1',
     } for item in active) > 1:
         _add(issues, 'DESIGN_MODEL_TARGET_CONFLICT', '/garment_spec/design_intent/elements',
              'Для центра переда юбки выберите одну добавку ширины: складку, сборку или защип.')
-    if 'paired_straight_skirt_yoke_v1' in skirt_topology and any(
-        item.get('module_id') in {'center_stitched_tuck_v1', 'paired_straight_decorative_stitch_v1'}
-        for item in active
-    ):
-        _add(issues, 'DESIGN_TOPOLOGY_PIPELINE_CONFLICT', '/garment_spec/design_intent',
-             'Защип и декоративная строчка пока строятся на юбке без кокетки.')
-    if 'paired_equal_skirt_panels_v1' in skirt_topology and incompatible_skirt_modules:
-        _add(
-            issues, 'DESIGN_TOPOLOGY_PIPELINE_CONFLICT',
-            '/garment_spec/design_intent',
-            'Панельное членение пока нельзя совмещать со складкой, сборкой, '
-            'воланом, защипом, декоративной строчкой или накладными карманами.',
-        )
-
     included_main = [
         item for item in intent['layers']
         if item.get('included') is not False and item['role'] == 'main'

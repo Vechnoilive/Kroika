@@ -156,7 +156,7 @@ def apply_composite_transformations(
             )
             operations.append(_operation(
                 source_id, "element", "collar", module_id, "M19-C02",
-                ["front_bodice", "back_bodice"], [piece_id], interface_ids,
+                list(dict.fromkeys(pair['first_piece_id'] for pair in result['seam_pairs'] if pair['id'] in interface_ids)), [piece_id], interface_ids,
                 {
                     "front_join_length": front_length,
                     "back_join_length": back_length,
@@ -178,7 +178,10 @@ def apply_composite_transformations(
             )
             operations.append(_operation(
                 source_id, "element", "patch_pocket", module_id, "M19-P01",
-                [target_id], [piece_id], [placement_id],
+                [p['id'] for p in result['pieces'] if any(path['id'].startswith(placement_id)
+                    for path in p['internal_paths'])], [piece_id],
+                [path['id'] for p in result['pieces'] for path in p['internal_paths']
+                    if path['id'].startswith(placement_id)],
                 {"finished_width": width, "finished_depth": depth},
             ))
 
@@ -338,13 +341,17 @@ def _add_cuff(
 def _add_stand_collar(
     pattern: dict[str, Any], height_mm: float, source_id: str,
 ) -> tuple[str, list[str], float, float]:
-    front = _piece(pattern, "front_bodice", source_id)
-    back = _piece(pattern, "back_bodice", source_id)
-    front_length, back_length, height = collar_dimensions_mm(
-        _segment_length(front, "front_neckline"),
-        _segment_length(back, "back_neckline"),
-        height_mm,
-    )
+    from .attachments import boundary_records
+    from .details import _reduction
+    records = []
+    for root in ('front_bodice','back_bodice'):
+        records += [(p, [e for e in edges if not e.id.startswith('mirror_')])
+                    for p, edges in boundary_records(pattern,root,'neckline',source_id)]
+    records = [(p,edges) for p,edges in records if edges]
+    lengths = [sum(e.length_mm for e in edges) - _reduction(pattern,p['id'],[e.id for e in edges]) for p,edges in records]
+    front_length = sum(length for (p,_),length in zip(records,lengths) if p['id'].startswith('front_'))
+    back_length = sum(length for (p,_),length in zip(records,lengths) if p['id'].startswith('back_'))
+    front_length,back_length,height = collar_dimensions_mm(front_length,back_length,height_mm)
     piece_id = f"{source_id}_stand_collar"
     if _has_piece(pattern, piece_id):
         raise _element_error(
@@ -371,27 +378,35 @@ def _add_stand_collar(
         cut_on_fold=True,
         mirrored_pair=False,
     ))
-    front_pair = f"{source_id}_front_collar_attachment"
-    back_pair = f"{source_id}_back_collar_attachment"
-    pattern["seam_pairs"].extend((
-        _seam_pair(
-            front_pair, "front_bodice", ["front_neckline"], piece_id,
-            [f"{piece_id}_front_neckline"],
-        ),
-        _seam_pair(
-            back_pair, "back_bodice", ["back_neckline"], piece_id,
-            [f"{piece_id}_back_neckline"],
-        ),
-    ))
-    if any(edge["id"] == "mirror_front_neckline" for edge in front["seam_contour"]["segments"]):
-        mirrored_pair = deepcopy(pattern["seam_pairs"][-2])
-        mirrored_pair["id"] += "_mirror"
-        mirrored_pair["first_segment_ids"] = ["mirror_front_neckline"]
-        mirrored_pair["second_instance"] = "mirror"
-        pattern["seam_pairs"].append(mirrored_pair)
-    interface_ids = [front_pair, back_pair]
-    if any(edge["id"] == "mirror_front_neckline" for edge in front["seam_contour"]["segments"]):
-        interface_ids.append(f"{front_pair}_mirror")
+    collar = pattern['pieces'][-1]
+    chain, cursor, interface_ids = [],0.0,[]
+    for index, ((target,edges),length) in enumerate(zip(records,lengths)):
+        prefix = 'front' if target['id'].startswith('front_') else 'back'
+        sid = f'{piece_id}_{prefix}_neckline' if len(records)==2 else f'{piece_id}_{prefix}_neckline_{index}'
+        chain.append(LineSegment(Point(cursor,0),Point(cursor+length,0),sid))
+        cursor += length
+        pair_id = f'{source_id}_{prefix}_collar_attachment' + (f'_{index}' if len(records)!=2 else '')
+        pair = _seam_pair(pair_id,target['id'],[e.id for e in edges],piece_id,[sid])
+        pair['first_length_reduction_mm'] = _reduction(pattern,target['id'],[e.id for e in edges])
+        pattern['seam_pairs'].append(pair)
+        interface_ids.append(pair_id)
+    collar['seam_contour'] = contour_to_data(Contour(tuple([*chain,*contour.segments[2:]]),id=contour.id))
+    mirrors = [(p, [e for e in edges if e.id.startswith('mirror_')])
+               for p,edges in boundary_records(pattern,'front_bodice','neckline',source_id)]
+    unused = [(pair, length) for pair,length,(target,_) in zip(
+        pattern['seam_pairs'][-len(records):],lengths,records) if target['id'].startswith('front_')]
+    for target, edges in mirrors:
+        if not edges:
+            continue
+        length = sum(e.length_mm for e in edges)-_reduction(pattern,target['id'],[e.id for e in edges])
+        index = min(range(len(unused)),key=lambda i:abs(unused[i][1]-length))
+        original,expected = unused.pop(index)
+        if abs(expected-length)>1:
+            raise _element_error('COMPOSITE_COLLAR_MIRROR_MISMATCH','Длины половин горловины различаются. Нужна асимметричная стойка.',source_id)
+        pair = deepcopy(original)
+        pair.update(id=original['id']+'_mirror',first_piece_id=target['id'],first_segment_ids=[e.id for e in edges],second_instance='mirror')
+        pattern['seam_pairs'].append(pair)
+        interface_ids.append(pair['id'])
     return piece_id, interface_ids, front_length, back_length
 
 
@@ -400,8 +415,13 @@ def _add_patch_pocket(
     source_id: str,
 ) -> tuple[str, str]:
     width, depth = pocket_dimensions_mm(width_mm, depth_mm)
-    target = _piece(pattern, target_id, source_id)
-    box = contour_from_data(target["seam_contour"]).bounding_box
+    from .attachments import descendants
+    targets = descendants(pattern, target_id)
+    if not targets:
+        _piece(pattern, target_id, source_id)
+    boxes = [contour_from_data(p['seam_contour']).bounding_box for p in targets]
+    box = type(boxes[0])(min(b.min_x_mm for b in boxes), min(b.min_y_mm for b in boxes),
+                         max(b.max_x_mm for b in boxes), max(b.max_y_mm for b in boxes))
     horizontal_margin = 20.0
     vertical_margin = 30.0
     if width > box.width_mm - 2.0 * horizontal_margin or depth > box.height_mm - 2.0 * vertical_margin:
@@ -421,7 +441,15 @@ def _add_patch_pocket(
         LineSegment(Point(right, top), Point(left, top), f"{placement_id}_opening"),
         LineSegment(Point(left, top), Point(left, bottom), f"{placement_id}_center"),
     ), id=placement_id)
-    target["internal_paths"].append(contour_to_data(placement))
+    if len(targets) == 1:
+        targets[0]['internal_paths'].append(contour_to_data(placement))
+    else:
+        from .fullness import _line_records
+        for index, line in enumerate(placement.segments):
+            for target, edges, _ in _line_records(pattern, target_id, line, f'{source_id}_pocket_{index}'):
+                path = Contour(tuple(edges), closed=False,
+                               id=f'{placement_id}_{index}_{target["id"]}')
+                target['internal_paths'].append(contour_to_data(path))
 
     piece_id = f"{source_id}_patch_pocket"
     if _has_piece(pattern, piece_id):

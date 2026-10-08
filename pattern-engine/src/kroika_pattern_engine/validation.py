@@ -7,6 +7,7 @@ from typing import Any, Mapping
 
 from .blocks import BlockConstructionError
 from .geometry import GeometryError, contour_from_data, validate_simple_contour
+from .advanced import validate_advanced_placements
 from .modeling import validate_modeling_placements
 from .fullness import validate_fullness_placements
 from .structural import validate_structural_placements
@@ -42,8 +43,20 @@ def geometry_index(pattern: Mapping[str, Any]) -> dict[str, set[str]]:
     return index
 
 
+def _validate_operation_targets(pattern: Mapping[str, Any]) -> None:
+    available = {piece['id'] for piece in pattern['pieces']}
+    for key in ('modeling_operations', 'topology_operations', 'composite_operations'):
+        for op in pattern.get(key, []):
+            if (set(op['target_piece_ids']) | set(op.get('added_piece_ids', []))) - available:
+                _fail('ASSEMBLY_OPERATION_REFERENCE_MISSING',
+                      'Операция фасона ссылается на отсутствующую деталь.',
+                      f'/pattern/{key}/{op["operation_id"]}')
+
+
 def validate_export_coverage(pattern: Mapping[str, Any]) -> None:
     """Reject missing printable evidence, including in a stored generation."""
+    _validate_operation_targets(pattern)
+    validate_advanced_placements(pattern)
     validate_modeling_placements(pattern)
     validate_fullness_placements(pattern)
     validate_structural_placements(pattern)
@@ -70,6 +83,8 @@ def validate_export_coverage(pattern: Mapping[str, Any]) -> None:
 
 def validate_pattern_assembly(pattern: Mapping[str, Any]) -> float:
     """Check every final seam contour, notch and declared join after all modules."""
+    _validate_operation_targets(pattern)
+    validate_advanced_placements(pattern)
     validate_modeling_placements(pattern)
     validate_fullness_placements(pattern)
     validate_structural_placements(pattern)
