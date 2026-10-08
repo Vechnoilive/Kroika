@@ -30,6 +30,7 @@ from .geometry import (
 from .geometry.primitives import curve_points
 from .geometry.intersections import line_line_intersections
 from .attachments import boundary_records, terminal_records
+from .placements import placement_frame, containing_piece
 
 
 def _error(
@@ -293,14 +294,7 @@ def apply_detail_transformations(
                 "trouser_front": "front_trouser",
                 "trouser_back": "back_trouser",
             }[item["location"]]
-            if not any(p["id"] == pid for p in result["pieces"]):
-                raise _error(
-                    "Для накладной детали нет нужной базовой детали.",
-                    source,
-                    "DETAIL_TARGET_MISSING",
-                )
-            target = _find(result, pid)
-            box = contour_from_data(target["seam_contour"]).bounding_box
+            candidates, box = placement_frame(result, pid, source)
             width = dimensions["width"]
             height = dimensions["depth"] if kind == "patch_pocket" else dimensions["length"]
             left, bottom = (
@@ -314,7 +308,6 @@ def apply_detail_transformations(
                 height,
                 item["count"],
             )
-            piece["name_ru"] += f" · {target['name_ru']}"
             if kind == "patch_pocket":
                 segs = piece["seam_contour"]["segments"]
                 segs[2]["id"] = f"{piece['id']}_opening_hem"
@@ -328,6 +321,9 @@ def apply_detail_transformations(
                 )
                 for i, seg in enumerate(placement.segments)
             ]
+            target = containing_piece(candidates, shifted, source)
+            pid = target["id"]
+            piece["name_ru"] += f" · {target['name_ru']}"
             path = _path(f"{source}_placement", shifted, True)
             _check_placement(target, path, source)
             target["internal_paths"].append(path)

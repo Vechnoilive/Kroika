@@ -74,14 +74,11 @@ def compile_design_coverage(
                 }.items():
                     scoped[key].update(values or [])
 
-    core_pieces = sorted(
-        piece_id for piece_id in index["piece_ids"]
-        if piece_id in {
-            "front_bodice", "back_bodice", "front_skirt", "back_skirt",
-            "front_trouser", "back_trouser", "jacket_front_center",
-            "jacket_side_front", "base_sleeve",
-        } or "_skirt_panel_" in piece_id or piece_id.endswith("_skirt_yoke")
-    )
+    from .attachments import descendants
+    roots = {"front_bodice", "back_bodice", "front_skirt", "back_skirt",
+             "front_trouser", "back_trouser", "jacket_front_center",
+             "jacket_side_front", "base_sleeve"}
+    core_pieces = sorted({piece["id"] for root in roots for piece in descendants(pattern, root)})
     if core_pieces:
         add("main_fabric_layer", piece_ids=core_pieces)
         add("bounded_visual_proportions", piece_ids=core_pieces)

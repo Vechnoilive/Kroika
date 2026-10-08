@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import {DESIGN_ELEMENT_NAMES, finalizeDesignIntent, reevaluateDesignIntent} from './designIntent';
-import {applicableRule, DESIGN_MODULES, matchingModule, moduleDiagnosis, type DesignModule} from './designModules';
+import {DESIGN_VARIANT_NAMES, DESIGN_LOCATION_NAMES, applicableRule, DESIGN_MODULES, matchingModule, moduleDiagnosis, type DesignModule} from './designModules';
 import {isBackQuestion} from './backDesign';
 import type {
   DesignElementType,
@@ -31,7 +31,7 @@ type Dimension = keyof NonNullable<Element['dimensions_mm']>;
 
 const SUPPORT_LABELS = {
   supported: 'Будет учтено',
-  planned: 'Нужен модуль',
+  planned: 'Проверьте параметры',
   needs_confirmation: 'Нужно подтвердить',
   excluded: 'Исключено вами',
 };
@@ -313,9 +313,9 @@ export function DesignIntentEditor({
               </label>}
               <div className="design-review-grid">
                 <label><span>Название и описание</span><input aria-label={`Описание детали ${index + 1}`} disabled={!included} maxLength={240} value={item.description_ru} onChange={(event) => updateElement(item.source_element_id, {description_ru: event.target.value, confirmed_by_user: false})} /></label>
-                <label><span>Тип детали</span><select aria-label={`Тип детали ${index + 1}`} disabled={!included} value={item.type} onChange={(event) => updateElement(item.source_element_id, {type: event.target.value as DesignElementType, confirmed_by_user: false})}>{ELEMENT_TYPES.map((value) => <option value={value} key={value}>{DESIGN_ELEMENT_NAMES[value]}</option>)}</select></label>
-                <label><span>Вариант</span><select aria-label={`Вариант детали ${index + 1}`} disabled={!included} value={item.variant} onChange={(event) => updateElement(item.source_element_id, {variant: event.target.value as Element['variant'], confirmed_by_user: false})}>{VARIANTS.map((value) => <option value={value} key={value}>{value}</option>)}</select></label>
-                <label><span>Расположение</span><select aria-label={`Расположение детали ${index + 1}`} disabled={!included} value={item.location} onChange={(event) => setLocation(item, event.target.value as DesignLocation)}>{LOCATIONS.map((value) => <option value={value} key={value}>{value}</option>)}</select></label>
+                <label><span>Тип детали</span><select aria-label={`Тип детали ${index + 1}`} disabled={!included} value={item.type} onChange={(event) => updateElement(item.source_element_id, {type: event.target.value as DesignElementType, selected_module_id: null, module_id: null, placement: undefined, outline_mm: undefined, confirmed_by_user: false})}>{ELEMENT_TYPES.map((value) => <option value={value} key={value}>{DESIGN_ELEMENT_NAMES[value]}</option>)}</select></label>
+                <label><span>Вариант</span><select aria-label={`Вариант детали ${index + 1}`} disabled={!included} value={item.variant} onChange={(event) => updateElement(item.source_element_id, {variant: event.target.value as Element['variant'], confirmed_by_user: false})}>{VARIANTS.map((value) => <option value={value} key={value}>{DESIGN_VARIANT_NAMES[value]}</option>)}</select></label>
+                <label><span>Расположение</span><select aria-label={`Расположение детали ${index + 1}`} disabled={!included} value={item.location} onChange={(event) => setLocation(item, event.target.value as DesignLocation)}>{LOCATIONS.map((value) => <option value={value} key={value}>{DESIGN_LOCATION_NAMES[value]}</option>)}</select></label>
                 <label><span>Конструкция</span><select aria-label={`Конструкция детали ${index + 1}`} disabled={!included} value={item.construction} onChange={(event) => updateElement(item.source_element_id, {construction: event.target.value as Element['construction'], confirmed_by_user: false})}><option value="integrated">Цельнокроеная</option><option value="separate_piece">Отдельная деталь</option><option value="applied">Настрочная</option><option value="layered">Слой</option><option value="unknown">Не знаю</option></select></label>
                 <label><span>Количество</span><input aria-label={`Количество детали ${index + 1}`} disabled={!included} type="number" min="1" max="32" value={item.count ?? ''} onChange={(event) => updateElement(item.source_element_id, {count: event.target.value === '' ? null : Number(event.target.value), confirmed_by_user: false})} /></label>
                 <label><span>Симметрия</span><select aria-label={`Симметрия детали ${index + 1}`} disabled={!included} value={item.symmetry} onChange={(event) => updateElement(item.source_element_id, {symmetry: event.target.value as Element['symmetry'], confirmed_by_user: false})}><option value="symmetric">Симметричная</option><option value="asymmetric">Асимметричная</option><option value="single">Одиночная</option><option value="unknown">Не знаю</option></select></label>
@@ -327,7 +327,7 @@ export function DesignIntentEditor({
                 {([
                   ['width', 'Ширина'], ['length', 'Длина'], ['depth', 'Глубина'], ['spacing', 'Расстояние'],
                 ] as Array<[Dimension, string]>).map(([key, label]) => (
-                  <label key={key}><span>{module?.parameter_labels_ru?.[key] ?? label}</span><input aria-label={`${label} детали ${index + 1}, см`} type="number" inputMode="decimal" min="0.1" max="1000" step="0.1" value={dimensions[key] == null ? '' : dimensions[key] / 10} onChange={(event) => setDimension(item, key, event.target.value)} /></label>
+                  <label key={key}><span>{module?.parameter_labels_ru?.[key] ?? label}</span><input aria-label={`${label} детали ${index + 1}, см`} type="number" inputMode="decimal" disabled={item.selected_module_id === module?.id && !!module?.dimensions && !(key in module.dimensions.required) && !(key in module.dimensions.optional) && dimensions[key] == null} min="0.1" max="1000" step="0.1" value={dimensions[key] == null ? '' : dimensions[key] / 10} onChange={(event) => setDimension(item, key, event.target.value)} /></label>
                 ))}
               </fieldset>
               {included && module?.custom_outline && <label><span>Контур детали: координаты точек в сантиметрах</span><textarea aria-label={`Контур детали ${index + 1}, см`} placeholder="[[0,0],[10,0],[8,6],[0,6]]" defaultValue={item.outline_mm ? JSON.stringify(item.outline_mm.map((p) => p.map((v) => v / 10))) : ''} onChange={(event) => {
@@ -377,7 +377,7 @@ export function DesignIntentEditor({
       <button className="secondary-button review-add" type="button" disabled={intent.layers.length >= 6} onClick={addLayer}>+ Добавить слой</button>
 
       <article className="design-review-card">
-        <header><strong>Пропорции и асимметрия</strong><span className={`design-support design-support--${intent.proportions.support_status}`}>{intent.proportions.support_status === 'planned' && matchingModule('proportions', intent.proportions, spec, false) ? 'Проверьте параметры' : SUPPORT_LABELS[intent.proportions.support_status]}</span></header>
+        <header><strong>Пропорции и асимметрия</strong><span className={`design-support design-support--${intent.proportions.support_status}`}>{SUPPORT_LABELS[intent.proportions.support_status]}</span></header>
         <div className="design-review-grid">
           <label><span>Линия талии</span><select value={intent.proportions.waist_position} onChange={(event) => change({...intent, proportions: {...intent.proportions, waist_position: event.target.value as GarmentDesignIntent['proportions']['waist_position'], waist_shift_mm: null, waist_level_circumference_mm: null, back_waist_level_arc_mm: null, confirmed_by_user: false}})}><option value="low">Заниженная</option><option value="natural">Естественная</option><option value="high">Завышенная</option><option value="unknown">Не знаю</option></select></label>
           <label><span>Объём</span><select value={intent.proportions.volume} onChange={(event) => change({...intent, proportions: {...intent.proportions, volume: event.target.value as GarmentDesignIntent['proportions']['volume'], confirmed_by_user: false}})}><option value="fitted">Прилегающий</option><option value="regular">Обычный</option><option value="relaxed">Свободный</option><option value="voluminous">Объёмный</option><option value="unknown">Не знаю</option></select></label>

@@ -27,7 +27,8 @@ from .geometry import (
 from .geometry.primitives import curve_points
 from .fullness import _subcurve, _slice_distance, _edge_for, _annular_piece, _check_line
 from .modeling import _resize_waistbands
-from .attachments import boundary_edges, boundary_records
+from .attachments import boundary_edges, boundary_records, descendants
+from .placements import placement_frame, containing_piece
 
 FOUNDATION = {
     "side_skirt_slit_v3",
@@ -455,14 +456,13 @@ def _belt(pattern, item, request):
     )
     pair["copy_pairing"] = "mirrored_copies"
     pattern["seam_pairs"].append(pair)
-    target = next(
-        p for p in pattern["pieces"] if p["id"] in {"front_bodice", "front_skirt", "front_trouser"}
-    )
+    targets = next((parts for root in ("front_bodice", "front_skirt", "front_trouser")
+                    if (parts := descendants(pattern, root))), [])
     _record(
         pattern,
         item,
         item["type"],
-        [target["id"]],
+        [p["id"] for p in targets],
         [pid],
         [pair["id"]],
         {"finished_width": w, "finished_length": length},
@@ -504,8 +504,7 @@ def _elastic(pattern, item, request):
 
 def _pocket(pattern, item):
     source, d = item["source_element_id"], item["dimensions_mm"]
-    target = _find(pattern, _target_id(item["location"]))
-    box = contour_from_data(target["seam_contour"]).bounding_box
+    targets, box = placement_frame(pattern, _target_id(item["location"]), source)
     x = box.min_x_mm + d["spacing"]
     y = box.max_y_mm - item.get("placement", {}).get("offset_mm", 20)
     count = item["count"]
@@ -542,8 +541,10 @@ def _pocket(pattern, item):
                 )
             else:
                 ne = LineSegment(shift(e.start), shift(e.end), f"{source}_placement_{i}")
-            _check_line(target, ne, source)
             placed.append(ne)
+        target = containing_piece(targets, placed, source)
+        for edge in placed:
+            _check_line(target, edge, source)
         path = _path(f"{source}_pocket_placement", placed, True)
         target["internal_paths"].append(path)
         pattern["pieces"].append(piece)
@@ -558,12 +559,13 @@ def _pocket(pattern, item):
     else:
         length, w, h = d["length"], d["width"], d["depth"]
         opening = LineSegment(Point(x, y), Point(x + length, y), f"{source}_welt_cut")
-        _check_line(target, opening, source)
         lines = []
         for n, dy in [("upper", w), ("lower", -w)]:
             line = LineSegment(Point(x, y + dy), Point(x + length, y + dy), f"{source}_welt_{n}")
-            _check_line(target, line, source)
             lines.append(line)
+        target = containing_piece(targets, [opening, *lines], source)
+        for line in [opening, *lines]:
+            _check_line(target, line, source)
         # Cut from opening centre to corner triangles; stitch the two lips first.
         cut = LineSegment(Point(x + w, y), Point(x + length - w, y), opening.id)
         triangles = [
@@ -649,8 +651,9 @@ def _pocket(pattern, item):
 
 def _custom(pattern, item):
     source, d = item["source_element_id"], item["dimensions_mm"]
-    target = _find(pattern, _target_id(item["location"]))
     placement = item.get("placement") or {}
+    records = boundary_records(pattern, _target_id(item["location"]),
+                               placement.get("edge", "hem"), source)
     points = [Point(*p) for p in item["outline_mm"]]
     pid = f"{source}_detail"
     contour = Contour(
@@ -667,58 +670,61 @@ def _custom(pattern, item):
             "Длина выбранного ребра контура должна совпадать с длиной крепления с допуском 1 мм.",
             source,
         )
-    edges = _slice_distance(
-        _edge_for(target, placement.get("edge", "hem"), source), d["spacing"], d["length"], source
-    )
-    anchor = _anchor(target, edges, source)
+    selected, cursor = [], 0.0
+    for target, edges in records:
+        size = sum(e.length_mm for e in edges)
+        offset = max(0, d["spacing"] - cursor)
+        length = min(size, d["spacing"] + d["length"] - cursor) - offset
+        if length > 1e-6:
+            selected.append((target, _slice_distance(edges, offset, length,
+                            f"{source}_{len(selected)}"), 0))
+        cursor += size
+    if abs(sum(e.length_mm for _, edges, _ in selected for e in edges) - d["length"]) > 0.05:
+        raise _error("Ребро крепления выходит за итоговый срез. Уменьшите длину или отступ.", source)
     piece = _new_piece(pid, "Дополнительная деталь по заданному контуру", contour, item["count"])
     pattern["pieces"].append(piece)
-    join = _join(pattern, source, target, anchor, piece, [join_edge])
+    if len(selected) == 1:
+        target, edges, _ = selected[0]
+        anchor = _anchor(target, edges, source)
+        interfaces = [_join(pattern, source, target, anchor, piece, [join_edge])]
+    else:
+        from .fullness import _attach_records
+        interfaces = _attach_records(pattern, selected, piece, source, join_id=join_edge.id)
     _note(
         piece,
         source,
         f"Пришить ребро {placement.get('outline_edge_index', 0) + 1} к отмеченному срезу. Контур задан пользователем; форма и направление долевой требуют макета.",
     )
-    _record(
-        pattern,
-        item,
-        "other",
-        [target["id"]],
-        [pid],
-        [join],
-        {"outline_edge_index": placement.get("outline_edge_index", 0)},
-    )
+    _record(pattern, item, "other", [target["id"] for target, _, _ in selected],
+            [pid], interfaces, {"outline_edge_index": placement.get("outline_edge_index", 0)})
 
 
 def _decorative(pattern, item):
     source, d = item["source_element_id"], item["dimensions_mm"]
-    target = _find(pattern, _target_id(item["location"]))
-    box = contour_from_data(target["seam_contour"]).bounding_box
+    root = _target_id(item["location"])
+    targets, box = placement_frame(pattern, root, source)
     placement = item.get("placement") or {}
     x = box.min_x_mm + d["spacing"]
     y = box.max_y_mm - placement.get("offset_mm", 20)
-    end = (
-        Point(x + d["length"], y)
-        if placement.get("orientation", "vertical") == "horizontal"
-        else Point(x, y - d["length"])
-    )
+    end = (Point(x + d["length"], y) if placement.get("orientation", "vertical") == "horizontal"
+           else Point(x, y - d["length"]))
     line = LineSegment(Point(x, y), end, f"{source}_stitch_edge")
-    _check_line(target, line, source)
-    target["internal_paths"].append(_path(f"{source}_decorative_stitch", [line]))
-    _note(
-        target,
-        source,
-        "Декоративная строчка: не разрезать лекало. " + placement.get("side", "both"),
-    )
-    _record(
-        pattern,
-        item,
-        "decorative_seam",
-        [target["id"]],
-        [],
-        [],
-        {"orientation_code": int(placement.get("orientation") == "horizontal")},
-    )
+    if len(targets) == 1:
+        records = [(targets[0], [line], 0)]
+    else:
+        from .fullness import _line_records
+        records = _line_records(pattern, root, line, source)
+    used = []
+    for index, (target, edges, _) in enumerate(records):
+        for edge in edges:
+            _check_line(target, edge, source, boundary=len(targets) > 1)
+        suffix = f"_{index}" if len(targets) > 1 else ""
+        target["internal_paths"].append(_path(f"{source}_decorative_stitch{suffix}", edges))
+        _note(target, source, "Декоративная строчка: не разрезать лекало. " + placement.get("side", "both"))
+        used.append(target["id"])
+    _record(pattern, item, "decorative_seam", list(dict.fromkeys(used)), [], [],
+            {"orientation_code": int(placement.get("orientation") == "horizontal"),
+             **({"partitioned_marker": 1} if len(targets) > 1 else {})})
 
 
 def apply_structural_details(pattern: Mapping[str, Any], request: Mapping[str, Any]) -> dict:
@@ -805,7 +811,8 @@ def validate_structural_placements(pattern):
                         and pid in op["target_piece_ids"]
                         and path["id"].startswith(op["source_id"] + "_")
                     ):
-                        _check_line(target, edge, op["source_id"])
+                        _check_line(target, edge, op["source_id"],
+                                    boundary=bool(params.get("partitioned_marker")))
 
 
 def _slit(pattern, item, request):

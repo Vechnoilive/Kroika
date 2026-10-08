@@ -188,7 +188,7 @@ export function StyleEditor({
         spec.design_intent.proportions,
       ].filter((item) => item.support_status !== 'supported');
       setError(
-        `Нельзя подтвердить точный фасон: ${unresolved.length} ${unresolved.length === 1 ? 'деталь ещё не перенесена' : 'детали ещё не перенесены'} в математический движок. Проверьте список выше.`,
+        `Нельзя подтвердить точный фасон. ${unresolved.length ? `Не завершено пунктов проверки: ${unresolved.length}. ` : ''}Проверьте размеры, конструкцию, слои и пропорции; причины указаны в карточках выше.`,
       );
       return;
     }

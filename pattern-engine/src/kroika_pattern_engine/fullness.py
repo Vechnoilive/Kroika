@@ -540,7 +540,7 @@ def _attach_records(pattern, records, panel, source, addition=0, join_id=None):
     for index, (target, edges, reduction) in enumerate(records):
         length = sum(e.length_mm for e in edges) - reduction
         extra = addition * length / total
-        match = _slice_distance([join], cursor, length + extra, f'{source}_{index}')
+        match = _slice_distance([join], cursor, length + extra, f'{source}_{index}_match')
         panel['internal_paths'].append(_path(f'{source}_{index}_match', match))
         anchors = [replace(e, id=f'{source}_{index}_anchor_segment_{i}')
                    for i, e in enumerate(edges)]

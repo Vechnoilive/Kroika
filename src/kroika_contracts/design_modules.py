@@ -97,6 +97,8 @@ def _rule_matches(
         value = spec.get('garment_type') if field == 'garment_type' else item.get(field)
         if field == 'sleeve_type':
             value = spec['parameters']['sleeve']['type']
+        elif field == 'bodice_fit':
+            value = spec['parameters']['bodice_fit']
         if field == 'count':
             if (isinstance(value, bool) or not isinstance(value, (int, float))
                     or not math.isfinite(value) or value != int(value)):

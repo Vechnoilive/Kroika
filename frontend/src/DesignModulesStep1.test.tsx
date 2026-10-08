@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import {describe, expect, it, vi} from 'vitest';
 import {DesignIntentEditor} from './DesignIntentEditor';
 import {buildDesignIntent, reevaluateDesignIntent} from './designIntent';
-import {matchingModule, moduleDiagnosis} from './designModules';
+import {applicableRule, DESIGN_MODULES, matchingModule, moduleDiagnosis} from './designModules';
 import {makeDemoProject} from './demoProject';
 import {canonicalGenerationPayload, stableJson} from './generation';
 import type {GarmentDesignIntent, GarmentSpec, StyleAnalysis} from './types';
@@ -39,6 +39,41 @@ function Harness({spec, initial, source = analysis, onSave = vi.fn()}:
 }
 
 describe('module expansion step 1', () => {
+  it('explains fit restrictions instead of offering a waist dart absent from the loose block', () => {
+    const {spec, intent} = fixture();
+    spec.parameters.bodice_fit = 'loose';
+    const recipe = DESIGN_MODULES.find((m) => m.id === 'front_waist_to_side_dart_v1')!;
+    expect(applicableRule(recipe, spec)).toBeUndefined();
+    const item = {...intent.elements[0], type: 'dart', variant: 'shaped', location: 'bodice_front',
+      construction: 'integrated', count: 2, symmetry: 'symmetric',
+      selected_module_id: recipe.id, dimensions_mm: {width: 10, length: null, depth: null, spacing: null}};
+    const diagnosis = moduleDiagnosis('element', item, spec);
+    expect(diagnosis.label).toBe('Проверьте конструкцию');
+    expect(diagnosis.reasons).toContain('посадка: прилегающая / полуприлегающая.');
+  });
+
+  it('clears a pinned drape recipe when changing type and saves a flounce', async () => {
+    const {spec, intent} = fixture();
+    intent.elements[0] = {...intent.elements[0], selected_module_id: 'crossed_bodice_drape_v1',
+      module_id: 'crossed_bodice_drape_v1', count: 2, symmetry: 'symmetric',
+      dimensions_mm: {width: 50, length: null, depth: 80, spacing: 30}};
+    const onSave = vi.fn(async (_intent: GarmentDesignIntent) => undefined);
+    render(<Harness spec={spec} initial={intent} onSave={onSave} />);
+    await userEvent.selectOptions(screen.getByLabelText('Тип детали 1'), 'flounce');
+    expect(screen.queryByText('Геометрия ещё не реализована')).not.toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText('Выбрать конструкцию детали 1'), 'circular_hem_flounce_v1');
+    expect(screen.getByLabelText('Вариант детали 1')).toHaveDisplayValue('Круговой');
+    expect(screen.getByLabelText('Расположение детали 1')).toHaveDisplayValue('Низ изделия');
+    expect(screen.getByLabelText('Ширина детали 1, см')).toBeDisabled();
+    expect(screen.getByLabelText('Глубина детали 1, см')).toBeEnabled();
+    await userEvent.click(screen.getByLabelText('Я проверил(а) эту деталь по фотографии'));
+    await userEvent.click(screen.getByRole('button', {name: 'Сохранить проверку деталей'}));
+    await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+    expect(onSave.mock.calls[0][0].elements[0]).toMatchObject({type: 'flounce',
+      selected_module_id: 'circular_hem_flounce_v1', module_id: 'circular_hem_flounce_v1',
+      dimensions_mm: {width: null, length: null, depth: 80, spacing: null}});
+  });
+
   it('explains a drape count and symmetry mismatch, then saves the corrected recipe', async () => {
     const {spec, intent} = fixture();
     const onSave = vi.fn(async (_intent: GarmentDesignIntent) => {});

@@ -1,5 +1,24 @@
 import registry from '../../src/kroika_contracts/design_modules.json';
-import type {GarmentSpec} from './types';
+import type {GarmentSpec, DesignLocation, VisualDesignElement} from './types';
+
+
+export const DESIGN_VARIANT_NAMES: Record<VisualDesignElement['variant'], string> = {
+  standard: 'Стандартный', straight: 'Прямой', shaped: 'Фигурный', elastic: 'На резинке',
+  tie: 'На завязках', knife: 'Односторонняя складка', box: 'Бантовая складка',
+  inverted: 'Встречная складка', accordion: 'Складки гармошкой', soft: 'Мягкий',
+  circular: 'Круговой', gathered: 'Со сборкой', patch: 'Накладной',
+  slash: 'С боковым входом', welt: 'Прорезной', zipper: 'Молния', buttons: 'Пуговицы',
+  hooks: 'Крючки', concealed: 'Потайной', single: 'Одинарный', double: 'Двойной',
+  shirt: 'Рубашечный', notched: 'С уступом', shawl: 'Шалевый', stand: 'Стойка',
+  other: 'Другой', unknown: 'Не знаю',
+};
+
+export const DESIGN_LOCATION_NAMES: Record<DesignLocation, string> = {
+  bodice_front: 'Перед лифа', bodice_back: 'Спинка лифа', neckline: 'Горловина',
+  shoulder: 'Плечо', waist: 'Талия', skirt_front: 'Перед юбки', skirt_back: 'Спинка юбки',
+  trouser_front: 'Перед брюк', trouser_back: 'Задняя часть брюк', sleeve: 'Рукав',
+  hem: 'Низ изделия', full_garment: 'Всё изделие', unknown: 'Не знаю',
+};
 
 type Bounds = [number, number | 'skirt_length_minus_20'];
 export type Rule = Record<string, unknown[]> & {configured_closure?: boolean};
@@ -48,7 +67,8 @@ function ruleMatches(rule: Rule, item: Item, spec: GarmentSpec): boolean {
         && (locations[closure.location] ?? []).includes(String(item.location));
     }
     const value = field === 'garment_type' ? spec.garment_type
-      : field === 'sleeve_type' ? spec.parameters.sleeve.type : item[field];
+      : field === 'sleeve_type' ? spec.parameters.sleeve.type
+      : field === 'bodice_fit' ? spec.parameters.bodice_fit : item[field];
     if (field === 'count' && (typeof value !== 'number' || !Number.isInteger(value))) return false;
     return Array.isArray(allowed) && allowed.includes(value);
   });
@@ -57,6 +77,7 @@ function ruleMatches(rule: Rule, item: Item, spec: GarmentSpec): boolean {
 export function applicableRule(module: DesignModule, spec: GarmentSpec): Rule | undefined {
   return module.rules.find((rule) => (!rule.garment_type || rule.garment_type.includes(spec.garment_type))
     && (!rule.sleeve_type || rule.sleeve_type.includes(spec.parameters.sleeve.type))
+    && (!rule.bodice_fit || rule.bodice_fit.includes(spec.parameters.bodice_fit))
     && rule.type?.length && rule.variant?.length && rule.location?.length && rule.construction?.length
     && !rule.configured_closure);
 }
@@ -83,11 +104,13 @@ export function placementMatches(module: DesignModule, item: object): boolean {
 }
 
 const FIELD_NAMES: Record<string, string> = {
-  garment_type: 'вид изделия', sleeve_type: 'тип рукава', variant: 'вариант',
+  bodice_fit: 'посадка', garment_type: 'вид изделия', sleeve_type: 'тип рукава', variant: 'вариант',
   location: 'расположение', construction: 'конструкция', count: 'количество',
   symmetry: 'симметрия', coverage: 'покрытие', opacity: 'прозрачность', drape: 'пластика',
 };
 const VALUE_NAMES: Record<string, string> = {
+  ...DESIGN_VARIANT_NAMES, ...DESIGN_LOCATION_NAMES,
+  fitted: 'прилегающая', semi_fitted: 'полуприлегающая', loose: 'свободная', oversized: 'объёмная',
   symmetric: 'симметричная', asymmetric: 'асимметричная', single: 'одиночная',
   layered: 'слой', integrated: 'цельнокроеная', applied: 'настрочная',
   separate_piece: 'отдельная деталь', bodice_front: 'перед лифа', bodice_back: 'спинка лифа',
@@ -113,7 +136,8 @@ export function moduleDiagnosis(kind: string, item: object, spec: GarmentSpec): 
         if (field === 'configured_closure') return ruleMatches({configured_closure: true} as Rule, source, spec)
           ? [] : ['Согласуйте застёжку с настройками изделия.'];
         const value = field === 'garment_type' ? spec.garment_type
-          : field === 'sleeve_type' ? spec.parameters.sleeve.type : source[field];
+          : field === 'sleeve_type' ? spec.parameters.sleeve.type
+          : field === 'bodice_fit' ? spec.parameters.bodice_fit : source[field];
         if (Array.isArray(allowed) && allowed.includes(value)) return [];
         return [`${FIELD_NAMES[field] ?? field}: ${(Array.isArray(allowed) ? allowed : []).map((entry) => VALUE_NAMES[String(entry)] ?? String(entry)).join(' / ')}.`];
       });

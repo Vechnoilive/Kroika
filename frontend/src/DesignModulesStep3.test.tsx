@@ -39,6 +39,19 @@ async function save(onSave: ReturnType<typeof vi.fn>) {
 }
 
 describe('structural modules stage 3', () => {
+  it('does not offer collar replacement recipes forbidden by the shirt foundation', () => {
+    const {spec, intent} = fixture();
+    spec.garment_type = 'shirt';
+    spec.parameters.sleeve.type = 'long';
+    render(<Harness spec={spec} initial={intent} onSave={vi.fn()} />);
+    const catalog = screen.getByLabelText('Добавить деталь из каталога') as HTMLSelectElement;
+    const ids = Array.from(catalog.options).map((option) => option.value);
+    for (const id of ['fitted_two_piece_hood_v3', 'shaped_flat_collar_v3', 'shawl_collar_v3']) {
+      expect(ids).not.toContain(id);
+    }
+    expect(ids).toContain('shaped_cuff_v3');
+  });
+
   it('adds 22 structural recipes to the shared catalogue', () => expect(moduleIds('structural').size).toBe(22));
   it('saves an explicit polygon and its attachment in millimetres and hashes every vertex', async () => {
     const {project, spec, intent} = fixture(); const onSave = vi.fn(async (_intent: GarmentDesignIntent) => {});

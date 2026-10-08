@@ -1,5 +1,5 @@
 {
-  "registry_version": "1.8.0",
+  "registry_version": "1.8.1",
   "unit": "mm",
   "modules": [
     {
@@ -818,6 +818,10 @@
           ],
           "symmetry": [
             "symmetric"
+          ],
+          "bodice_fit": [
+            "fitted",
+            "semi_fitted"
           ]
         }
       ],
@@ -3468,7 +3472,6 @@
             "sundress",
             "top",
             "blouse",
-            "shirt",
             "vest"
           ],
           "type": [
@@ -4033,7 +4036,6 @@
             "sundress",
             "top",
             "blouse",
-            "shirt",
             "vest"
           ],
           "type": [
@@ -4088,7 +4090,6 @@
             "sundress",
             "top",
             "blouse",
-            "shirt",
             "vest"
           ],
           "type": [
