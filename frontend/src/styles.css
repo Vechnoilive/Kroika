@@ -704,3 +704,17 @@ footer { min-height: 56px; display: flex; align-items: center; justify-content: 
 .workspace--measurements { width: min(1680px, 100%); grid-template-columns: 190px minmax(0, 1fr); gap: 24px; padding-inline: 32px; }
 @media (max-width: 1100px) { .workspace--measurements { grid-template-columns: 1fr; } .workspace--measurements .journey { order: 2; } }
 @media (max-width: 560px) { .workspace--measurements { padding-inline: 15px; } }
+
+
+.placement-guide { margin: 16px 0; padding: 16px; border: 1px solid #cbd5e1; border-radius: 14px; background: #f8fafc; }
+.placement-guide figcaption { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; }
+.placement-guide figcaption span { color: #475569; font-size: .9rem; }
+.placement-guide__layout { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr); gap: 16px; align-items: center; }
+.placement-guide svg { display: block; width: 100%; max-height: 330px; }
+.placement-guide dl { margin: 0; }
+.placement-guide dl > div { padding: 7px 0; }
+.placement-guide dt { display: flex; gap: 8px; align-items: center; font-size: .9rem; }
+.placement-guide dt i { width: 22px; height: 3px; flex-shrink: 0; }
+.placement-guide dd { margin: 3px 0 0 30px; font-weight: 600; }
+.placement-guide__caption, .placement-guide__order { margin-bottom: 0; font-size: .85rem; color: #475569; }
+@media (max-width: 580px) { .placement-guide__layout { grid-template-columns: 1fr; gap: 0; } }

@@ -131,7 +131,7 @@ def test_manual_edit_creates_audited_immutable_generation(tmp_path: Path) -> Non
         assert response.status_code == 200, response.text
         edited = response.json()
         assert edited["generation_id"] != base["generation_id"]
-        assert edited["engine_version"] == "0.21.1"
+        assert edited["engine_version"] == "0.22.0"
         assert edited["pattern"]["manual_adjustments"]["base_generation_id"] == base[
             "generation_id"
         ]

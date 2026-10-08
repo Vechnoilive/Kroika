@@ -189,7 +189,7 @@ def test_placement_and_edge_conflicts_reject_geometry_instead_of_dropping_elemen
     req = request([item])
     pattern = assemble_garment(req, build_base_blocks(req)).pattern
     req["garment_spec"]["design_intent"]["elements"][0]["dimensions_mm"]["spacing"] = 800
-    with pytest.raises(BlockConstructionError, match="Карман|панель"):
+    with pytest.raises(BlockConstructionError, match="DETAIL_PLACEMENT_OUTSIDE"):
         apply_detail_transformations(pattern, req)
     item["dimensions_mm"]["spacing"] = 60
     req["garment_spec"]["design_intent"]["elements"] = [

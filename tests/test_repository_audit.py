@@ -60,16 +60,13 @@ def test_pocket_binds_to_the_panel_containing_its_measured_position(module):
     assert e['source_element_id'] in render_pattern_svg(p)
 
 
-def test_pocket_crossing_a_panel_join_reports_the_actual_remaining_limitation():
-    r = request([_panels(), structural('rounded_patch_pocket_v3')], project=_project('skirt'))
-    r['input_hash'] = compute_input_hash(r)
-    validate_engine_request(r)
-    out = GeometryPatternEngine().generate(r)
-    assert out['pattern'] is None
-    issue = next(i for i in out['validation_report']['issues'] if i['severity'] == 'blocking_error')
-    assert issue['code'] == 'DETAIL_PARTITION_PLACEMENT_CONFLICT'
-    assert issue['json_pointer'].endswith('/structural_detail')
-    assert 'пока не поддерживается' in issue['message_ru']
+def test_pocket_crossing_a_panel_join_preserves_one_whole_pocket():
+    p = build([_panels(), structural('rounded_patch_pocket_v3')])
+    op = next(o for o in p['composite_operations'] if o['module_id'] == 'rounded_patch_pocket_v3')
+    assert op['target_piece_ids'] == ['front_skirt_panel_2', 'front_skirt_panel_3']
+    assert len(op['added_piece_ids']) == 1
+    assert op['parameters_mm']['placement_fragment_count'] == 8
+    validate_structural_placements(p)
 
 
 @pytest.mark.parametrize('index', [2, 3])

@@ -30,7 +30,7 @@ from .geometry import (
 from .geometry.primitives import curve_points
 from .geometry.intersections import line_line_intersections
 from .attachments import boundary_records, terminal_records
-from .placements import placement_frame, containing_piece
+from .placements import placement_frame, containing_piece, distribute_placement, validate_placement_operations
 
 
 def _error(
@@ -322,24 +322,33 @@ def apply_detail_transformations(
                 for i, seg in enumerate(placement.segments)
             ]
             target = containing_piece(candidates, shifted, source)
-            pid = target["id"]
-            piece["name_ru"] += f" · {target['name_ru']}"
-            path = _path(f"{source}_placement", shifted, True)
-            _check_placement(target, path, source)
-            target["internal_paths"].append(path)
-            targets, added = [pid], [piece["id"]]
+            added = [piece["id"]]
             result["pieces"].append(piece)
-            for i in [0, 1, 3] if kind == "patch_pocket" else [0, 1, 2, 3]:
-                pair = _seam_pair(
-                    f"{source}_application_{i}",
-                    pid,
-                    [shifted[i].id],
-                    piece["id"],
-                    [piece["seam_contour"]["segments"][i]["id"]],
+            if target is None:
+                sewn = [0, 1, 3] if kind == "patch_pocket" else [0, 1, 2, 3]
+                targets, interfaces, placement_parameters = distribute_placement(
+                    result, pid, shifted, source,
+                    {i: (piece, placement.segments[i]) for i in sewn}, footprint=shifted,
                 )
-                result["seam_pairs"].append(pair)
-                interfaces.append(pair["id"])
-            interfaces.append(path["id"])
+                parameters.update(placement_parameters)
+                piece["annotations"].append({
+                    "id": f"{source}_assembly_order", "position": [width / 2, height / 2],
+                    "text_ru": "Сначала стачать швы членения основы и разутюжить припуски. "
+                               "Совместить линии нанесения на собранной основе, затем пришить целую деталь.",
+                })
+            else:
+                pid = target["id"]
+                piece["name_ru"] += f" · {target['name_ru']}"
+                path = _path(f"{source}_placement", shifted, True)
+                _check_placement(target, path, source)
+                target["internal_paths"].append(path)
+                targets = [pid]
+                for i in [0, 1, 3] if kind == "patch_pocket" else [0, 1, 2, 3]:
+                    pair = _seam_pair(f"{source}_application_{i}", pid, [shifted[i].id],
+                                      piece["id"], [piece["seam_contour"]["segments"][i]["id"]])
+                    result["seam_pairs"].append(pair)
+                    interfaces.append(pair["id"])
+                interfaces.append(path["id"])
         elif module == "paired_waist_ties_v1":
             kind = "tie"
             target, edges = _edges(result, "waist", source)[0]
@@ -556,8 +565,11 @@ def apply_detail_transformations(
 
 
 def validate_detail_placements(pattern: Mapping[str, Any]) -> None:
+    validate_placement_operations(pattern)
     for op in pattern.get("composite_operations", []):
         if op["module_id"] in {"placed_patch_pocket_v1", "rectangular_applied_panel_v1"}:
+            if 'placement_fragment_count' in op['parameters_mm']:
+                continue
             target = _find(pattern, op["target_piece_ids"][0])
             path = next(
                 p for p in target["internal_paths"] if p["id"] == f"{op['source_id']}_placement"

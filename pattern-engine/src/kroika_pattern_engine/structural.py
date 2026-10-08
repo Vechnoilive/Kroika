@@ -28,7 +28,7 @@ from .geometry.primitives import curve_points
 from .fullness import _subcurve, _slice_distance, _edge_for, _annular_piece, _check_line
 from .modeling import _resize_waistbands
 from .attachments import boundary_edges, boundary_records, descendants
-from .placements import placement_frame, containing_piece
+from .placements import placement_frame, containing_piece, distribute_placement, validate_placement_operations, _region
 
 FOUNDATION = {
     "side_skirt_slit_v3",
@@ -73,11 +73,11 @@ def _active(request):
     )
 
 
-def _note(piece, source, text):
+def _note(piece, source, text, note_id='note'):
     box = contour_from_data(piece["seam_contour"]).bounding_box
     piece["annotations"].append(
         dict(
-            id=f"{source}_{piece['id']}_note",
+            id=f"{source}_{piece['id']}_{note_id}",
             text_ru=text,
             position=[box.min_x_mm + box.width_mm / 2, box.min_y_mm + box.height_mm / 2],
         )
@@ -504,7 +504,9 @@ def _elastic(pattern, item, request):
 
 def _pocket(pattern, item):
     source, d = item["source_element_id"], item["dimensions_mm"]
-    targets, box = placement_frame(pattern, _target_id(item["location"]), source)
+    root = _target_id(item["location"])
+    candidates, box = placement_frame(pattern, root, source)
+    placement_parameters = {}
     x = box.min_x_mm + d["spacing"]
     y = box.max_y_mm - item.get("placement", {}).get("offset_mm", 20)
     count = item["count"]
@@ -542,18 +544,23 @@ def _pocket(pattern, item):
             else:
                 ne = LineSegment(shift(e.start), shift(e.end), f"{source}_placement_{i}")
             placed.append(ne)
-        target = containing_piece(targets, placed, source)
-        for edge in placed:
-            _check_line(target, edge, source)
-        path = _path(f"{source}_pocket_placement", placed, True)
-        target["internal_paths"].append(path)
+        _region(pattern, candidates, placed, source)
+        target = containing_piece(candidates, placed, source)
         pattern["pieces"].append(piece)
-        for i in range(1, len(edges)):
-            pair = _seam_pair(
-                f"{source}_patch_{i}", target["id"], [placed[i].id], pid, [edges[i].id]
+        if target is None:
+            targets, interfaces, placement_parameters = distribute_placement(
+                pattern, root, placed, source, {i: (piece, edges[i]) for i in range(1, len(edges))},
+                footprint=placed,
             )
-            pattern["seam_pairs"].append(pair)
-            interfaces.append(pair["id"])
+        else:
+            for edge in placed:
+                _check_line(target, edge, source)
+            target["internal_paths"].append(_path(f"{source}_pocket_placement", placed, True))
+            targets = [target['id']]
+            for i in range(1, len(edges)):
+                pair = _seam_pair(f"{source}_patch_{i}", target["id"], [placed[i].id], pid, [edges[i].id])
+                pattern["seam_pairs"].append(pair)
+                interfaces.append(pair["id"])
         added = [pid]
         kind = "patch_pocket"
     else:
@@ -563,9 +570,10 @@ def _pocket(pattern, item):
         for n, dy in [("upper", w), ("lower", -w)]:
             line = LineSegment(Point(x, y + dy), Point(x + length, y + dy), f"{source}_welt_{n}")
             lines.append(line)
-        target = containing_piece(targets, [opening, *lines], source)
-        for line in [opening, *lines]:
-            _check_line(target, line, source)
+        target = containing_piece(candidates, [opening, *lines], source)
+        if target is not None:
+            for line in [opening, *lines]:
+                _check_line(target, line, source)
         # Cut from opening centre to corner triangles; stitch the two lips first.
         cut = LineSegment(Point(x + w, y), Point(x + length - w, y), opening.id)
         triangles = [
@@ -575,8 +583,9 @@ def _pocket(pattern, item):
             LineSegment(cut.end, lines[i].end, f"{source}_welt_triangle_right_{i}")
             for i in range(2)
         ]
-        for i, e in enumerate([cut, *triangles, *lines]):
-            target["internal_paths"].append(_path(f"{source}_welt_mark_{i}", [e]))
+        if target is not None:
+            for i, e in enumerate([cut, *triangles, *lines]):
+                target["internal_paths"].append(_path(f"{source}_welt_mark_{i}", [e]))
         welts = []
         bags = []
         for i, line in enumerate(lines):
@@ -603,16 +612,9 @@ def _pocket(pattern, item):
             pattern["pieces"].extend([welt, bag])
             welts.append(welt)
             bags.append(bag)
-            interfaces.append(
-                _join(
-                    pattern,
-                    f"{source}_{i}",
-                    target,
-                    [line],
-                    welt,
-                    [contour_from_data(welt["seam_contour"]).segments[0]],
-                )
-            )
+            if target is not None:
+                interfaces.append(_join(pattern, f"{source}_{i}", target, [line], welt,
+                                        [contour_from_data(welt["seam_contour"]).segments[0]]))
             interfaces.append(
                 _join(
                     pattern,
@@ -628,6 +630,18 @@ def _pocket(pattern, item):
                 source,
                 "Сложить пополам. Сначала притачать две обтачки по параллельным линиям, затем прорезать середину и уголки. После выворачивания закрепить треугольники.",
             )
+        corners = [Point(x, y - w), Point(x + length, y - w), Point(x + length, y + w), Point(x, y + w)]
+        footprint = [LineSegment(corners[i], corners[(i + 1) % 4], f"{source}_opening_area_{i}") for i in range(4)]
+        _region(pattern, candidates, footprint, source)
+        if target is None:
+            targets, split_interfaces, placement_parameters = distribute_placement(
+                pattern, root, [cut, *triangles, *lines], source,
+                {5 + i: (welt, contour_from_data(welt['seam_contour']).segments[0])
+                 for i, welt in enumerate(welts)}, footprint=footprint,
+            )
+            interfaces.extend(split_interfaces)
+        else:
+            targets = [target['id']]
         pair = _seam_pair(
             f"{source}_bag_closing",
             bags[0]["id"],
@@ -639,14 +653,18 @@ def _pocket(pattern, item):
         interfaces.append(pair["id"])
         added = [p["id"] for p in [*welts, *bags]]
         kind = "welt_pocket"
-    _note(
-        target,
-        source,
-        f"Карман: сторона {item.get('placement', {}).get('side', 'both')}; количество {count}. Отсчёт положения — от верхней точки детали и центра.",
-    )
-    _record(
-        pattern, item, kind, [target["id"]], added, interfaces, {"placement_x": x, "placement_y": y}
-    )
+    for target_id in targets:
+        _note(_find(pattern, target_id), source,
+              f"Карман: сторона {item.get('placement', {}).get('side', 'both')}; количество {count}. "
+              "Отсчёт положения — от верхней точки детали и центра.")
+    if placement_parameters:
+        for added_id in added:
+            _note(_find(pattern, added_id), source,
+                  "Сначала стачать и разутюжить швы членения основы. Затем совместить непрерывные "
+                  "линии нанесения и выполнить карман на собранной основе; вход не делать отдельно на панелях.",
+                  note_id='assembly_order')
+    _record(pattern, item, kind, targets, added, interfaces,
+            {"placement_x": x, "placement_y": y, **placement_parameters})
 
 
 def _custom(pattern, item):
@@ -752,6 +770,7 @@ def apply_structural_details(pattern: Mapping[str, Any], request: Mapping[str, A
 
 
 def validate_structural_placements(pattern):
+    validate_placement_operations(pattern)
     for op in pattern.get("composite_operations", []):
         if op["module_id"] not in STRUCTURAL_MODULES:
             continue
@@ -812,7 +831,7 @@ def validate_structural_placements(pattern):
                         and path["id"].startswith(op["source_id"] + "_")
                     ):
                         _check_line(target, edge, op["source_id"],
-                                    boundary=bool(params.get("partitioned_marker")))
+                                    boundary=bool(params.get("partitioned_marker") or params.get("placement_fragment_count")))
 
 
 def _slit(pattern, item, request):
