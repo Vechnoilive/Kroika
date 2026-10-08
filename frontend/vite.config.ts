@@ -12,6 +12,8 @@ export default defineConfig({
     },
   },
   test: {
+    // Bound jsdom concurrency so UI tests also finish on small local machines.
+    maxWorkers: 2,
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
     css: true,
