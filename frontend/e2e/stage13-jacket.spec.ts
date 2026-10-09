@@ -35,11 +35,12 @@ test('лёгкий жакет проходит последовательный 
   await page.getByRole('button', {name: /создать проект/i}).click();
   await page.getByRole('button', {name: /продолжить в демо-режиме/i}).click();
 
+  await page.getByText('Основа изделия', {exact: true}).click();
   await page.getByRole('radio', {name: /Лёгкий жакет/}).check();
   await expect(page.getByText('Лацкан и воротник')).toBeVisible();
   await expect(page.getByLabel('Ширина лацкана')).toHaveValue('7');
   await completeDesignReview(page, {excludeElements: true});
-  await page.getByRole('button', {name: /подтвердить фасон/i}).click();
+  await page.getByRole('button', {name: /сохранить и перейти к меркам/i}).click();
 
   await expect(page.getByRole('heading', {name: /все мерки на одном экране/i})).toBeVisible();
   await fillJacketMeasurements(page);

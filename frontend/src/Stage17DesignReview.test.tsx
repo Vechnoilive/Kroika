@@ -121,9 +121,9 @@ describe('stage 17 design review editor', () => {
 
     await userEvent.clear(screen.getByLabelText('Описание детали 2'));
     await userEvent.type(screen.getByLabelText('Описание детали 2'), 'Двойной съёмный волан');
-    await userEvent.type(screen.getByLabelText('Ширина детали 2, см'), '12.5');
+    await userEvent.type(screen.getByLabelText('Глубина детали 2, см'), '99.9');
     await userEvent.click(screen.getByRole('button', {name: /добавить пропущенную деталь/i}));
-    expect(screen.getByDisplayValue('Пропущенная деталь')).toBeVisible();
+    expect(screen.getByDisplayValue('Пропущенная деталь')).toBeInTheDocument();
 
     const includedChecks = screen.getAllByRole('checkbox', {
       name: /эта деталь действительно есть на изделии/i,
@@ -142,8 +142,8 @@ describe('stage 17 design review editor', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     expect(onSave.mock.calls[0][0].status).toBe('partial');
     expect(onSave.mock.calls[0][0].elements[1].description_ru).toBe('Двойной съёмный волан');
-    expect(onSave.mock.calls[0][0].elements[1].dimensions_mm?.width).toBe(125);
+    expect(onSave.mock.calls[0][0].elements[1].dimensions_mm?.depth).toBe(999);
     expect(onSave.mock.calls[0][0].elements[2].support_status).toBe('excluded');
-    expect(screen.getByText(/построение останется закрытым/i)).toBeVisible();
+    expect(screen.getByText(/Перед построением осталось уточнить/)).toBeVisible();
   });
 });

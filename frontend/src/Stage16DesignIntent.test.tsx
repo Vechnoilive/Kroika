@@ -74,7 +74,7 @@ describe('stage 16 design intent and workflow navigation', () => {
     expect(screen.getByText('Проверьте размеры')).toBeVisible();
 
     await userEvent.click(screen.getByRole('button', {name: /подтвердить фасон/i}));
-    expect(await screen.findByRole('alert')).toHaveTextContent(/сначала проверьте детали, слои и пропорции/i);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/подтвердите все оставленные детали/i);
     expect(onSave).not.toHaveBeenCalled();
   });
 
@@ -105,12 +105,12 @@ describe('stage 16 design intent and workflow navigation', () => {
     });
 
     render(<App />);
-    expect(await screen.findByRole('heading', {name: /проверьте фасон своими глазами/i})).toBeVisible();
+    expect(await screen.findByRole('heading', {name: /сверьте изделие с фотографией/i})).toBeVisible();
 
     await userEvent.click(screen.getByRole('button', {name: /перейти к шагу 2: добавить эскиз/i}));
     expect(await screen.findByRole('heading', {name: /добавьте эскиз или фотографию/i})).toBeVisible();
 
     await userEvent.click(screen.getByRole('button', {name: /перейти к шагу 3: подтвердить фасон/i}));
-    await waitFor(() => expect(screen.getByRole('heading', {name: /проверьте фасон своими глазами/i})).toBeVisible());
+    await waitFor(() => expect(screen.getByRole('heading', {name: /сверьте изделие с фотографией/i})).toBeVisible());
   });
 });

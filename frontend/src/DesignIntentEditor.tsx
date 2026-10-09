@@ -1,8 +1,9 @@
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 import {PlacementGuide} from './PlacementGuide';
 import {RecipeGuide} from './RecipeGuide';
 import {DESIGN_ELEMENT_NAMES, finalizeDesignIntent, reevaluateDesignIntent} from './designIntent';
 import {DESIGN_VARIANT_NAMES, DESIGN_LOCATION_NAMES, applicableRule, DESIGN_MODULES, matchingModule, moduleDiagnosis, type DesignModule} from './designModules';
+import {reviewIssues, revealReviewItem} from './designReview';
 import {isBackQuestion} from './backDesign';
 import type {
   DesignElementType,
@@ -70,6 +71,7 @@ export function DesignIntentEditor({
   busy,
   onChange,
   onSave,
+  showSaveAction = true,
 }: {
   intent: GarmentDesignIntent;
   spec: GarmentSpec;
@@ -77,9 +79,14 @@ export function DesignIntentEditor({
   busy: boolean;
   onChange: (intent: GarmentDesignIntent) => void;
   onSave: (intent: GarmentDesignIntent) => Promise<void>;
+  showSaveAction?: boolean;
 }) {
   const [error, setError] = useState('');
   const [catalogModule, setCatalogModule] = useState('');
+  const [newItem, setNewItem] = useState<string | null>(null);
+  useEffect(() => {
+    if (newItem && document.getElementById(`review-${newItem}`)) {revealReviewItem(newItem); setNewItem(null);}
+  }, [newItem, intent.elements.length, intent.layers.length]);
   const catalog = DESIGN_MODULES.filter((module) => module.kind === 'element'
     && Object.keys(module.dimensions?.required ?? {}).length > 0
     && applicableRule(module, spec));
@@ -118,6 +125,7 @@ export function DesignIntentEditor({
       dimensions_mm: {...EMPTY_DIMENSIONS}, support_status: 'needs_confirmation', module_id: null, selected_module_id: module.id,
     };
     change({...intent, source: 'manual', elements: [...intent.elements, element]});
+    setNewItem('element-' + element.source_element_id);
   }
 
   function change(candidate: GarmentDesignIntent) {
@@ -195,6 +203,7 @@ export function DesignIntentEditor({
       module_id: null,
     };
     change({...intent, source: 'manual', elements: [...intent.elements, element]});
+    setNewItem('element-' + element.source_element_id);
   }
 
   function addLayer() {
@@ -213,6 +222,7 @@ export function DesignIntentEditor({
       module_id: null,
     };
     change({...intent, source: 'manual', layers: [...intent.layers, layer]});
+    setNewItem('layer-' + layer.source_layer_id);
   }
 
   function setDimension(item: Element, key: Dimension, raw: string) {
@@ -241,6 +251,10 @@ export function DesignIntentEditor({
     }
   }
 
+  const issues = reviewIssues(intent, spec, analysis);
+  const checked = [...intent.elements, ...intent.layers, intent.proportions].filter(item => !('included' in item) || item.included !== false).filter(item => item.confirmed_by_user).length;
+  const total = [...intent.elements, ...intent.layers, intent.proportions].filter(item => !('included' in item) || item.included !== false).length;
+
   const reviewLabel = intent.review_status === 'confirmed'
     ? 'Проверка сохранена'
     : intent.status === 'needs_confirmation' ? 'Ждёт вашей проверки'
@@ -251,14 +265,16 @@ export function DesignIntentEditor({
       <div className="design-intent__heading">
         <div>
           <p className="eyebrow">Разбор фотографии</p>
-          <h3 id="design-intent-title">Проверьте конструктивные элементы</h3>
+          <h3 id="design-intent-title">Что есть на вашем изделии?</h3>
         </div>
         <span className={`design-intent__status design-intent__status--${intent.status}`}>
           {reviewLabel}
         </span>
       </div>
-      <p>Исправьте распознавание, исключите лишнее и укажите известные размеры. Сайт сохранит и ваш выбор, и исходную подсказку модели.</p>
-      <p className="field-hint">Полные ярусы отделки идут в порядке списка: следующий пришивается к свободному краю предыдущего. Перемещайте оборку и волан выше или ниже, чтобы изменить их порядок.</p>
+      <p>Сверьте список с фото. Уберите лишнее, а для нужных деталей откройте «Настроить» и заполните только размеры выбранной конструкции.</p>
+      <div className="review-progress"><span>Проверено {checked} из {total}</span><progress value={checked} max={Math.max(total, 1)} aria-label="Проверка деталей и материалов" /><button type="button" className="secondary-button" disabled={busy} onClick={() => change({...intent, elements: intent.elements.map(item => item.included === false ? item : {...item, confirmed_by_user: true}), layers: intent.layers.map(item => item.included === false ? item : {...item, confirmed_by_user: true}), proportions: {...intent.proportions, confirmed_by_user: true}})}>Всё на фото проверено</button><small>Подтверждает включённые детали, материалы и пропорции. Размеры остаются вашими.</small></div>
+      <details className="review-disclosure review-catalog"><summary>Добавить деталь или изменить порядок отделки</summary><div className="review-disclosure__body">
+      <p className="field-hint">Следующий ярус пришивается к свободному краю предыдущего. Порядок оборок и воланов можно изменить в настройках деталей.</p>
       <div className="review-fields">
         <label><span>Добавить деталь из каталога</span><select value={catalogModule} onChange={(event) => setCatalogModule(event.target.value)}>
           <option value="">Выберите конструкцию</option>
@@ -267,8 +283,10 @@ export function DesignIntentEditor({
         <button type="button" disabled={!catalogModule || busy} onClick={addCatalogElement}>Добавить выбранную деталь</button>
       </div>
 
+      </div></details>
+
       {spec.garment_type === 'shirt' && <p className="field-hint">Конструкция горловины рубашки: выберите «Воротник основы» для штатной стойки и отлёта. Выбранная отдельная стойка, плоский или шалевый воротник либо капюшон заменят их; планка застёжки сохраняется.</p>}
-      <div className="design-review-list">
+      <div className="design-review-list" id="review-elements">
         {intent.elements.map((item, index) => {
           const included = item.included !== false;
           const dimensions = item.dimensions_mm ?? EMPTY_DIMENSIONS;
@@ -278,20 +296,16 @@ export function DesignIntentEditor({
             && applicableRule(module, spec)
             && (item.type === 'other' || module.rules.some((rule) => rule.type?.includes(item.type))));
           return (
-            <article className={`design-review-card${included ? '' : ' design-review-card--excluded'}`} key={item.source_element_id}>
+            <article className={`design-review-card${included ? '' : ' design-review-card--excluded'}`} key={item.source_element_id} id={`review-element-${item.source_element_id}`}>
               <header>
                 <div>
                   <strong>Деталь {index + 1}: {DESIGN_ELEMENT_NAMES[item.type]}</strong>
-                  <small>{item.evidence_ru}</small>
+                  <small>{DESIGN_LOCATION_NAMES[item.location]}{module ? ` · ${module.title_ru}` : ' · выберите конструкцию'}</small>
                 </div>
                 <span className={`design-support design-support--${item.support_status}`}>
                   {diagnosis.label}
                 </span>
               </header>
-              {intent.elements.length > 1 && <div className="review-fields">
-                <button type="button" disabled={busy || index === 0} aria-label={`Поднять деталь ${index + 1}`} onClick={() => moveElement(index, -1)}>Выше</button>
-                <button type="button" disabled={busy || index === intent.elements.length - 1} aria-label={`Опустить деталь ${index + 1}`} onClick={() => moveElement(index, 1)}>Ниже</button>
-              </div>}
               <label className="review-check">
                 <input
                   type="checkbox"
@@ -303,6 +317,14 @@ export function DesignIntentEditor({
                 />
                 <span>Эта деталь действительно есть на изделии</span>
               </label>
+              {included && <label className="review-check review-check--confirm"><input type="checkbox" checked={item.confirmed_by_user === true} onChange={(event) => updateElement(item.source_element_id, {confirmed_by_user: event.target.checked})} /><span>Я проверил(а) эту деталь по фотографии</span></label>}
+              {included && diagnosis.reasons.length > 0 && <p className="review-card__next">Требуется: {diagnosis.reasons[0]}</p>}
+              <details className="review-disclosure review-settings"><summary>Настроить деталь {index + 1} · конструкция и размеры</summary><div className="review-disclosure__body">
+              <p className="field-hint">Модель увидела: {item.evidence_ru}</p>
+              {intent.elements.length > 1 && <div className="review-fields">
+                <button type="button" disabled={busy || index === 0} aria-label={`Поднять деталь ${index + 1}`} onClick={() => moveElement(index, -1)}>Выше</button>
+                <button type="button" disabled={busy || index === intent.elements.length - 1} aria-label={`Опустить деталь ${index + 1}`} onClick={() => moveElement(index, 1)}>Ниже</button>
+              </div>}
               {included && diagnosis.reasons.length > 0 && <div className="field-hint" aria-label={`Причина блокировки детали ${index + 1}`}>
                 {diagnosis.module && <p>Доступная конструкция: {diagnosis.module.title_ru}.</p>}
                 <ul>{diagnosis.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
@@ -314,6 +336,7 @@ export function DesignIntentEditor({
                 </select>
                 <small>Выбор задаёт вариант, расположение, конструкцию, количество и симметрию. Неиспользуемые размеры очищаются. После выбора проверьте деталь по фотографии.</small>
               </label>}
+              <details className="review-disclosure review-advanced" open={item.type === 'other' ? true : undefined}><summary>Исправить распознавание вручную</summary><div className="review-disclosure__body">
               <div className="design-review-grid">
                 <label><span>Название и описание</span><input aria-label={`Описание детали ${index + 1}`} disabled={!included} maxLength={240} value={item.description_ru} onChange={(event) => updateElement(item.source_element_id, {description_ru: event.target.value, confirmed_by_user: false})} /></label>
                 <label><span>Тип детали</span><select aria-label={`Тип детали ${index + 1}`} disabled={!included} value={item.type} onChange={(event) => updateElement(item.source_element_id, {type: event.target.value as DesignElementType, selected_module_id: null, module_id: null, placement: undefined, outline_mm: undefined, confirmed_by_user: false})}>{ELEMENT_TYPES.map((value) => <option value={value} key={value}>{DESIGN_ELEMENT_NAMES[value]}</option>)}</select></label>
@@ -323,14 +346,15 @@ export function DesignIntentEditor({
                 <label><span>Количество</span><input aria-label={`Количество детали ${index + 1}`} disabled={!included} type="number" min="1" max="32" value={item.count ?? ''} onChange={(event) => updateElement(item.source_element_id, {count: event.target.value === '' ? null : Number(event.target.value), confirmed_by_user: false})} /></label>
                 <label><span>Симметрия</span><select aria-label={`Симметрия детали ${index + 1}`} disabled={!included} value={item.symmetry} onChange={(event) => updateElement(item.source_element_id, {symmetry: event.target.value as Element['symmetry'], confirmed_by_user: false})}><option value="symmetric">Симметричная</option><option value="asymmetric">Асимметричная</option><option value="single">Одиночная</option><option value="unknown">Не знаю</option></select></label>
               </div>
+              </div></details>
               <fieldset className="dimension-fields" disabled={!included}>
-                <legend>Параметры построения, см — заполняйте только известные</legend>
+                <legend>Размеры выбранной конструкции, см</legend>
                 {module?.group === 'fullness' && <p className="field-hint">{module.id.startsWith('tiered_') ? 'Количество — число ярусов. Каждый ярус добавляет свою глубину к длине изделия.' : module.id.startsWith('placed_skirt_') || module.id.startsWith('integrated_bodice_') ? 'Количество указано на всё изделие: половина операций строится на каждой зеркальной половине.' : 'Правая и левая стороны указаны относительно человека, который носит изделие.'}</p>}
                 {modelingHint(item, spec) && <p className="field-hint">{modelingHint(item, spec)}</p>}
                 {([
                   ['width', 'Ширина'], ['length', 'Длина'], ['depth', 'Глубина'], ['spacing', 'Расстояние'],
-                ] as Array<[Dimension, string]>).map(([key, label]) => (
-                  <label key={key}><span>{module?.parameter_labels_ru?.[key] ?? label}</span><input aria-label={`${label} детали ${index + 1}, см`} type="number" inputMode="decimal" disabled={item.selected_module_id === module?.id && !!module?.dimensions && !(key in module.dimensions.required) && !(key in module.dimensions.optional) && dimensions[key] == null} min="0.1" max="1000" step="0.1" value={dimensions[key] == null ? '' : dimensions[key] / 10} onChange={(event) => setDimension(item, key, event.target.value)} /></label>
+                ] as Array<[Dimension, string]>).filter(([key]) => !module?.dimensions || key in module.dimensions.required || key in module.dimensions.optional || dimensions[key] != null).map(([key, label]) => (
+                  <label key={key}><span>{module?.parameter_labels_ru?.[key] ?? label}{module?.dimensions && <small>{key in module.dimensions.required ? 'Обязательно' : key in module.dimensions.optional ? 'По желанию' : 'Не используется — очистите'}</small>}</span><input aria-label={`${label} детали ${index + 1}, см`} type="number" inputMode="decimal" data-review-needed={!!module?.dimensions?.required[key] && dimensions[key] == null} disabled={item.selected_module_id === module?.id && !!module?.dimensions && !(key in module.dimensions.required) && !(key in module.dimensions.optional) && dimensions[key] == null} min="0.1" max="1000" step="0.1" value={dimensions[key] == null ? '' : dimensions[key] / 10} onChange={(event) => setDimension(item, key, event.target.value)} /></label>
                 ))}
               </fieldset>
               {included && module?.custom_outline && <label><span>Контур детали: координаты точек в сантиметрах</span><textarea aria-label={`Контур детали ${index + 1}, см`} placeholder="[[0,0],[10,0],[8,6],[0,6]]" defaultValue={item.outline_mm ? JSON.stringify(item.outline_mm.map((p) => p.map((v) => v / 10))) : ''} onChange={(event) => {
@@ -346,24 +370,26 @@ export function DesignIntentEditor({
                 {module.placement.outline_edge_index && <label><span>Номер ребра крепления</span><input aria-label={`Ребро крепления детали ${index + 1}`} type="number" min="1" max="24" value={(item.placement?.outline_edge_index ?? 0) + 1} onChange={(event) => updateElement(item.source_element_id, {placement: {...item.placement, outline_edge_index: Number(event.target.value) - 1}, confirmed_by_user: false})} /></label>}
                 {module.placement.sweep_angle_deg && <label><span>Угол сектора волана, °</span><input aria-label={`Угол сектора детали ${index + 1}`} type="number" min="90" max="270" value={item.placement?.sweep_angle_deg ?? 180} onChange={(event) => updateElement(item.source_element_id, {placement: {...item.placement, sweep_angle_deg: Number(event.target.value)}, confirmed_by_user: false})} /></label>}
               </fieldset>}
-              {included && <RecipeGuide item={item} module={module} />}
-              {included && <PlacementGuide item={item} moduleId={module?.id} elements={intent.elements} />}
-              {included && <label className="review-check review-check--confirm"><input type="checkbox" checked={item.confirmed_by_user === true} onChange={(event) => updateElement(item.source_element_id, {confirmed_by_user: event.target.checked})} /><span>Я проверил(а) эту деталь по фотографии</span></label>}
+              {included && <details className="review-disclosure"><summary>Как понимать размеры и место крепления</summary><RecipeGuide item={item} module={module} /><PlacementGuide item={item} moduleId={module?.id} elements={intent.elements} /></details>}
+              </div></details>
             </article>
           );
         })}
       </div>
       <button className="secondary-button review-add" type="button" disabled={intent.elements.length >= 24} onClick={addElement}>+ Добавить пропущенную деталь</button>
 
-      <div className="design-review-list">
+      <h4 className="review-section-title">Материалы и слои</h4>
+      <div className="design-review-list" id="review-layers">
         {intent.layers.map((item, index) => {
           const included = item.included !== false;
           const diagnosis = moduleDiagnosis('layer', item, spec);
           return (
-            <article className={`design-review-card${included ? '' : ' design-review-card--excluded'}`} key={item.source_layer_id}>
-              <header><strong>Слой {index + 1}</strong><span className={`design-support design-support--${item.support_status}`}>{diagnosis.label}</span></header>
+            <article className={`design-review-card${included ? '' : ' design-review-card--excluded'}`} key={item.source_layer_id} id={`review-layer-${item.source_layer_id}`}>
+              <header><div><strong>Слой {index + 1}: {({main: 'Основная ткань', lining: 'Подкладка', interfacing: 'Прокладка', overlay: 'Накладной слой'})[item.role]}</strong><small>{item.material_hint_ru}</small></div><span className={`design-support design-support--${item.support_status}`}>{diagnosis.label}</span></header>
               {included && diagnosis.reasons.length > 0 && <ul className="field-hint">{diagnosis.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>}
               <label className="review-check"><input type="checkbox" checked={included} disabled={item.role === 'main'} onChange={(event) => updateLayer(item.source_layer_id, {included: event.target.checked, confirmed_by_user: event.target.checked ? false : item.confirmed_by_user})} /><span>{item.role === 'main' ? 'Основной слой обязателен' : 'Этот слой действительно есть'}</span></label>
+              {included && <label className="review-check review-check--confirm"><input type="checkbox" checked={item.confirmed_by_user === true} onChange={(event) => updateLayer(item.source_layer_id, {confirmed_by_user: event.target.checked})} /><span>Я проверил(а) этот слой</span></label>}
+              <details className="review-disclosure"><summary>Настроить слой {index + 1}</summary><div className="review-disclosure__body">
               <div className="design-review-grid">
                 <label><span>Назначение</span><select aria-label={`Назначение слоя ${index + 1}`} disabled={!included} value={item.role} onChange={(event) => updateLayer(item.source_layer_id, {role: event.target.value as Layer['role'], confirmed_by_user: false})}><option value="main">Основной</option><option value="lining">Подкладка</option><option value="interfacing">Прокладка</option><option value="overlay">Накладной</option></select></label>
                 <label><span>Материал или описание</span><input aria-label={`Описание слоя ${index + 1}`} disabled={!included} maxLength={160} value={item.material_hint_ru} onChange={(event) => updateLayer(item.source_layer_id, {material_hint_ru: event.target.value, confirmed_by_user: false})} /></label>
@@ -374,15 +400,18 @@ export function DesignIntentEditor({
               {included && item.role !== 'main' && <p className="field-hint">Слой получает отдельные лекала по окончательным контурам выбранной части, вытачки, надсечки и парные швы. Покрытия одной роли не должны пересекаться.</p>}
               {included && item.role !== 'main' && item.coverage === 'detail' && <fieldset className="plain-choice"><legend>Какие дополнительные детали покрыть?</legend>{intent.elements.filter((e) => e.included !== false && ['separate_piece', 'applied', 'layered'].includes(e.construction)).map((e) => <label key={e.source_element_id}><input type="checkbox" checked={item.detail_source_ids?.includes(e.source_element_id) ?? false} onChange={(event) => updateLayer(item.source_layer_id, {detail_source_ids: event.target.checked ? [...(item.detail_source_ids ?? []), e.source_element_id] : item.detail_source_ids?.filter((id) => id !== e.source_element_id), confirmed_by_user: false})} />{e.description_ru}</label>)}</fieldset>}
               {included && item.role !== 'main' && ['skirt', 'sleeves'].includes(item.coverage) && <label><span>Укорочение низа слоя, см</span><input type="number" min="0" max="30" step="0.1" value={(item.hem_shortening_mm ?? 0) / 10} onChange={(event) => updateLayer(item.source_layer_id, {hem_shortening_mm: Number(event.target.value) * 10, confirmed_by_user: false})} /></label>}
-              {included && <label className="review-check review-check--confirm"><input type="checkbox" checked={item.confirmed_by_user === true} onChange={(event) => updateLayer(item.source_layer_id, {confirmed_by_user: event.target.checked})} /><span>Я проверил(а) этот слой</span></label>}
+              </div></details>
             </article>
           );
         })}
       </div>
       <button className="secondary-button review-add" type="button" disabled={intent.layers.length >= 6} onClick={addLayer}>+ Добавить слой</button>
 
-      <article className="design-review-card">
+      <article className="design-review-card" id="review-proportions">
         <header><strong>Пропорции и асимметрия</strong><span className={`design-support design-support--${intent.proportions.support_status}`}>{SUPPORT_LABELS[intent.proportions.support_status]}</span></header>
+        <p className="review-card__summary">{({low: 'Заниженная талия', natural: 'Естественная талия', high: 'Завышенная талия', unknown: 'Линия талии не определена'})[intent.proportions.waist_position]} · {({fitted: 'Прилегающий объём', regular: 'Обычный объём', relaxed: 'Свободный объём', voluminous: 'Объёмный силуэт', unknown: 'Объём не определён'})[intent.proportions.volume]} · {({straight: 'Прямой низ', curved: 'Скруглённый низ', asymmetric: 'Асимметричный низ', tiered: 'Ярусный низ', unknown: 'Форма низа не определена'})[intent.proportions.hem_shape]} · {({yes: 'Есть асимметрия', no: 'Без асимметрии', unknown: 'Асимметрия не определена'})[intent.proportions.asymmetry]}</p>
+        <label className="review-check review-check--confirm"><input type="checkbox" checked={intent.proportions.confirmed_by_user === true} onChange={(event) => change({...intent, proportions: {...intent.proportions, confirmed_by_user: event.target.checked}})} /><span>Я проверил(а) пропорции</span></label>
+        <details className="review-disclosure"><summary>Изменить пропорции и форму низа</summary><div className="review-disclosure__body">
         <div className="design-review-grid">
           <label><span>Линия талии</span><select value={intent.proportions.waist_position} onChange={(event) => change({...intent, proportions: {...intent.proportions, waist_position: event.target.value as GarmentDesignIntent['proportions']['waist_position'], waist_shift_mm: null, waist_level_circumference_mm: null, back_waist_level_arc_mm: null, confirmed_by_user: false}})}><option value="low">Заниженная</option><option value="natural">Естественная</option><option value="high">Завышенная</option><option value="unknown">Не знаю</option></select></label>
           <label><span>Объём</span><select value={intent.proportions.volume} onChange={(event) => change({...intent, proportions: {...intent.proportions, volume: event.target.value as GarmentDesignIntent['proportions']['volume'], confirmed_by_user: false}})}><option value="fitted">Прилегающий</option><option value="regular">Обычный</option><option value="relaxed">Свободный</option><option value="voluminous">Объёмный</option><option value="unknown">Не знаю</option></select></label>
@@ -395,20 +424,20 @@ export function DesignIntentEditor({
         </div>}
         {['curved', 'asymmetric'].includes(intent.proportions.hem_shape) && <label><span>Подъём низа по центру, см</span><input type="number" min="2" max="25" step="0.1" value={intent.proportions.hem_delta_mm == null ? '' : intent.proportions.hem_delta_mm / 10} onChange={(event) => change({...intent, proportions: {...intent.proportions, hem_delta_mm: event.target.value === '' ? null : Number(event.target.value) * 10, confirmed_by_user: false}})} /></label>}
         <p className="field-hint">Свободный объём добавляет минимум 6 см модельной прибавки, объёмный — 12 см; по руке вдвое меньше. Асимметричный низ: перед короче по центру, боковые швы сохраняются. Смещённая талия требует отдельных мерок на новой высоте; анатомические мерки сохраняются. Полная подкладка жакета уже включена в основу.</p>
-        <label className="review-check review-check--confirm"><input type="checkbox" checked={intent.proportions.confirmed_by_user === true} onChange={(event) => change({...intent, proportions: {...intent.proportions, confirmed_by_user: event.target.checked}})} /><span>Я проверил(а) пропорции</span></label>
+        </div></details>
       </article>
 
-      {intent.pending_questions.some((question) => !isBackQuestion(question)) && <div className="review-questions">
-        <strong>Ответьте на вопросы модели</strong>
+      {intent.pending_questions.some((question) => !isBackQuestion(question)) && <div className="review-questions" id="review-questions">
+        <strong>Уточнения по фотографии</strong>
         {intent.pending_questions.filter((question) => !isBackQuestion(question)).map((question, index) => {
           const answer = intent.question_answers?.find((item) => item.question === question)?.answer_ru ?? '';
           return <label key={question}><span>{question}</span><textarea aria-label={`Ответ на вопрос ${index + 1}`} maxLength={1000} value={answer} onChange={(event) => change({...intent, question_answers: intent.pending_questions.map((item) => ({question: item, answer_ru: item === question ? event.target.value : intent.question_answers?.find((previous) => previous.question === item)?.answer_ru ?? ''}))})} /></label>;
         })}
       </div>}
 
-      {intent.status === 'partial' && <div className="notice notice--warning"><strong>Проверка сохранится, но построение останется закрытым</strong><span>Для включённых деталей нужно проверить параметры или реализовать геометрию. Мерки можно вводить и сохранять уже сейчас.</span></div>}
+      <div className="review-readiness" aria-live="polite"><strong>{issues.length ? `Перед построением осталось уточнить: ${issues.length}` : 'Все детали готовы к построению'}</strong><p>К меркам можно перейти сейчас. Эти пункты понадобятся перед созданием выкройки.</p>{issues.length > 0 && <ul>{issues.map(issue => <li key={issue.id}><button type="button" onClick={() => revealReviewItem(issue.id)}>Открыть: {issue.title}</button><span>{issue.reasons.join(' ')}</span></li>)}</ul>}</div>
       {error && <div className="inline-error" role="alert">{error}</div>}
-      <button className="secondary-button review-save" type="button" disabled={busy} onClick={() => void saveReview()}>{busy ? 'Сохраняем проверку…' : 'Сохранить проверку деталей'}</button>
+      {showSaveAction && <button className="secondary-button review-save" type="button" disabled={busy} onClick={() => void saveReview()}>{busy ? 'Сохраняем проверку…' : 'Сохранить проверку деталей'}</button>}
     </section>
   );
 }

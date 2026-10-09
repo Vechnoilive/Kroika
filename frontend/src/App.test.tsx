@@ -123,7 +123,8 @@ describe('accessible stage flow', () => {
     expect(screen.getAllByText(message)).toHaveLength(1);
     await userEvent.click(repair);
 
-    expect(await screen.findByRole('heading', {name: /проверьте фасон своими глазами/i})).toBeVisible();
+    expect(await screen.findByRole('heading', {name: /сверьте изделие с фотографией/i})).toBeVisible();
+    await userEvent.click(screen.getByText('Основа изделия'));
     expect(screen.getByLabelText(/длина брюк от талии/i)).toBeVisible();
   });
 });

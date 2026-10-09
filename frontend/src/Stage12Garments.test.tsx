@@ -44,9 +44,10 @@ describe('stage 12 garment catalogue UI', () => {
       />,
     );
 
+    await userEvent.click(screen.getByText('Основа изделия'));
     await userEvent.click(screen.getByRole('radio', {name: /Рубашка/}));
     expect(screen.getByText('Воротник')).toBeVisible();
-    expect(screen.getByText(/экспертная проверка, бумажная сборка и макет ещё не пройдены/i)).toBeVisible();
+    expect(screen.getByText(/посадку нужно проверить на макете/i)).toBeVisible();
     expect(screen.getByLabelText(/длина рукава/i)).toBeVisible();
     await userEvent.click(screen.getByRole('button', {name: /подтвердить фасон/i}));
 

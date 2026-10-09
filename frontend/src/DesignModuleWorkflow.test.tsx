@@ -143,7 +143,7 @@ describe('design modules and independent measurement entry', () => {
     expect((await buildEngineRequest(project)).input_hash).not.toBe(request.input_hash);
   });
 
-  it('explains missing dimensions separately from an absent geometry module', () => {
+  it('explains missing dimensions separately from an absent geometry module', async () => {
     const project = reviewedProject();
     const intent = project.garment_spec.design_intent!;
     intent.elements[0].dimensions_mm = {width: null, length: null, depth: null, spacing: null};
@@ -152,6 +152,7 @@ describe('design modules and independent measurement entry', () => {
     intent.status = 'partial';
     render(<StyleEditor project={project} analysis={analysis} providerName="Gemini" onSave={vi.fn()} />);
     expect(screen.getByText('Проверьте размеры')).toBeVisible();
+    await userEvent.click(screen.getByText('Настроить деталь 1 · конструкция и размеры'));
     expect(screen.getByText(/глубина 3–40 см/)).toBeVisible();
     expect(screen.getByText(/остальные размеры оставьте пустыми/i)).toBeVisible();
     expect(matchingModule('element', intent.elements[0], project.garment_spec)).toBeUndefined();

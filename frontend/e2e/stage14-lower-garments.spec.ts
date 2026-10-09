@@ -29,11 +29,12 @@ test('прямые брюки проходят последовательный 
   await page.getByRole('button', {name: /создать проект/i}).click();
   await page.getByRole('button', {name: /продолжить в демо-режиме/i}).click();
 
+  await page.getByText('Основа изделия', {exact: true}).click();
   await page.getByRole('radio', {name: /Прямые брюки/}).check();
   await expect(page.getByText('Боковые карманы')).toBeVisible();
   await expect(page.getByLabel('Длина брюк от талии')).toHaveValue('100');
   await completeDesignReview(page, {excludeElements: true});
-  await page.getByRole('button', {name: /подтвердить фасон/i}).click();
+  await page.getByRole('button', {name: /сохранить и перейти к меркам/i}).click();
 
   await expect(page.getByRole('heading', {name: /все мерки на одном экране/i})).toBeVisible();
   await fillTrouserMeasurements(page);

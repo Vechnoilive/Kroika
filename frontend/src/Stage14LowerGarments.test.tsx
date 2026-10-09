@@ -29,6 +29,7 @@ describe('stage 14 trousers and shorts UI', () => {
     const onSave = vi.fn(async (candidate: ProjectDocument) => candidate);
     render(<StyleEditor project={project} analysis={analysis} providerName="Qwen" acceptance={acceptance} onSave={onSave} />);
 
+    await userEvent.click(screen.getByText('Основа изделия'));
     await userEvent.click(screen.getByRole('radio', {name: /Прямые брюки/}));
     expect(screen.getByText('Прямая брючина')).toBeVisible();
     expect(screen.getByText('Боковые карманы')).toBeVisible();
@@ -64,6 +65,7 @@ describe('stage 14 trousers and shorts UI', () => {
     const project = makeDemoProject('Шорты');
     render(<StyleEditor project={project} analysis={analysis} providerName="Qwen" onSave={vi.fn()} />);
 
+    await userEvent.click(screen.getByText('Основа изделия'));
     await userEvent.click(screen.getByRole('radio', {name: /Классические шорты/}));
     expect(screen.getByLabelText(/длина шорт от талии/i)).toHaveValue(50);
     expect(screen.getByText('Прямой низ')).toBeVisible();

@@ -1,4 +1,4 @@
-import {expect, type Page} from '@playwright/test';
+import {type Page} from '@playwright/test';
 
 
 export async function completeDesignReview(
@@ -34,6 +34,4 @@ export async function completeDesignReview(
     await answers.nth(index).fill('Проверено пользователем в E2E-сценарии.');
   }
 
-  await page.getByRole('button', {name: /сохранить проверку деталей/i}).click();
-  await expect(page.getByText('Проверка сохранена')).toBeVisible({timeout: 15_000});
 }

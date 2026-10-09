@@ -6,7 +6,8 @@ import {configureGarment, easeForGarment, GARMENT_OPTIONS, methodForGarment, pre
 import {DesignIntentEditor} from './DesignIntentEditor';
 import {ConstructionPreview} from './ConstructionPreview';
 import {BACK_GARMENTS, answerBackQuestions, isBackQuestion} from './backDesign';
-import {buildDesignIntent, prepareDesignIntentForReview, reevaluateDesignIntent} from './designIntent';
+import {reviewIssues, revealReviewItem} from './designReview';
+import {buildDesignIntent, finalizeDesignIntent, prepareDesignIntentForReview, reevaluateDesignIntent} from './designIntent';
 import type {
   FabricProperties,
   FitSettings,
@@ -69,6 +70,7 @@ export function StyleEditor({
   acceptance,
   onSave,
   onDirtyChange,
+  onContinueMeasurements,
 }: {
   project: ProjectDocument;
   analysis: StyleAnalysis;
@@ -76,6 +78,7 @@ export function StyleEditor({
   acceptance?: GarmentAcceptanceStatus;
   onSave: SaveProject;
   onDirtyChange?: (dirty: boolean) => void;
+  onContinueMeasurements?: () => void;
 }) {
   const draftKey = `kroika:draft:${project.project_id}:style`;
   const loadedDraft = useRef<ReturnType<typeof loadLocalDraft<GarmentSpec>> | null>(null);
@@ -175,23 +178,44 @@ export function StyleEditor({
     }
   }
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    if (spec.design_intent?.review_status !== undefined
-        && spec.design_intent.review_status !== 'confirmed') {
-      setError('Сначала проверьте детали, слои и пропорции, затем нажмите «Сохранить проверку деталей».');
+  async function continueToMeasurements() {
+    if (!spec.design_intent || reviewIssues(spec.design_intent, spec, analysis).length === 0) {
+      await submit();
       return;
     }
-    if (spec.design_intent && spec.design_intent.status !== 'ready') {
-      const unresolved = [
-        ...spec.design_intent.elements.filter((item) => item.included !== false),
-        ...spec.design_intent.layers.filter((item) => item.included !== false),
-        spec.design_intent.proportions,
-      ].filter((item) => item.support_status !== 'supported');
-      setError(
-        `Нельзя подтвердить точный фасон. ${unresolved.length ? `Не завершено пунктов проверки: ${unresolved.length}. ` : ''}Проверьте размеры, конструкцию, слои и пропорции; причины указаны в карточках выше.`,
-      );
-      return;
+    autosave.cancelPending(); setBusy(true); setError('');
+    try {
+      const saved = await onSave({
+        ...project, status: 'draft',
+        garment_spec: {...spec, selection_status: 'proposed', confirmed_at: null},
+        pattern_method: {id: methodForGarment(spec.garment_type), version: '0.1.0', validation_status: 'experimental'},
+        fit_settings: {...project.fit_settings, status: 'draft', confirmed_at: null},
+        fabric_properties: {...project.fabric_properties, status: 'draft', confirmed_at: null},
+        latest_generation: null,
+      });
+      setSpec(structuredClone(saved.garment_spec));
+      autosave.markSaved(saved.garment_spec);
+      onContinueMeasurements?.();
+    } catch (caught) {
+      autosave.markDirty(spec);
+      setError(caught instanceof ApiError ? caught.message : 'Не удалось сохранить. Изменения остались на этом экране.');
+    } finally {setBusy(false);}
+  }
+
+  async function submit(event?: FormEvent) {
+    event?.preventDefault();
+    let designIntent = spec.design_intent;
+    if (designIntent) {
+      try {
+        designIntent = finalizeDesignIntent(designIntent, spec, analysis);
+        if (designIntent.status !== 'ready') {
+          setError('Для построения уточните пункты списка выше. К меркам можно перейти с сохранением текущего выбора.');
+          return;
+        }
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : 'Проверьте список деталей выше.');
+        return;
+      }
     }
     const {neckline, skirt, upper, sleeve, closure, trousers} = spec.parameters;
     const skirtBased = ['dress', 'sundress', 'skirt'].includes(spec.garment_type);
@@ -217,7 +241,8 @@ export function StyleEditor({
         lowerOnly ? 240 : 900,
       ));
     if (invalid) {
-      setError('Проверьте числовые значения: одно из них вне указанного диапазона.');
+      revealReviewItem('foundation');
+      setError('В разделе «Основа изделия» одно из чисел вне указанного диапазона. Исправьте его и повторите сохранение.');
       return;
     }
     setBusy(true);
@@ -226,6 +251,7 @@ export function StyleEditor({
     const now = new Date().toISOString();
     const confirmed: GarmentSpec = {
       ...spec,
+      ...(designIntent ? {design_intent: designIntent} : {}),
       selection_status: 'confirmed',
       unsupported_features: [],
       confirmed_at: now,
@@ -255,6 +281,7 @@ export function StyleEditor({
         },
       });
       autosave.markSaved(confirmed);
+      onContinueMeasurements?.();
     } catch (caught) {
       autosave.markDirty(spec);
       setError(caught instanceof ApiError ? caught.message : 'Не удалось сохранить фасон.');
@@ -287,8 +314,8 @@ export function StyleEditor({
         <span className="action-card__icon" aria-hidden="true">03</span>
         <div>
           <p className="eyebrow">Предложение {providerName}</p>
-          <h2>Проверьте фасон своими глазами</h2>
-          <p>Модель только подсказала признаки. Выкройка получит именно значения ниже после вашего подтверждения.</p>
+          <h2>Сверьте изделие с фотографией</h2>
+          <p>Проверьте найденные детали. Настройки основы уже заполнены по анализу — откройте их, если хотите что-то изменить.</p>
         </div>
       </header>
       <AutosaveIndicator state={autosave.state} savedAt={autosave.savedAt} error={autosave.error} onRetry={autosave.retry} />
@@ -300,6 +327,7 @@ export function StyleEditor({
         </div>
       )}
 
+      <details className="review-disclosure style-foundation" id="review-foundation"><summary><span><strong>Основа изделия</strong><small>{GARMENT_OPTIONS.find(item => item.id === spec.garment_type)?.name} · {({fitted: 'Прилегающая', semi_fitted: 'Полуприлегающая', loose: 'Свободная', oversized: 'Объёмная'})[parameters.bodice_fit]} · изменить фасон, длину или спинку</small></span></summary><div className="review-disclosure__body">
       <fieldset className="plain-choice">
         <legend>Что строим?</legend>
         {GARMENT_OPTIONS.map((item) => (
@@ -354,22 +382,6 @@ export function StyleEditor({
         <p className="field-hint">Выбор меняет лекала. Разрез измеряется от горловины вниз по центру спинки; ниже его конца проходит шов. Шнуровка соединяет края без заранее вырезанного зазора, под ней — защитная планка.</p>
       </fieldset>}
 
-      {spec.design_intent && <DesignIntentEditor
-        intent={spec.design_intent}
-        spec={spec}
-        analysis={analysis}
-        busy={busy || autosave.state === 'saving'}
-        onChange={(designIntent) => updateSpec({...spec, selection_status: 'proposed', confirmed_at: null, design_intent: designIntent})}
-        onSave={saveDesignReview}
-      />}
-
-      <ConstructionPreview project={{...project, garment_spec: spec}} analysis={analysis} />
-
-      <div className="notice notice--warning">
-        <strong>{selectedAcceptance?.name_ru ?? GARMENT_OPTIONS.find((item) => item.id === spec.garment_type)?.name}: пробный статус</strong>
-        <span>{selectedAcceptance?.scope_ru ?? 'Автоматические формулы и инварианты реализованы.'} Экспертная проверка, бумажная сборка и макет ещё не пройдены.</span>
-      </div>
-
       <div className="number-grid">
         {!['skirt', 'jacket', 'trousers', 'shorts'].includes(spec.garment_type) && <NumberField id="front-neck-depth" label="Глубина горловины спереди" value={parameters.neckline.front_depth_mm / 10} min={5} max={25} onChange={(value) => updateParameters({neckline: {...parameters.neckline, front_depth_mm: value * 10}})} />}
         {!BACK_GARMENTS.includes(spec.garment_type) && !['skirt', 'jacket', 'trousers', 'shorts'].includes(spec.garment_type) && <NumberField id="back-neck-depth" label="Глубина горловины сзади" value={parameters.neckline.back_depth_mm / 10} min={1} max={12} onChange={(value) => updateParameters({neckline: {...parameters.neckline, back_depth_mm: value * 10}})} />}
@@ -385,6 +397,22 @@ export function StyleEditor({
         {parameters.trousers && <NumberField id="trouser-pocket" label="Длина входа в карман" value={parameters.trousers.pocket_opening_mm / 10} min={12} max={22} onChange={(value) => updateParameters({trousers: {...parameters.trousers!, pocket_opening_mm: value * 10}})} />}
         {!BACK_GARMENTS.includes(spec.garment_type) && parameters.closure.type !== 'none' && <NumberField id="closure-length" label={parameters.closure.type === 'buttons' ? 'Длина застёжки' : 'Рабочая длина молнии'} value={(parameters.closure.length_mm ?? 550) / 10} min={lowerOnly ? 12 : 30} max={lowerOnly ? 24 : 90} onChange={(value) => updateParameters({closure: {...parameters.closure, length_mm: value * 10}, ...(parameters.trousers ? {trousers: {...parameters.trousers, fly_length_mm: value * 10}} : {})})} />}
       </div>
+      </div></details>
+
+      {spec.design_intent && <DesignIntentEditor
+        intent={spec.design_intent}
+        spec={spec}
+        analysis={analysis}
+        busy={busy || autosave.state === 'saving'}
+        onChange={(designIntent) => updateSpec({...spec, selection_status: 'proposed', confirmed_at: null, design_intent: designIntent})}
+        onSave={saveDesignReview}
+        showSaveAction={!onContinueMeasurements}
+      />}
+
+      <details className="review-disclosure"><summary>Проверить размещение по заполненным меркам</summary><ConstructionPreview project={{...project, garment_spec: spec}} analysis={analysis} /></details>
+
+      <p className="field-hint">{selectedAcceptance?.name_ru ?? GARMENT_OPTIONS.find(item => item.id === spec.garment_type)?.name}: экспериментальные лекала. Посадку нужно проверить на макете.</p>
+
 
       {!spec.design_intent && analysis.targeted_questions.some((item) => !isBackQuestion(item)) && (
         <div className="questions">
@@ -393,9 +421,11 @@ export function StyleEditor({
         </div>
       )}
       {error && <div className="inline-error" role="alert">{error}</div>}
-      <button className="primary-button" disabled={busy || autosave.state === 'saving'}>
-        {busy || autosave.state === 'saving' ? 'Сохраняем…' : 'Подтвердить фасон'} <span aria-hidden="true">→</span>
-      </button>
+      <div className="style-review-footer">
+        <p>Следующий шаг — мерки тела. Незавершённые детали сохранятся; вернуться к ним можно перед построением.</p>
+        {onContinueMeasurements && <button type="button" className="primary-button" disabled={busy || autosave.state === 'saving'} onClick={() => void continueToMeasurements()}>{busy || autosave.state === 'saving' ? 'Сохраняем…' : 'Сохранить и перейти к меркам'} <span aria-hidden="true">→</span></button>}
+        {!onContinueMeasurements && <button className="primary-button" disabled={busy || autosave.state === 'saving'}>{busy || autosave.state === 'saving' ? 'Сохраняем…' : 'Подтвердить фасон'}<span aria-hidden="true"> →</span></button>}
+      </div>
     </form>
   );
 }

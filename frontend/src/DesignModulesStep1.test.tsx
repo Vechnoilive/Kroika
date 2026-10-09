@@ -64,7 +64,7 @@ describe('module expansion step 1', () => {
     await userEvent.selectOptions(screen.getByLabelText('Выбрать конструкцию детали 1'), 'circular_hem_flounce_v1');
     expect(screen.getByLabelText('Вариант детали 1')).toHaveDisplayValue('Круговой');
     expect(screen.getByLabelText('Расположение детали 1')).toHaveDisplayValue('Низ изделия');
-    expect(screen.getByLabelText('Ширина детали 1, см')).toBeDisabled();
+    expect(screen.queryByLabelText('Ширина детали 1, см')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Глубина детали 1, см')).toBeEnabled();
     await userEvent.click(screen.getByLabelText('Я проверил(а) эту деталь по фотографии'));
     await userEvent.click(screen.getByRole('button', {name: 'Сохранить проверку деталей'}));
@@ -79,6 +79,7 @@ describe('module expansion step 1', () => {
     const onSave = vi.fn(async (_intent: GarmentDesignIntent) => {});
     render(<Harness spec={spec} initial={intent} onSave={onSave} />);
     expect(screen.getByText('Проверьте конструкцию')).toBeVisible();
+    await userEvent.click(screen.getByText('Настроить деталь 1 · конструкция и размеры'));
     expect(screen.getByText('количество: 2.')).toBeVisible();
     expect(screen.getByText('симметрия: симметричная.')).toBeVisible();
     await userEvent.type(screen.getByLabelText('Количество детали 1'), '2');

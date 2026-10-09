@@ -55,9 +55,9 @@ async function completeFlow(page: Page, provider: 'mock' | 'qwen') {
     await page.getByRole('button', {name: /продолжить в демо-режиме/i}).click();
   }
 
-  await expect(page.getByRole('heading', {name: /проверьте фасон/i})).toBeVisible();
+  await expect(page.getByRole('heading', {name: /сверьте изделие/i})).toBeVisible();
   await completeDesignReview(page);
-  await page.getByRole('button', {name: /подтвердить фасон/i}).click();
+  await page.getByRole('button', {name: /сохранить и перейти к меркам/i}).click();
   await expect(page.getByRole('heading', {name: /все мерки на одном экране/i})).toBeVisible();
   await fillRequiredMeasurements(page);
 

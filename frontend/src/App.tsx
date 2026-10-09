@@ -708,7 +708,7 @@ export default function App() {
               )}
 
               {activeStep === 2 && <VisionAnalyzer projectId={project.project_id} onComplete={saveAnalysis} />}
-              {activeStep === 3 && analysis && <StyleEditor project={project} analysis={analysis as StyleAnalysis} providerName={analysisProvider} acceptance={currentAcceptance} onSave={saveProject} onDirtyChange={setHasUnsavedChanges} />}
+              {activeStep === 3 && analysis && <StyleEditor project={project} analysis={analysis as StyleAnalysis} providerName={analysisProvider} acceptance={currentAcceptance} onSave={saveProject} onDirtyChange={setHasUnsavedChanges} onContinueMeasurements={() => setRepairStep(4)} />}
               {activeStep === 4 && <>
                 {project.garment_spec.selection_status !== 'confirmed' && <div className="notice"><strong>Мерки можно заполнить заранее</strong><span>Они сохранятся, пока вы проверяете фасон и дополнительные детали. Перед построением нужно подтвердить фасон.</span></div>}
                 <MeasurementWizard key={`${project.project_id}-${project.garment_spec.garment_type}-${project.garment_spec.parameters.sleeve.type}`} project={project} onSaveProject={saveMeasurements} onDirtyChange={setHasUnsavedChanges} />

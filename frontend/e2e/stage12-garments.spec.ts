@@ -33,12 +33,13 @@ test('юбка проходит отдельный понятный сценар
   await page.getByRole('button', {name: /создать проект/i}).click();
   await page.getByRole('button', {name: /продолжить в демо-режиме/i}).click();
 
+  await page.getByText('Основа изделия', {exact: true}).click();
   await page.getByRole('radio', {name: /Юбка/}).check();
   await expect(page.getByText('Без лифа')).toBeVisible();
   await expect(page.getByLabel('Длина юбки от талии')).toBeVisible();
   await expect(page.getByLabel(/глубина горловины спереди/i)).toHaveCount(0);
   await completeDesignReview(page, {excludeElements: true});
-  await page.getByRole('button', {name: /подтвердить фасон/i}).click();
+  await page.getByRole('button', {name: /сохранить и перейти к меркам/i}).click();
 
   await expect(page.getByRole('heading', {name: /все мерки на одном экране/i})).toBeVisible();
   await fillSkirtMeasurements(page);

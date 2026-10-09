@@ -30,10 +30,11 @@ describe('stage 13 light jacket UI', () => {
     const onSave = vi.fn(async (candidate: ProjectDocument) => candidate);
     render(<StyleEditor project={project} analysis={analysis} providerName="Qwen" acceptance={acceptance} onSave={onSave} />);
 
+    await userEvent.click(screen.getByText('Основа изделия'));
     await userEvent.click(screen.getByRole('radio', {name: /Лёгкий жакет/}));
     expect(screen.getByText('Лацкан и воротник')).toBeVisible();
     expect(screen.getByText('Подкладка')).toBeVisible();
-    expect(screen.getByText(/экспертная проверка, бумажная сборка и макет ещё не пройдены/i)).toBeVisible();
+    expect(screen.getByText(/посадку нужно проверить на макете/i)).toBeVisible();
     expect(screen.getByLabelText(/ширина лацкана/i)).toHaveValue(7);
     await userEvent.click(screen.getByRole('button', {name: /подтвердить фасон/i}));
 
