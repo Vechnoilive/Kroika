@@ -1,5 +1,6 @@
-import {FormEvent, useEffect, useState} from 'react';
+import {FormEvent, useEffect, useRef, useState} from 'react';
 import {api, ApiError} from './api';
+import {browserStorage} from './browserStorage';
 import {makeDemoProject} from './demoProject';
 import {MeasurementWizard} from './MeasurementWizard';
 import {ConstructionEditor, ProjectHistory, StyleEditor} from './ProjectWorkflow';
@@ -391,11 +392,13 @@ export default function App() {
   const [garmentCatalogue, setGarmentCatalogue] = useState<GarmentAcceptanceStatus[]>([]);
   const [repairStep, setRepairStep] = useState<RevisitableWorkflowStep | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const activeProjectId = useRef<string | null>(null);
 
   function remember(updated: ProjectDocument, preserveStep = false) {
+    activeProjectId.current = updated.project_id;
     setProject(updated);
     if (!preserveStep) setRepairStep(null);
-    localStorage.setItem(LAST_PROJECT_KEY, updated.project_id);
+    browserStorage.setItem(LAST_PROJECT_KEY, updated.project_id);
     setProjects((items) => {
       const summary = projectSummary(updated);
       return [summary, ...items.filter((item) => item.project_id !== updated.project_id)];
@@ -419,13 +422,13 @@ export default function App() {
         setConnection('ready');
         setProjects(list.items);
         setGarmentCatalogue(catalogue.items);
-        const remembered = localStorage.getItem(LAST_PROJECT_KEY);
+        const remembered = browserStorage.getItem(LAST_PROJECT_KEY);
         if (remembered) {
           try {
             const loaded = await api.getProject(remembered);
-            if (active) setProject(loaded);
+            if (active) {activeProjectId.current = loaded.project_id; setProject(loaded);}
           } catch {
-            localStorage.removeItem(LAST_PROJECT_KEY);
+            browserStorage.removeItem(LAST_PROJECT_KEY);
           }
         }
       } catch {
@@ -482,10 +485,11 @@ export default function App() {
 
   function startAnother(skipGuard = false) {
     if (!skipGuard && !allowNavigation()) return;
+    activeProjectId.current = null;
     setProject(null);
     setError(null);
     setRepairStep(null);
-    localStorage.removeItem(LAST_PROJECT_KEY);
+    browserStorage.removeItem(LAST_PROJECT_KEY);
   }
 
   function navigateToIssue(target: ErrorNavigationTarget) {
@@ -509,12 +513,12 @@ export default function App() {
   async function deleteProject(projectId: string) {
     await api.deleteProject(projectId);
     setProjects((items) => items.filter((item) => item.project_id !== projectId));
-    if (localStorage.getItem(LAST_PROJECT_KEY) === projectId) {
-      localStorage.removeItem(LAST_PROJECT_KEY);
+    if (browserStorage.getItem(LAST_PROJECT_KEY) === projectId) {
+      browserStorage.removeItem(LAST_PROJECT_KEY);
     }
   }
 
-  async function saveProject(candidate: ProjectDocument): Promise<ProjectDocument> {
+  async function saveProject(candidate: ProjectDocument, preserveStep = false): Promise<ProjectDocument> {
     const updated = await api.replaceProject(candidate);
     const confirmed = (candidate.garment_spec.selection_status === 'confirmed'
         && project?.garment_spec.selection_status !== 'confirmed')
@@ -523,7 +527,8 @@ export default function App() {
         && candidate.garment_spec.selection_status === 'confirmed')
       || (candidate.fit_settings.status === 'confirmed'
         && project?.fit_settings.status !== 'confirmed');
-    remember(updated, !confirmed);
+    if (activeProjectId.current === candidate.project_id) remember(updated, preserveStep || !confirmed);
+    else updateProjectSummary(updated);
     return updated;
   }
 
@@ -554,7 +559,8 @@ export default function App() {
 
   async function saveMeasurements(profile: BodyMeasurements): Promise<ProjectDocument> {
     if (!project) throw new ApiError('Сначала откройте проект.', 0, 'PROJECT_REQUIRED');
-    return saveProject({...project, status: 'draft', body_measurements: profile});
+    setRepairStep(4);
+    return saveProject({...project, status: 'draft', body_measurements: profile}, true);
   }
 
   async function generatePattern() {
@@ -708,12 +714,12 @@ export default function App() {
               )}
 
               {activeStep === 2 && <VisionAnalyzer projectId={project.project_id} onComplete={saveAnalysis} />}
-              {activeStep === 3 && analysis && <StyleEditor project={project} analysis={analysis as StyleAnalysis} providerName={analysisProvider} acceptance={currentAcceptance} onSave={saveProject} onDirtyChange={setHasUnsavedChanges} onContinueMeasurements={() => setRepairStep(4)} />}
+              {activeStep === 3 && analysis && <StyleEditor project={project} analysis={analysis as StyleAnalysis} providerName={analysisProvider} acceptance={currentAcceptance} onSave={saveProject} onDirtyChange={(dirty) => {if (activeProjectId.current === project.project_id) setHasUnsavedChanges(dirty);}} onContinueMeasurements={() => {if (activeProjectId.current === project.project_id) setRepairStep(4);}} />}
               {activeStep === 4 && <>
                 {project.garment_spec.selection_status !== 'confirmed' && <div className="notice"><strong>Мерки можно заполнить заранее</strong><span>Они сохранятся, пока вы проверяете фасон и дополнительные детали. Перед построением нужно подтвердить фасон.</span></div>}
-                <MeasurementWizard key={`${project.project_id}-${project.garment_spec.garment_type}-${project.garment_spec.parameters.sleeve.type}`} project={project} onSaveProject={saveMeasurements} onDirtyChange={setHasUnsavedChanges} />
+                <MeasurementWizard key={`${project.project_id}-${project.garment_spec.garment_type}-${project.garment_spec.parameters.sleeve.type}`} project={project} onSaveProject={saveMeasurements} onDirtyChange={(dirty) => {if (activeProjectId.current === project.project_id) setHasUnsavedChanges(dirty);}} onComplete={() => {if (activeProjectId.current === project.project_id) setRepairStep(project.garment_spec.selection_status === 'confirmed' ? null : 4);}} />
               </>}
-              {activeStep === 5 && <ConstructionEditor project={project} onSave={saveProject} onDirtyChange={setHasUnsavedChanges} />}
+              {activeStep === 5 && <ConstructionEditor project={project} onSave={saveProject} onDirtyChange={(dirty) => {if (activeProjectId.current === project.project_id) setHasUnsavedChanges(dirty);}} />}
               {activeStep === 6 && (
                 <section className="generation-card" aria-labelledby="generation-title"><div className="action-card__icon" aria-hidden="true">06</div><div><p className="eyebrow">Все входы подтверждены</p><h2 id="generation-title">Построить выкройку?</h2><p>Формульный движок создаст детали из сохранённых мерок, фасона, ткани и прибавок, затем проверит геометрию.</p><ul><li>{GARMENT_NAMES[project.garment_spec.garment_type]} · {garmentConstruction}</li><li>{garmentLength}</li><li>Стабильная тканая ткань · пробный статус</li><li>Экспертная проверка и макет: ещё не пройдены</li></ul><button className="primary-button" onClick={() => void generatePattern()} disabled={busy}>{busy ? 'Строим и проверяем…' : 'Построить выкройку'} <span aria-hidden="true">→</span></button></div></section>
               )}

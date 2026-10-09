@@ -91,6 +91,50 @@ describe('stage 24 autosave and project library', () => {
     expect(localStorage.getItem('stale')).toBeNull();
   });
 
+  it('keeps saving state and the newest draft when edited during an in-flight save', async () => {
+    vi.useFakeTimers();
+    let complete!: () => void;
+    const save = vi.fn(() => new Promise<void>(resolve => {complete = resolve;}));
+    render(<AutosaveHarness save={save} onDirtyChange={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('Параметр'), {target: {value: 'первая правка'}});
+    await act(async () => {vi.advanceTimersByTime(500);});
+    fireEvent.change(screen.getByLabelText('Параметр'), {target: {value: 'вторая правка'}});
+    expect(screen.getByRole('status')).toHaveTextContent('Сохраняем');
+    await act(async () => {complete();});
+    expect(localStorage.getItem('stage24:draft')).toContain('вторая правка');
+    await act(async () => {vi.advanceTimersByTime(500);});
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save).toHaveBeenLastCalledWith('вторая правка');
+    await act(async () => {complete();});
+    expect(localStorage.getItem('stage24:draft')).toBeNull();
+  });
+
+  it('does not report a server save failure when browser storage is blocked', async () => {
+    vi.useFakeTimers();
+    for (const method of ['getItem', 'setItem', 'removeItem'] as const) vi.spyOn(Storage.prototype, method).mockImplementation(() => {throw new DOMException('Blocked', 'SecurityError');});
+    expect(loadLocalDraft('blocked', 'сервер', new Date().toISOString())).toEqual({value: 'сервер', restored: false});
+    const save = vi.fn(async () => undefined);
+    const dirty = vi.fn();
+    render(<AutosaveHarness save={save} onDirtyChange={dirty} />);
+    fireEvent.change(screen.getByLabelText('Параметр'), {target: {value: 'правка'}});
+    await act(async () => {vi.advanceTimersByTime(500);});
+    expect(save).toHaveBeenCalledWith('правка');
+    expect(screen.getByRole('status')).toHaveTextContent(/сохранено в/i);
+    expect(dirty).toHaveBeenLastCalledWith(false);
+  });
+
+  it('does not erase another mounted editor draft when an old save finishes', async () => {
+    vi.useFakeTimers();
+    let complete!: () => void;
+    const {unmount} = render(<AutosaveHarness save={() => new Promise<void>(resolve => {complete = resolve;})} onDirtyChange={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('Параметр'), {target: {value: 'старый экран'}});
+    await act(async () => {vi.advanceTimersByTime(500);});
+    unmount();
+    localStorage.setItem('stage24:draft', JSON.stringify({updated_at: new Date().toISOString(), value: 'новый экран'}));
+    await act(async () => {complete();});
+    expect(localStorage.getItem('stage24:draft')).toContain('новый экран');
+  });
+
   it('autosaves an edited garment parameter as an unconfirmed project draft', async () => {
     vi.useFakeTimers();
     const project = makeDemoProject('Платье');

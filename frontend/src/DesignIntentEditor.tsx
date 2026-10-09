@@ -110,6 +110,7 @@ export function DesignIntentEditor({
   }
 
   function addCatalogElement() {
+    if (intent.elements.length >= 24) return;
     const module = catalog.find((entry) => entry.id === catalogModule);
     if (!module) return;
     const rule = applicableRule(module, spec)!;
@@ -280,8 +281,9 @@ export function DesignIntentEditor({
           <option value="">Выберите конструкцию</option>
           {catalog.map((module) => <option key={module.id} value={module.id}>{module.title_ru}</option>)}
         </select></label>
-        <button type="button" disabled={!catalogModule || busy} onClick={addCatalogElement}>Добавить выбранную деталь</button>
+        <button type="button" disabled={!catalogModule || busy || intent.elements.length >= 24} onClick={addCatalogElement}>Добавить выбранную деталь</button>
       </div>
+      {intent.elements.length >= 24 && <p className="field-hint">Достигнут предел: 24 детали в одном изделии.</p>}
 
       </div></details>
 

@@ -1,6 +1,7 @@
 import {useEffect, useRef, useState} from 'react';
 import {api, ApiError} from './api';
 import {finalizeDesignIntent} from './designIntent';
+import {methodForGarment, proposedFitSettings} from './garments';
 import type {ProjectDocument, StyleAnalysis} from './types';
 
 export function ConstructionPreview({project, analysis}: {project: ProjectDocument; analysis: StyleAnalysis}) {
@@ -22,6 +23,10 @@ export function ConstructionPreview({project, analysis}: {project: ProjectDocume
     setBusy(true); setResult(null); setError('');
     try {
       const candidate = structuredClone(project);
+      if (candidate.garment_spec.selection_status !== 'confirmed') {
+        candidate.pattern_method = {id: methodForGarment(candidate.garment_spec.garment_type), version: '0.1.0', validation_status: 'experimental'};
+        candidate.fit_settings = proposedFitSettings(candidate.fit_settings, candidate.garment_spec);
+      }
       const intent = candidate.garment_spec.design_intent;
       if (intent) candidate.garment_spec.design_intent = finalizeDesignIntent(intent, candidate.garment_spec, analysis);
       candidate.garment_spec.selection_status = 'confirmed';

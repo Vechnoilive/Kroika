@@ -74,6 +74,17 @@ export function easeForGarment(type: GarmentType, underlayerAllowanceMm = 10, fi
   return values;
 }
 
+export function proposedFitSettings(current: FitSettings, spec: GarmentSpec): FitSettings {
+  return {
+    ...current,
+    status: 'draft',
+    preset: {id: presetForGarment(spec.garment_type, spec.parameters.bodice_fit), version: '0.1.0'},
+    wearing_ease_mm: easeForGarment(spec.garment_type, spec.parameters.jacket?.underlayer_allowance_mm, spec.parameters.bodice_fit),
+    design_ease_mm: {bust: 0, waist: 0, hips: 0, upper_arm: 0},
+    confirmed_at: null,
+  };
+}
+
 export function configureGarment(spec: GarmentSpec, type: GarmentType): GarmentSpec {
   const sleeved = type === 'blouse' || type === 'shirt' || type === 'jacket';
   const frontOpening = type === 'shirt' || type === 'vest' || type === 'jacket';

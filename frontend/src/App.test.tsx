@@ -1,11 +1,11 @@
-import {render, screen, waitFor} from '@testing-library/react';
+import {act, render, screen, waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import App, {errorNavigationTarget} from './App';
 import {api, ApiError} from './api';
 import {makeDemoProject} from './demoProject';
 import {configureGarment} from './garments';
-import type {PatternEngineResult, StyleAnalysis} from './types';
+import type {PatternEngineResult, ProjectDocument, StyleAnalysis} from './types';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -64,6 +64,64 @@ describe('accessible stage flow', () => {
     await userEvent.clear(input);
     await userEvent.type(input, 'Летнее платье');
     expect(input).toHaveValue('Летнее платье');
+  });
+
+  it('advances after reconfirming previously ready measurements from photo review', async () => {
+    let project = makeDemoProject('Повторная проверка');
+    project.style_analysis = {status: 'ok', garment_category: 'dress', silhouette: {fit: 'semi_fitted', confidence: 1}, neckline: {front: 'round', confidence: 1}, sleeves: {present: false, length: 'sleeveless', confidence: 1}, lower_part: {type: 'a_line', length_category: 'midi', confidence: 1}, uncertainties: [], targeted_questions: []};
+    project.garment_spec.selection_status = 'proposed';
+    project.garment_spec.confirmed_at = null;
+    project.body_measurements.status = 'ready';
+    project.body_measurements.values.bust = {value: 920, unit: 'mm', source: 'user', original_input: {value: 92, unit: 'cm'}};
+    localStorage.setItem('kroika:last-project-id', project.project_id);
+    vi.spyOn(api, 'readiness').mockResolvedValue({status: 'ok', service: 'test', version: 'test', database: 'ok', ai_provider: 'mock', pattern_engine: 'test'});
+    vi.spyOn(api, 'listProjects').mockResolvedValue({items: []});
+    vi.spyOn(api, 'garmentCatalogue').mockResolvedValue({items: []});
+    vi.spyOn(api, 'getProject').mockImplementation(async () => project);
+    vi.spyOn(api, 'projectHistory').mockResolvedValue({items: []});
+    vi.spyOn(api, 'replaceProject').mockImplementation(async (candidate: ProjectDocument) => {
+      project = {...candidate, revision: candidate.revision + 1, updated_at: new Date().toISOString()}; return project;
+    });
+    vi.spyOn(api, 'measurementCatalog').mockResolvedValue({schema_version: '1.0.0', catalog_version: '1.0.0', garment_type: 'dress', sleeve_type: 'sleeveless', normalized_unit: 'mm', display_units: ['cm', 'mm'], source_options: ['user'], measurements: [{id: 'bust', label_ru: 'Обхват груди', group: 'Обхваты', kind: 'linear', unit: 'mm', minimum: 600, maximum: 1800, instruction_ru: 'По груди', illustration: 'bust', applicable_to: ['dress'], required_for: ['dress'], sleeve_only: false, required: true}]});
+    vi.spyOn(api, 'listMeasurementProfiles').mockResolvedValue({items: []});
+    vi.spyOn(api, 'validateMeasurements').mockResolvedValue({status: 'ready', required_count: 1, completed_count: 1, issues: []});
+    render(<App />);
+    await userEvent.click(await screen.findByRole('button', {name: /Сохранить и перейти к меркам/}));
+    await screen.findByLabelText(/Обхват груди, см/);
+    await userEvent.click(screen.getByRole('button', {name: /Проверить и завершить/}));
+    expect(await screen.findByRole('button', {name: /Подтвердить ткань/})).toBeVisible();
+  });
+
+  it('remains connected when browser storage is unavailable', async () => {
+    for (const method of ['getItem', 'setItem', 'removeItem'] as const) vi.spyOn(Storage.prototype, method).mockImplementation(() => {throw new DOMException('Blocked', 'SecurityError');});
+    vi.spyOn(api, 'readiness').mockResolvedValue({status: 'ok', service: 'test', version: 'test', database: 'ok', ai_provider: 'mock', pattern_engine: 'test'});
+    vi.spyOn(api, 'listProjects').mockResolvedValue({items: []});
+    vi.spyOn(api, 'garmentCatalogue').mockResolvedValue({items: []});
+    render(<App />);
+    await waitFor(() => expect(screen.getByRole('button', {name: /Создать проект/})).toBeEnabled());
+    expect(screen.queryByText('Backend пока недоступен')).not.toBeInTheDocument();
+  });
+
+  it('does not reopen a previous project when its save finishes after leaving it', async () => {
+    const project = makeDemoProject('Старый проект');
+    project.style_analysis = {status: 'ok', garment_category: 'dress', silhouette: {fit: 'semi_fitted', confidence: 1}, neckline: {front: 'round', confidence: 1}, sleeves: {present: false, length: 'sleeveless', confidence: 1}, lower_part: {type: 'a_line', length_category: 'midi', confidence: 1}, uncertainties: [], targeted_questions: []};
+    project.garment_spec.selection_status = 'proposed'; project.garment_spec.confirmed_at = null;
+    localStorage.setItem('kroika:last-project-id', project.project_id);
+    vi.spyOn(api, 'readiness').mockResolvedValue({status: 'ok', service: 'test', version: 'test', database: 'ok', ai_provider: 'mock', pattern_engine: 'test'});
+    vi.spyOn(api, 'listProjects').mockResolvedValue({items: []});
+    vi.spyOn(api, 'garmentCatalogue').mockResolvedValue({items: []});
+    vi.spyOn(api, 'getProject').mockResolvedValue(project);
+    vi.spyOn(api, 'projectHistory').mockResolvedValue({items: []});
+    let finish!: (candidate: ProjectDocument) => void;
+    const save = vi.spyOn(api, 'replaceProject').mockImplementation(() => new Promise(resolve => {finish = resolve;}));
+    render(<App />);
+    await userEvent.click(await screen.findByRole('button', {name: /Сохранить и перейти к меркам/}));
+    await userEvent.click(screen.getByRole('button', {name: 'Другой проект'}));
+    expect(screen.getByRole('button', {name: /Создать проект/})).toBeVisible();
+    await act(async () => {finish({...save.mock.calls[0][0], revision: 2});});
+    expect(screen.getByRole('button', {name: /Создать проект/})).toBeVisible();
+    expect(screen.queryByRole('heading', {name: 'Старый проект'})).not.toBeInTheDocument();
+    expect(localStorage.getItem('kroika:last-project-id')).toBeNull();
   });
 
   it('opens the exact editable step named by a pattern validation error', async () => {

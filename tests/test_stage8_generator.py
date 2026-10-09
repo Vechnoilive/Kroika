@@ -30,6 +30,7 @@ from kroika_pattern_engine.geometry import (  # noqa: E402
     curve_from_data,
     validate_simple_contour,
 )
+from kroika_pattern_engine.validation import validate_pattern_assembly  # noqa: E402
 
 
 def load_request() -> dict:
@@ -172,9 +173,7 @@ def test_svg_escapes_annotation_and_labels():
 @pytest.mark.parametrize(
     ("path", "value"),
     [
-        (("garment_spec", "parameters", "neckline", "type"), "v"),
         (("garment_spec", "parameters", "sleeve"), {"type": "long", "length_mm": 600}),
-        (("garment_spec", "parameters", "skirt", "type"), "straight"),
         (("fit_settings", "preset", "id"), "wrong_preset"),
     ],
 )
@@ -190,6 +189,22 @@ def test_unsupported_combinations_are_blocked_before_geometry(path, value):
     assert "GARMENT_VARIANT_NOT_IMPLEMENTED" in {
         issue.code for issue in caught.value.issues
     }
+
+
+@pytest.mark.parametrize(
+    ("section", "value"), [("neckline", "v"), ("skirt", "straight")],
+)
+def test_later_supported_shapes_build_instead_of_using_stage8_rejections(section, value):
+    request = variant_request("dress", "semi_fitted")
+    request["garment_spec"]["parameters"][section]["type"] = value
+    if section == "skirt":
+        request["garment_spec"]["parameters"][section]["hem_expansion_each_side_mm"] = 0
+    request["input_hash"] = compute_input_hash(request)
+    validate_engine_request(request)
+    result = GeometryPatternEngine().generate(request)
+    validate_document("pattern-engine-result", result)
+    assert result["status"] == "succeeded", result["validation_report"]["issues"]
+    validate_pattern_assembly(result["pattern"])
 
 
 def test_stage8_bootstrap_and_documentation_are_wired():

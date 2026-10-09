@@ -39,6 +39,16 @@ function Harness({spec, initial, source = analysis, onSave = vi.fn()}:
 }
 
 describe('module expansion step 1', () => {
+  it('stops catalog additions at the same 24-element limit as the server contract', async () => {
+    const {spec, intent} = fixture();
+    intent.elements = Array.from({length: 24}, (_,index) => ({...intent.elements[0], source_element_id: `detail_${index}`}));
+    render(<Harness spec={spec} initial={intent} />);
+    await userEvent.click(screen.getByText('Добавить деталь или изменить порядок отделки'));
+    await userEvent.selectOptions(screen.getByLabelText('Добавить деталь из каталога'), 'circular_hem_flounce_v1');
+    expect(screen.getByRole('button', {name: 'Добавить выбранную деталь'})).toBeDisabled();
+    expect(screen.getByRole('button', {name: /Добавить пропущенную деталь/})).toBeDisabled();
+    expect(screen.getByText('Достигнут предел: 24 детали в одном изделии.')).toBeVisible();
+  });
   it('explains fit restrictions instead of offering a waist dart absent from the loose block', () => {
     const {spec, intent} = fixture();
     spec.parameters.bodice_fit = 'loose';

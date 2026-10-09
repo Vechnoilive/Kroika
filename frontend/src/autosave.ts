@@ -1,4 +1,5 @@
 import {useEffect, useRef, useState} from 'react';
+import {browserStorage} from './browserStorage';
 
 export type AutosaveState = 'saved' | 'unsaved' | 'saving' | 'error';
 
@@ -18,18 +19,18 @@ export function loadLocalDraft<T>(
   remoteUpdatedAt: string,
 ): LoadedDraft<T> {
   try {
-    const raw = localStorage.getItem(storageKey);
+    const raw = browserStorage.getItem(storageKey);
     if (!raw) return {value: fallback, restored: false};
     const stored = JSON.parse(raw) as Partial<StoredDraft<T>>;
     const localTime = Date.parse(stored.updated_at ?? '');
     const remoteTime = Date.parse(remoteUpdatedAt);
     if (stored.value === undefined || !Number.isFinite(localTime) || localTime <= remoteTime) {
-      localStorage.removeItem(storageKey);
+      browserStorage.removeItem(storageKey);
       return {value: fallback, restored: false};
     }
     return {value: stored.value, restored: true};
   } catch {
-    localStorage.removeItem(storageKey);
+    browserStorage.removeItem(storageKey);
     return {value: fallback, restored: false};
   }
 }
@@ -82,6 +83,7 @@ export function useDraftAutosave<T>({
   }
 
   async function flush() {
+    if (!mounted.current) return;
     if (inFlight.current) {
       schedule(150);
       return;
@@ -98,8 +100,8 @@ export function useDraftAutosave<T>({
       await saveRef.current(candidate);
       if (savingVersion === version.current) {
         savedVersion.current = savingVersion;
-        localStorage.removeItem(storageKey);
         if (mounted.current) {
+          browserStorage.removeItem(storageKey);
           setState('saved');
           setSavedAt(new Date());
           dirtyRef.current?.(false);
@@ -123,13 +125,9 @@ export function useDraftAutosave<T>({
   function markDirty(value: T) {
     latestValue.current = value;
     version.current += 1;
-    try {
-      const stored: StoredDraft<T> = {updated_at: new Date().toISOString(), value};
-      localStorage.setItem(storageKey, JSON.stringify(stored));
-    } catch {
-      // Server autosave still protects the draft when browser storage is unavailable.
-    }
-    setState('unsaved');
+    const stored: StoredDraft<T> = {updated_at: new Date().toISOString(), value};
+    browserStorage.setItem(storageKey, JSON.stringify(stored));
+    setState(inFlight.current ? 'saving' : 'unsaved');
     setError('');
     dirtyRef.current?.(true);
     schedule();
@@ -140,7 +138,7 @@ export function useDraftAutosave<T>({
     latestValue.current = value;
     version.current += 1;
     savedVersion.current = version.current;
-    localStorage.removeItem(storageKey);
+    browserStorage.removeItem(storageKey);
     setState('saved');
     setSavedAt(new Date());
     setError('');

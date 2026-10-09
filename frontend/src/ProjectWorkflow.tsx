@@ -2,7 +2,7 @@ import {FormEvent, useEffect, useRef, useState} from 'react';
 import {api, ApiError} from './api';
 import {AutosaveIndicator} from './AutosaveIndicator';
 import {loadLocalDraft, useDraftAutosave} from './autosave';
-import {configureGarment, easeForGarment, GARMENT_OPTIONS, methodForGarment, presetForGarment} from './garments';
+import {configureGarment, GARMENT_OPTIONS, methodForGarment, proposedFitSettings} from './garments';
 import {DesignIntentEditor} from './DesignIntentEditor';
 import {ConstructionPreview} from './ConstructionPreview';
 import {BACK_GARMENTS, answerBackQuestions, isBackQuestion} from './backDesign';
@@ -256,7 +256,6 @@ export function StyleEditor({
       unsupported_features: [],
       confirmed_at: now,
     };
-    const presetId = presetForGarment(confirmed.garment_type, confirmed.parameters.bodice_fit);
     try {
       await onSave({
         ...project,
@@ -267,18 +266,7 @@ export function StyleEditor({
           version: '0.1.0',
           validation_status: 'experimental',
         },
-        fit_settings: {
-          ...project.fit_settings,
-          status: 'draft',
-          preset: {id: presetId, version: '0.1.0'},
-          wearing_ease_mm: easeForGarment(
-            confirmed.garment_type,
-            confirmed.parameters.jacket?.underlayer_allowance_mm,
-            confirmed.parameters.bodice_fit,
-          ),
-          design_ease_mm: {bust: 0, waist: 0, hips: 0, upper_arm: 0},
-          confirmed_at: null,
-        },
+        fit_settings: proposedFitSettings(project.fit_settings, confirmed),
       });
       autosave.markSaved(confirmed);
       onContinueMeasurements?.();
@@ -319,7 +307,7 @@ export function StyleEditor({
         </div>
       </header>
       <AutosaveIndicator state={autosave.state} savedAt={autosave.savedAt} error={autosave.error} onRetry={autosave.retry} />
-
+      <fieldset className="workflow-fields" aria-label="Параметры фасона" disabled={busy}>
       {suggestedUnsupported.length > 0 && (
         <div className="notice notice--warning">
           <strong>Анализ изображения нужно сверить</strong>
@@ -426,6 +414,7 @@ export function StyleEditor({
         {onContinueMeasurements && <button type="button" className="primary-button" disabled={busy || autosave.state === 'saving'} onClick={() => void continueToMeasurements()}>{busy || autosave.state === 'saving' ? 'Сохраняем…' : 'Сохранить и перейти к меркам'} <span aria-hidden="true">→</span></button>}
         {!onContinueMeasurements && <button className="primary-button" disabled={busy || autosave.state === 'saving'}>{busy || autosave.state === 'saving' ? 'Сохраняем…' : 'Подтвердить фасон'}<span aria-hidden="true"> →</span></button>}
       </div>
+      </fieldset>
     </form>
   );
 }
@@ -566,6 +555,7 @@ export function ConstructionEditor({
         </div>
       </header>
       <AutosaveIndicator state={autosave.state} savedAt={autosave.savedAt} error={autosave.error} onRetry={autosave.retry} />
+      <fieldset className="workflow-fields" aria-label="Настройки ткани и прибавок" disabled={busy}>
 
       <section className="editor-section" aria-labelledby="fabric-title">
         <h3 id="fabric-title">1. Пробная ткань</h3>
@@ -598,6 +588,7 @@ export function ConstructionEditor({
       <button className="primary-button" disabled={busy || autosave.state === 'saving'}>
         {busy || autosave.state === 'saving' ? 'Сохраняем…' : 'Подтвердить ткань и настройки'} <span aria-hidden="true">→</span>
       </button>
+      </fieldset>
     </form>
   );
 }

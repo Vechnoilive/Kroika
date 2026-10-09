@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {render, screen, waitFor, within} from '@testing-library/react';
+import {act, render, screen, waitFor, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {describe, expect, it, vi} from 'vitest';
 import {StyleEditor} from './ProjectWorkflow';
@@ -85,6 +85,18 @@ describe('compact photo review and one save-and-continue action', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/Не удалось сохранить/);
     expect(next).not.toHaveBeenCalled();
     expect(screen.getByLabelText('Глубина детали 1, см')).toHaveValue(null);
+  });
+  it('locks editable controls during the final save so newer edits cannot be lost', async () => {
+    const project = fixture();
+    let complete!: (project: ProjectDocument) => void;
+    const onSave = vi.fn((_candidate: ProjectDocument) => new Promise<ProjectDocument>(resolve => {complete = resolve;}));
+    const next = vi.fn();
+    render(<StyleEditor project={project} analysis={analysis} providerName="Gemini" onSave={onSave} onContinueMeasurements={next} />);
+    await userEvent.click(screen.getByRole('button', {name: /Сохранить и перейти к меркам/}));
+    expect(screen.getByLabelText('Глубина детали 1, см')).toBeDisabled();
+    expect(screen.getByLabelText('Эта деталь действительно есть на изделии')).toBeDisabled();
+    await act(async () => {complete(onSave.mock.calls[0][0]);});
+    expect(next).toHaveBeenCalledOnce();
   });
   it('reveals foundation settings when an existing size prevents confirmation', async () => {
     const project = fixture();

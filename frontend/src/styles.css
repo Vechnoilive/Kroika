@@ -417,6 +417,7 @@ footer { min-height: 56px; display: flex; align-items: center; justify-content: 
 .workflow-card__header h2 { margin: 2px 0 8px; font: 30px/1.25 'Prata', Georgia, serif; font-weight: 400; }
 .workflow-card__header p:last-child { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
 .workflow-card .notice { max-width: none; margin: 0; }
+.workflow-fields { display: grid; gap: 24px; min-width: 0; padding: 0; margin: 0; border: 0; }
 .plain-choice { display: flex; flex-wrap: wrap; gap: 10px; padding: 0; border: 0; }
 .plain-choice legend { width: 100%; margin-bottom: 2px; font-size: 13px; font-weight: 700; }
 .plain-choice label { min-height: 45px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border: 1px solid var(--line); border-radius: 11px; background: white; font-size: 12px; cursor: pointer; }

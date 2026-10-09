@@ -20,6 +20,7 @@ interface Props {
   project: ProjectDocument;
   onSaveProject: (profile: BodyMeasurements) => Promise<ProjectDocument>;
   onDirtyChange?: (dirty: boolean) => void;
+  onComplete?: () => void;
 }
 
 function copyProfile(profile: BodyMeasurements): BodyMeasurements {
@@ -74,7 +75,7 @@ function localIssue(
   return null;
 }
 
-export function MeasurementWizard({project, onSaveProject, onDirtyChange}: Props) {
+export function MeasurementWizard({project, onSaveProject, onDirtyChange, onComplete}: Props) {
   const garmentType = project.garment_spec.garment_type;
   const sleeveType = project.garment_spec.parameters.sleeve.type;
   const draftKey = `kroika:draft:${project.project_id}:measurements`;
@@ -265,6 +266,7 @@ export function MeasurementWizard({project, onSaveProject, onDirtyChange}: Props
       setNotice(complete
         ? 'Все обязательные мерки проверены и сохранены.'
         : 'Черновик сохранён. Можно продолжить позже.');
+      if (complete) onComplete?.();
     } catch (caught) {
       const original = caught instanceof ApiError
         ? caught : new ApiError('Не удалось сохранить мерки.', 0, 'UNKNOWN_ERROR');

@@ -1,7 +1,7 @@
 import {render, screen, waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {api} from './api';
+import {api, ApiError} from './api';
 import {makeDemoProject} from './demoProject';
 import {MeasurementWizard} from './MeasurementWizard';
 import type {MeasurementCatalog, ProjectDocument} from './types';
@@ -118,5 +118,24 @@ describe('MeasurementWizard', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
     expect(onSave.mock.calls[0][0].values.bust.value).toBe(925);
     expect(onSave.mock.calls[0][0].angles_deg?.shoulder_slope).toBe(0);
+  });
+
+  it('stays on measurements when saving the optional reusable profile fails', async () => {
+    const onSave = vi.fn(async (profile) => saved(project, profile));
+    const onComplete = vi.fn();
+    vi.spyOn(api, 'validateMeasurements').mockResolvedValue({status: 'ready', required_count: 1, completed_count: 1, issues: []});
+    vi.spyOn(api, 'createMeasurementProfile').mockRejectedValue(new ApiError('Профиль не сохранён', 503, 'UNAVAILABLE'));
+    render(<MeasurementWizard project={project} onSaveProject={onSave} onComplete={onComplete} />);
+    await userEvent.type(await screen.findByLabelText('Обхват груди, см'), '92');
+    await userEvent.click(screen.getByLabelText(/Сохранить отдельный профиль на этом компьютере/));
+    await userEvent.click(screen.getByRole('button', {name: /Проверить и завершить/}));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Мерки сохранены в проекте/);
+    expect(onSave.mock.calls[0][0].status).toBe('ready');
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Обхват груди, см')).toHaveValue('92');
+    await userEvent.click(screen.getByLabelText(/Сохранить отдельный профиль на этом компьютере/));
+    await userEvent.click(screen.getByRole('button', {name: /Проверить и завершить/}));
+    await waitFor(() => expect(onComplete).toHaveBeenCalledOnce());
+    expect(api.createMeasurementProfile).toHaveBeenCalledOnce();
   });
 });
