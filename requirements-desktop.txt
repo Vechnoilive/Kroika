@@ -1,0 +1,2 @@
+# Optional desktop window; the web application keeps its existing dependencies.
+pywebview==6.2.1
