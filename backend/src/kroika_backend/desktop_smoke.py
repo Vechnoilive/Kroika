@@ -22,10 +22,15 @@ def check_bundle(frontend: Path, result_path: Path) -> int:
     from .desktop import DesktopServer, DesktopError
     report = {"ok": False, "version": VERSION, "frozen": bool(getattr(sys, "frozen", False))}
     server = None
+    upstream = None
+    preferences = None
     temporary = tempfile.TemporaryDirectory(prefix="kroika-package-check-")
     try:
         root = Path(temporary.name)
-        current = Settings(database_path=root / "data/kroika.db", image_storage_path=root / "data/images")
+        from .desktop_gemini_check import GeminiLoopback, configure_and_check, clear_key
+        upstream = GeminiLoopback().__enter__()
+        current = Settings(database_path=root / "data/kroika.db", image_storage_path=root / "data/images",
+                           gemini_base_url=upstream.url)
         server = DesktopServer(current, frontend, 0, root)
         server.start()
         opener = build_opener(ProxyHandler({}))
@@ -46,6 +51,10 @@ def check_bundle(frontend: Path, result_path: Path) -> int:
                                                       "data_base64": base64.b64encode(image).decode()})
         project["image_refs"] = [uploaded["image_ref"]]
         project = request("/api/v1/projects", "POST", project)
+        back = (resource_root() / "evaluation/stage10/images/synthetic-02.png").read_bytes()
+        back_ref = request("/api/v1/images", "POST", {"file_name": "back.png", "media_type": "image/png",
+                                                     "data_base64": base64.b64encode(back).decode()})["image_ref"]
+        preferences = configure_and_check(server, root, upstream, [uploaded["image_ref"], back_ref], request)
         engine = json.loads((resource_root() / "examples/v1/example-engine-request.json").read_text(encoding="utf-8"))
         for field in ("project_id", "pattern_method", "body_measurements", "garment_spec", "fit_settings", "fabric_properties"):
             engine[field] = project[field]
@@ -58,13 +67,17 @@ def check_bundle(frontend: Path, result_path: Path) -> int:
             assert prefix in request(f"/api/v1/patterns/{generation}/export/{route}", method, raw=True)[:200]
         request("/api/v1/measurement-profiles", "POST", project["body_measurements"])
         server.stop()
-        server = DesktopServer(current, frontend, 0, root)
+        restored = preferences.load(server.settings)
+        server = DesktopServer(restored, frontend, 0, root)
         server.start()
         saved = request(f"/api/v1/projects/{project['project_id']}")
         assert saved["latest_generation"]["generation_id"] == generation
         assert request(f"/api/v1/images/{uploaded['image_ref']}", raw=True)
         assert len(request("/api/v1/measurement-profiles")["items"]) == 1
-        report.update(ok=True, checks=["schemas", "interface", "catalog", "images", "generation", "pdf", "svg", "json", "restart", "profiles"])
+        if sys.platform == "win32":
+            request("/api/v1/ai/providers/gemini/check", "POST")
+        report.update(ok=True, checks=["schemas", "interface", "catalog", "images", "generation", "pdf", "svg", "json", "restart", "profiles",
+                                      "gemini_native_key", "gemini_https", "gemini_front_back"])
     except Exception as error:
         report["error_type"] = type(error).__name__
         if isinstance(error, DesktopError):
@@ -72,8 +85,16 @@ def check_bundle(frontend: Path, result_path: Path) -> int:
     finally:
         if server is not None:
             server.stop()
-        temporary.cleanup()
-        atomic_json(result_path.resolve(), report)
+        try:
+            if preferences is not None:
+                clear_key(preferences)
+        except Exception as error:
+            report.update(ok=False, error_type=type(error).__name__)
+        finally:
+            if upstream is not None:
+                upstream.__exit__()
+            temporary.cleanup()
+            atomic_json(result_path.resolve(), report)
     return 0 if report["ok"] else 1
 
 

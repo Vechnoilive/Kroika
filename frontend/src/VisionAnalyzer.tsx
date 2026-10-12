@@ -45,10 +45,12 @@ function phaseLabel(phase: AnalysisPhase): string {
   return '';
 }
 
-function errorHint(error: ApiError): string | null {
+function errorHint(error: ApiError, desktop: boolean): string | null {
   if (error.code === 'TIMEOUT') return 'Сервис не успел ответить. Фотографии повторно загружать не нужно.';
   if (error.code === 'RATE_LIMIT') return 'Подождите немного и нажмите повтор — выбранные фото сохранятся.';
-  if (error.code === 'AUTH') return 'Проверьте API-ключ в окне backend и перезапустите приложение.';
+  if (error.code === 'AUTH') return desktop
+    ? 'Откройте настройки Gemini, проверьте ключ и примените изменения. Перезапуск не нужен.'
+    : 'Проверьте API-ключ в настройках запуска сервера.';
   if (error.code === 'PAYMENT_REQUIRED') return 'Проверьте баланс или лимит ключа у провайдера.';
   if (error.code === 'INVALID_SCHEMA') return 'Связь работает, но ответ модели не прошёл строгую проверку Kroika.';
   if (error.code === 'PROVIDER_UNAVAILABLE') return 'Проверьте соединение отдельной кнопкой или временно используйте демо-режим.';
@@ -128,7 +130,10 @@ export function VisionAnalyzer({
   const desktop = useDesktopAvailable();
   const [providerVersion, setProviderVersion] = useState(0);
   useEffect(() => {
-    const refresh = () => setProviderVersion((version) => version + 1);
+    const refresh = () => {
+      setConsent(false); setCheckResult(null); setError(null);
+      setProviderVersion((version) => version + 1);
+    };
     window.addEventListener('kroika:ai-settings-changed', refresh);
     return () => window.removeEventListener('kroika:ai-settings-changed', refresh);
   }, []);
@@ -355,6 +360,13 @@ export function VisionAnalyzer({
         <h2>Добавьте эскиз или фотографию</h2>
         <p>Лучший результат дают виды спереди, сзади и крупные снимки важных деталей.</p>
 
+        {desktop && <div className="provider-diagnostic">
+          <button type="button" className="text-button" disabled={busy || checking} onClick={() => {
+            window.dispatchEvent(new Event('kroika:configure-gemini'));
+          }}>{providers.some((item) => item.provider_id === 'gemini' && item.configured) ? 'Настроить Gemini' : 'Подключить Gemini'}</button>
+          <small>Введите свой API-ключ в приложении. Затем выберите 1–4 фотографии, укажите вид спереди/сзади и подтвердите отправку в Gemini.</small>
+        </div>}
+
         <fieldset className="provider-choice">
           <legend>Кто проанализирует изображение?</legend>
           {providers.map((provider) => (
@@ -485,7 +497,7 @@ export function VisionAnalyzer({
 
         {error && (
           <div className="inline-error" role="alert">
-            <span><strong>{error.message}</strong>{errorHint(error) && <small>{errorHint(error)}</small>}</span>
+            <span><strong>{error.message}</strong>{errorHint(error, desktop) && <small>{errorHint(error, desktop)}</small>}</span>
             {error.requestId && <small>Код обращения: {error.requestId.slice(0, 8)}</small>}
             {isExternal && error.code !== 'REQUEST_CANCELLED' && (
               <button type="button" onClick={() => { setProviderId('mock'); setError(null); }}>

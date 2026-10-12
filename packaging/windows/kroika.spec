@@ -9,6 +9,10 @@ datas = [(str(root / "schemas"), "kroika_resources/schemas"),
          (str(root / "build/desktop/THIRD_PARTY"), "kroika_resources/THIRD_PARTY"),
          (str(root / "examples/v1/example-dress-project.json"), "kroika_resources/examples/v1"),
          (str(root / "examples/v1/example-engine-request.json"), "kroika_resources/examples/v1"),
+         (str(root / "examples/v1/example-ai-request.json"), "kroika_resources/examples/v1"),
+         (str(root / "examples/v1/example-ai-response.json"), "kroika_resources/examples/v1"),
+         (str(root / "packaging/test_resources"), "kroika_resources/packaging/test_resources"),
+         (str(root / "evaluation/stage10/images/synthetic-02.png"), "kroika_resources/evaluation/stage10/images"),
          (str(root / "evaluation/stage10/images/synthetic-01.png"), "kroika_resources/evaluation/stage10/images")]
 for package in ("kroika_contracts", "webview", "certifi", "reportlab"):
     datas += collect_data_files(package)
@@ -18,7 +22,7 @@ hidden = []
 for package in ("kroika_backend", "kroika_contracts", "kroika_pattern_engine", "uvicorn"):
     hidden += collect_submodules(package)
 hidden += ["webview", "webview.platforms.winforms", "webview.platforms.edgechromium",
-           "keyring.backends.Windows", "clr", "pythonnet"]
+           "keyring.backends.Windows", "clr", "pythonnet", "socksio"]
 a = Analysis([str(root / "packaging/desktop_entry.py")],
              pathex=[str(root / "src"), str(root / "backend/src"), str(root / "pattern-engine/src")],
              binaries=[], datas=datas, hiddenimports=hidden,

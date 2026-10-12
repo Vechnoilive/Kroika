@@ -33,6 +33,50 @@ function bridge(overrides: Partial<DesktopApi> = {}): DesktopApi {
 afterEach(() => {delete window.pywebview; vi.restoreAllMocks();});
 
 describe('desktop controls preserve web behavior and private credentials', () => {
+  it('connects Gemini from the photo screen, saves the key and submits front/back images', async () => {
+    const native = bridge({
+      get_settings: vi.fn(async () => ({ok: true as const, value: {...values, provider: 'mock' as const, has_key: false}})),
+      choose_images: vi.fn(async () => ({ok: true as const, value: [
+        {name: 'front.png', type: 'image/png', data_base64: btoa('front'), last_modified: 1000},
+        {name: 'back.png', type: 'image/png', data_base64: btoa('back'), last_modified: 1000},
+      ]})),
+    });
+    const mock = {provider_id: 'mock' as const, name: 'Демо-режим', model: 'fixture', configured: true,
+      is_default: true, enabled_for_users: true, sends_images_external: false, message_ru: 'demo'};
+    const gemini = {provider_id: 'gemini' as const, name: 'Gemini', model: values.model, configured: true,
+      is_default: true, enabled_for_users: true, sends_images_external: true, message_ru: 'ready'};
+    vi.spyOn(api, 'visionProviders').mockResolvedValueOnce({default_provider: 'mock', items: [mock, {...gemini, configured: false, is_default: false}]})
+      .mockResolvedValue({default_provider: 'gemini', items: [{...mock, is_default: false}, gemini]});
+    vi.spyOn(api, 'uploadImage').mockResolvedValueOnce({image_ref: 'img_front', media_type: 'image/png', size_bytes: 5})
+      .mockResolvedValueOnce({image_ref: 'img_back', media_type: 'image/png', size_bytes: 4});
+    const analyze = vi.spyOn(api, 'analyzeImages').mockResolvedValue({} as StyleAnalysis);
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:photo');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const completed = vi.fn(async () => {});
+    render(<><DesktopSettingsButton allowImport onImport={vi.fn()} />
+      <VisionAnalyzer projectId="project" onComplete={completed} /></>);
+    await userEvent.click(await screen.findByRole('button', {name: 'Подключить Gemini'}));
+    const key = await screen.findByLabelText('API-ключ Gemini');
+    expect(key).toHaveFocus();
+    expect(screen.getByLabelText('Сервис анализа')).toHaveValue('gemini');
+    expect(native.save_settings).not.toHaveBeenCalled();
+    await userEvent.type(key, 'my-private-key');
+    await userEvent.click(screen.getByRole('button', {name: 'Применить настройки'}));
+    await screen.findByText(/Настройки применены/);
+    expect(native.save_settings).toHaveBeenCalledWith(expect.objectContaining({provider: 'gemini', key_action: 'set', api_key: 'my-private-key'}));
+    await userEvent.click(screen.getByRole('button', {name: 'Закрыть настройки'}));
+    await userEvent.click(await screen.findByRole('button', {name: 'Открыть фотографии с компьютера'}));
+    expect(await screen.findByRole('img', {name: /front.png/})).toBeVisible();
+    expect(screen.getByRole('img', {name: /back.png/})).toBeVisible();
+    await userEvent.click(screen.getByRole('button', {name: /Проанализировать изображения/}));
+    expect(analyze).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('checkbox', {name: /Я разрешаю отправить/}));
+    await userEvent.click(screen.getByRole('button', {name: /Проанализировать изображения/}));
+    await waitFor(() => expect(completed).toHaveBeenCalledOnce());
+    expect(analyze).toHaveBeenCalledWith('project', ['img_front', 'img_back'], ['front', 'back'], 'gemini', expect.any(AbortSignal));
+    expect(localStorage.getItem('GEMINI_API_KEY')).toBeNull();
+  });
+
   it('checks updates only on request and preserves an unsaved key', async () => {
     const native = bridge({check_updates: vi.fn(async () => ({ok: true as const, value: {
       current_version: '0.3.0', latest_version: '0.4.0', available: true,

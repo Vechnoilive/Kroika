@@ -9,7 +9,7 @@ description = "FastAPI sewing workflow with local project persistence"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.141,<0.142",
-  "httpx2>=2.12,<2.13",
+  "httpx2[socks]>=2.12,<2.13",
   "kroika-contracts==1.0.0",
   "kroika-pattern-engine==0.23.0",
   "Pillow>=12.3,<12.4",

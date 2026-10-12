@@ -8,18 +8,31 @@ export function DesktopSettingsButton({allowImport, onImport}: {
 }) {
   const available = useDesktopAvailable();
   const [open, setOpen] = useState(false);
+  const [connectGemini, setConnectGemini] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!available) return;
+    const connect = () => {
+      returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setConnectGemini(true); setOpen(true);
+    };
+    window.addEventListener('kroika:configure-gemini', connect);
+    return () => window.removeEventListener('kroika:configure-gemini', connect);
+  }, [available]);
   if (!available) return null;
   return <>
-    <button type="button" className="text-button" ref={button} onClick={() => setOpen(true)}>Настройки приложения</button>
-    {open && <DesktopSettingsPanel allowImport={allowImport} onImport={onImport} onClose={() => {
-      setOpen(false); button.current?.focus();
+    <button type="button" className="text-button" ref={button} onClick={() => {
+      returnFocus.current = button.current; setConnectGemini(false); setOpen(true);
+    }}>Настройки приложения</button>
+    {open && <DesktopSettingsPanel allowImport={allowImport} onImport={onImport} connectGemini={connectGemini} onClose={() => {
+      setOpen(false); returnFocus.current?.focus();
     }} />}
   </>;
 }
 
-export function DesktopSettingsPanel({allowImport, onImport, onClose}: {
-  allowImport: boolean; onImport: () => Promise<void>; onClose: () => void;
+export function DesktopSettingsPanel({allowImport, onImport, onClose, connectGemini = false}: {
+  allowImport: boolean; onImport: () => Promise<void>; onClose: () => void; connectGemini?: boolean;
 }) {
   const [settings, setSettings] = useState<DesktopSettings | null>(null);
   const [key, setKey] = useState('');
@@ -29,15 +42,18 @@ export function DesktopSettingsPanel({allowImport, onImport, onClose}: {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const container = useRef<HTMLDivElement>(null);
+  const keyInput = useRef<HTMLInputElement>(null);
+  const ready = settings !== null;
+  useEffect(() => {if (ready && connectGemini) keyInput.current?.focus();}, [ready, connectGemini]);
   useEffect(() => {
     let active = true;
     const bridge = desktopApi();
     if (bridge) bridge.get_settings().then(nativeValue).then((value) => {
-      if (active) {setSettings(value); setRemember(value.secure_storage_available);}
+      if (active) {setSettings(connectGemini ? {...value, provider: 'gemini'} : value); setRemember(value.secure_storage_available);}
     }).catch(() => {if (active) setError('Не удалось загрузить настройки приложения.');});
     container.current?.focus();
     return () => {active = false;};
-  }, []);
+  }, [connectGemini]);
 
   async function run(action: () => Promise<void>) {
     setWorking(true); setError(''); setNotice('');
@@ -81,7 +97,7 @@ export function DesktopSettingsPanel({allowImport, onImport, onClose}: {
           else if (!event.shiftKey && document.activeElement === last) {event.preventDefault(); first?.focus();}
         }
       }}>
-      <header><div><p className="eyebrow">Кройка на компьютере</p><h2 id="desktop-settings-title">Настройки приложения</h2></div><button type="button" onClick={onClose} disabled={working} aria-label="Закрыть настройки">✕</button></header>
+      <header><div><p className="eyebrow">Кройка на компьютере</p><h2 id="desktop-settings-title">{connectGemini ? 'Подключение Gemini' : 'Настройки приложения'}</h2></div><button type="button" onClick={onClose} disabled={working} aria-label="Закрыть настройки">✕</button></header>
       {error && <p className="notice notice--error" role="alert">{error}</p>}
       {notice && <p className="notice" role="status">{notice}</p>}
       {!settings && !error && <p role="status">Загружаем настройки…</p>}
@@ -90,7 +106,9 @@ export function DesktopSettingsPanel({allowImport, onImport, onClose}: {
           <fieldset disabled={working}><legend>Анализ фотографий</legend>
             <label>Сервис анализа<select value={settings.provider} onChange={(event) => change('provider', event.target.value as DesktopSettings['provider'])}><option value="mock">Демо-режим</option><option value="gemini">Gemini</option><option value="qwen">Qwen из настроек запуска</option></select></label>
             <label>Модель Gemini<input value={settings.model} maxLength={100} onChange={(event) => change('model', event.target.value)} autoComplete="off" /></label>
-            <label>API-ключ Gemini<input type="password" value={key} onChange={(event) => {setKey(event.target.value); setRemove(false);}} autoComplete="new-password" maxLength={2048} placeholder={settings.has_key ? 'Ключ задан. Оставьте пустым, чтобы сохранить его.' : 'Вставьте ключ'} /></label>
+            {connectGemini && <p>Вставьте свой ключ и нажмите «Применить настройки». После закрытия настроек можно выбрать фотографии и запустить анализ.</p>}
+            <label>API-ключ Gemini<input ref={keyInput} type="password" value={key} onChange={(event) => {setKey(event.target.value); setRemove(false);}} autoComplete="new-password" maxLength={2048} placeholder={settings.has_key ? 'Ключ задан. Оставьте пустым, чтобы сохранить его.' : 'Вставьте ключ'} /></label>
+            <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noreferrer">Получить API-ключ в Google AI Studio</a>
             <small>{settings.has_key ? `Ключ задан · ${settings.key_storage === 'system' ? 'системное хранилище' : settings.key_storage === 'session' ? 'только текущий сеанс' : 'из настроек запуска'}` : 'Ключ не задан'}</small>
             <label className="desktop-checkbox"><input type="checkbox" checked={remember} disabled={!settings.secure_storage_available} onChange={(event) => setRemember(event.target.checked)} />Запомнить новый ключ в системном хранилище</label>
             {!settings.secure_storage_available && <small>Системное хранилище недоступно. Новый ключ будет действовать только до закрытия приложения.</small>}

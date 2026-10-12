@@ -149,6 +149,8 @@ def test_network_failure_and_absent_release(monkeypatch):
 
 
 def test_real_diagnostic_builds_exports_and_reopens_data_in_isolation(tmp_path):
+    import os
+    original = {key: os.environ.get(key) for key in ("SSL_CERT_FILE", "NO_PROXY", "no_proxy", "ALL_PROXY", "all_proxy")}
     result = tmp_path / "result.json"
     frontend = tmp_path / "frontend"
     frontend.mkdir()
@@ -156,7 +158,31 @@ def test_real_diagnostic_builds_exports_and_reopens_data_in_isolation(tmp_path):
     assert check_bundle(frontend, result) == 0
     report = json.loads(result.read_text())
     assert report["ok"] and "restart" in report["checks"] and "pdf" in report["checks"]
+    assert {"gemini_native_key", "gemini_https", "gemini_front_back"} <= set(report["checks"])
     assert not (tmp_path / "data").exists()
+    assert original == {key: os.environ.get(key) for key in original}
+
+
+def test_missing_proxy_component_is_reported_without_leaking_network_secrets(monkeypatch):
+    import asyncio
+    import kroika_backend.vision_providers as module
+    from kroika_contracts.ports import AIProviderError, ProviderErrorCode
+    monkeypatch.setattr(module.httpx, "AsyncClient", lambda **_kwargs: (_ for _ in ()).throw(ImportError("private-proxy-password")))
+    with pytest.raises(AIProviderError) as caught:
+        asyncio.run(module.httpx_json_transport("https://example.invalid", {"x-goog-api-key": "private-api-key"}, {}, 10))
+    assert caught.value.code == ProviderErrorCode.PROVIDER_UNAVAILABLE
+    assert caught.value.retryable is False
+    assert "private-proxy-password" not in str(caught.value)
+    assert "private-api-key" not in str(caught.value)
+
+
+def test_desktop_offers_gemini_without_changing_web_defaults(tmp_path, monkeypatch):
+    from kroika_backend.desktop import desktop_settings
+    monkeypatch.delenv("KROIKA_ENABLED_AI_PROVIDERS", raising=False)
+    assert "gemini" in desktop_settings(tmp_path).enabled_ai_providers
+    assert "gemini" not in Settings.from_env().enabled_ai_providers
+    monkeypatch.setenv("KROIKA_ENABLED_AI_PROVIDERS", "mock,qwen")
+    assert desktop_settings(tmp_path).enabled_ai_providers == ("mock", "qwen")
 
 
 def test_icon_version_and_artifact_checksums(tmp_path):

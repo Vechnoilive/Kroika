@@ -140,6 +140,8 @@ def desktop_settings(data_dir: Path) -> Settings:
     settings = Settings.from_env()
     return replace(
         settings,
+        enabled_ai_providers=settings.enabled_ai_providers if os.getenv("KROIKA_ENABLED_AI_PROVIDERS")
+        else tuple(dict.fromkeys((*settings.enabled_ai_providers, "gemini"))),
         database_path=Path(os.environ.get("KROIKA_DATABASE_PATH")
                            or data_dir / "kroika.db").expanduser().resolve(),
         image_storage_path=Path(os.environ.get("KROIKA_IMAGE_STORAGE_PATH")

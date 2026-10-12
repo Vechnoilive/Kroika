@@ -125,6 +125,12 @@ async def httpx_json_transport(
             "Сервис анализа не успел ответить. Попробуйте ещё раз или выберите демо-режим.",
             True,
         ) from exc
+    except ImportError as exc:
+        raise AIProviderError(
+            ProviderErrorCode.PROVIDER_UNAVAILABLE,
+            "Не хватает сетевого компонента для подключения через прокси. Обновите приложение.",
+            False,
+        ) from exc
     except httpx.HTTPError as exc:
         raise AIProviderError(
             ProviderErrorCode.PROVIDER_UNAVAILABLE,
@@ -646,6 +652,8 @@ class ProviderRegistry:
                     if provider_id == "mock" else
                     "Готов к анализу; фото уйдёт только после подтверждения."
                     if configured else
+                    "Укажите свой API-ключ Gemini."
+                    if provider_id == "gemini" else
                     "Нужны серверный API-ключ и адрес региона."
                 ),
             })
