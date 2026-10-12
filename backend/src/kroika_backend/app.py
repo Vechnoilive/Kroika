@@ -180,7 +180,7 @@ def create_app(
             service="kroika-backend",
             version=APP_VERSION,
             database="ok",
-            ai_provider=active_provider.provider_id,
+            ai_provider=app.state.provider_registry.default_provider,
             pattern_engine=f"{pattern_engine.engine_id}:{pattern_engine.engine_version}",
         )
 
@@ -396,8 +396,8 @@ def create_app(
     )
     def list_ai_providers() -> dict[str, Any]:
         return {
-            "default_provider": provider_registry.default_provider,
-            "items": provider_registry.statuses(),
+            "default_provider": app.state.provider_registry.default_provider,
+            "items": app.state.provider_registry.statuses(),
         }
 
     @app.post(
@@ -408,7 +408,7 @@ def create_app(
     async def check_ai_provider(
         provider_id: Literal["mock", "qwen", "gemini"],
     ) -> dict[str, Any]:
-        selected_provider = provider_registry.get(provider_id)
+        selected_provider = app.state.provider_registry.get(provider_id)
         check = getattr(selected_provider, "check_connection", None)
         if check is None:
             raise AppError(
@@ -548,7 +548,7 @@ def create_app(
                     "json_pointer": "/image_views",
                 }],
             )
-        selected_provider = provider_registry.get(provider)
+        selected_provider = app.state.provider_registry.get(provider)
         result = await selected_provider.analyze_style(request_document)
         validate_ai_analysis(result)
         return result

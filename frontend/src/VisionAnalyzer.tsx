@@ -1,4 +1,5 @@
 import {FormEvent, useEffect, useMemo, useRef, useState} from 'react';
+import {chooseDesktopImages, useDesktopAvailable} from './desktop';
 import {api, ApiError} from './api';
 import type {
   ImageViewRole,
@@ -124,6 +125,13 @@ export function VisionAnalyzer({
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [error, setError] = useState<ApiError | null>(null);
   const [checkResult, setCheckResult] = useState<VisionProviderCheck | null>(null);
+  const desktop = useDesktopAvailable();
+  const [providerVersion, setProviderVersion] = useState(0);
+  useEffect(() => {
+    const refresh = () => setProviderVersion((version) => version + 1);
+    window.addEventListener('kroika:ai-settings-changed', refresh);
+    return () => window.removeEventListener('kroika:ai-settings-changed', refresh);
+  }, []);
 
   useEffect(() => {
     imagesRef.current = images;
@@ -152,7 +160,7 @@ export function VisionAnalyzer({
       ));
     });
     return () => { active = false; };
-  }, []);
+  }, [providerVersion]);
 
   useEffect(() => {
     if (!busy) {
@@ -172,7 +180,7 @@ export function VisionAnalyzer({
   );
   const isExternal = selected?.sends_images_external ?? false;
 
-  function chooseFiles(chosen: FileList | null) {
+  function chooseFiles(chosen: FileList | File[] | null) {
     setError(null);
     if (!chosen || chosen.length === 0) return;
     const selectedFiles = Array.from(chosen);
@@ -390,10 +398,15 @@ export function VisionAnalyzer({
 
         {isExternal && (
           <div className="image-fields">
-            <label className="file-picker" htmlFor="garment-image">
+            {desktop && <button type="button" className="file-picker" disabled={busy || images.length >= 4} onClick={() => {
+              void chooseDesktopImages().then(chooseFiles).catch((caught) => setError(new ApiError(
+                caught instanceof Error ? caught.message : 'Не удалось открыть фотографии.', 0, 'FILE_READ_ERROR',
+              )));
+            }}>Открыть фотографии с компьютера</button>}
+            {!desktop && <label className="file-picker" htmlFor="garment-image">
               <strong>{images.length ? `Добавить ещё · выбрано ${images.length}` : 'Выбрать изображения'}</strong>
               <small>1–4 файла · JPEG, PNG или WebP · до 10 МБ каждый</small>
-            </label>
+            </label>}
             <input
               id="garment-image"
               className="visually-hidden"

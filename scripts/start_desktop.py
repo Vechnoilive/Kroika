@@ -78,7 +78,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         command = [str(start_local._venv_python()), "-m", "kroika_backend.desktop",
                    "--frontend-dir", str(ROOT / "frontend" / "dist"),
-                   "--profile-dir", str(STATE / "webview"), "--port", str(args.port)]
+                   "--port", str(args.port)]
         if args.data_dir:
             command.extend(["--data-dir", str(args.data_dir.expanduser().resolve())])
         if args.debug:

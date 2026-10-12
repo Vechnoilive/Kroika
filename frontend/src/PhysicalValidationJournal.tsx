@@ -1,5 +1,6 @@
 import {FormEvent, useEffect, useState} from 'react';
 import {api, ApiError} from './api';
+import {saveExport} from './fileActions';
 import type {
   PhysicalValidationCreate,
   PhysicalValidationGate,
@@ -124,17 +125,9 @@ export function PhysicalValidationJournal({
     setReporting(true);
     setError(null);
     try {
-      const file = await api.downloadAcceptanceReport(generationId);
-      const url = URL.createObjectURL(file.blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = file.filename;
-      document.body.append(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(url);
+      await saveExport(generationId, 'acceptance-report');
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Не удалось скачать отчёт.');
+      setError(caught instanceof Error ? caught.message : 'Не удалось скачать отчёт.');
     } finally {
       setReporting(false);
     }

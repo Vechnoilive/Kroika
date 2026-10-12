@@ -41,7 +41,7 @@ def _sha256(path: Path) -> str:
 def _database_check(path: Path) -> int:
     try:
         connection = sqlite3.connect(
-            f"file:{path.as_posix()}?mode=ro&immutable=1", uri=True
+            f"{path.resolve().as_uri()}?mode=ro&immutable=1", uri=True
         )
         try:
             result = connection.execute("PRAGMA integrity_check").fetchone()
@@ -76,7 +76,7 @@ def create_backup(database_path: Path, image_root: Path, destination: Path) -> d
     _private(temporary, 0o700)
     try:
         backup_database = temporary / "kroika.db"
-        source = sqlite3.connect(database_path)
+        source = sqlite3.connect(f"{database_path.as_uri()}?mode=ro", uri=True)
         target = sqlite3.connect(backup_database)
         try:
             source.backup(target)

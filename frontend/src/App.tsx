@@ -1,6 +1,9 @@
 import {FormEvent, useEffect, useRef, useState} from 'react';
 import {api, ApiError} from './api';
 import {browserStorage} from './browserStorage';
+import {DesktopSettingsButton} from './DesktopSettings';
+import {desktopApi} from './desktop';
+import {saveExport} from './fileActions';
 import {makeDemoProject} from './demoProject';
 import {MeasurementWizard} from './MeasurementWizard';
 import {ConstructionEditor, ProjectHistory, StyleEditor} from './ProjectWorkflow';
@@ -213,17 +216,9 @@ export function PatternResultCard({
     setDownloading(true);
     setDownloadError(null);
     try {
-      const file = await api.downloadA4Pdf(result.generation_id);
-      const url = URL.createObjectURL(file.blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = file.filename;
-      document.body.append(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(url);
+      await saveExport(result.generation_id, 'a4-pdf');
     } catch (caught) {
-      setDownloadError(caught instanceof ApiError ? caught.message : 'Не удалось скачать PDF.');
+      setDownloadError(caught instanceof Error ? caught.message : 'Не удалось скачать PDF.');
     } finally {
       setDownloading(false);
     }
@@ -233,17 +228,9 @@ export function PatternResultCard({
     setScaleDownloading(true);
     setDownloadError(null);
     try {
-      const file = await api.downloadScaleCheckPdf(result.generation_id);
-      const url = URL.createObjectURL(file.blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = file.filename;
-      document.body.append(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(url);
+      await saveExport(result.generation_id, 'scale-check-pdf');
     } catch (caught) {
-      setDownloadError(caught instanceof ApiError ? caught.message : 'Не удалось скачать проверочный лист.');
+      setDownloadError(caught instanceof Error ? caught.message : 'Не удалось скачать проверочный лист.');
     } finally {
       setScaleDownloading(false);
     }
@@ -340,8 +327,16 @@ export function PatternResultCard({
       />
       {downloadError && <div className="inline-error" role="alert">{downloadError}</div>}
       <div className="export-actions export-actions--three">
-        <a className="secondary-link" href={api.printSvgUrl(result.generation_id)} download>Единый SVG</a>
-        <a className="secondary-link" href={api.projectJsonUrl(result.generation_id)} download>JSON проекта</a>
+        <a className="secondary-link" href={api.printSvgUrl(result.generation_id)} download onClick={(event) => {
+          if (!desktopApi()) return;
+          event.preventDefault();
+          void saveExport(result.generation_id, 'print-svg').catch((caught) => setDownloadError(caught instanceof Error ? caught.message : 'Не удалось сохранить SVG.'));
+        }}>Единый SVG</a>
+        <a className="secondary-link" href={api.projectJsonUrl(result.generation_id)} download onClick={(event) => {
+          if (!desktopApi()) return;
+          event.preventDefault();
+          void saveExport(result.generation_id, 'project-json').catch((caught) => setDownloadError(caught instanceof Error ? caught.message : 'Не удалось сохранить JSON.'));
+        }}>JSON проекта</a>
         <button className="primary-button" onClick={() => void downloadPdf()} disabled={downloading}>
           {downloading
             ? 'Готовим…'
@@ -654,6 +649,9 @@ export default function App() {
       <header className="topbar">
         <a className="brand" href="/" aria-label="Kroika — главная"><Logo /><span><strong>Kroika</strong><small>Выкройка шаг за шагом</small></span></a>
         <div className={`connection connection--${connection}`} aria-live="polite"><span aria-hidden="true" />{connection === 'ready' && 'Работает локально'}{connection === 'checking' && 'Проверяем запуск…'}{connection === 'offline' && 'Нет связи с приложением'}</div>
+        <DesktopSettingsButton allowImport={!busy && !hasUnsavedChanges} onImport={async () => {
+          setProjects((await api.listProjects()).items);
+        }} />
       </header>
 
       <main className={`workspace${project && activeStep === 4 ? ' workspace--measurements' : ''}`}>
