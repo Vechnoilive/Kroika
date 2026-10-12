@@ -9,6 +9,7 @@ import importlib
 import logging
 from logging.handlers import RotatingFileHandler
 import multiprocessing
+from multiprocessing.process import BaseProcess
 import os
 from pathlib import Path
 import socket
@@ -45,7 +46,7 @@ def bind_listener(port: int):
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         if os.name == "nt":
-            listener.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+            listener.setsockopt(socket.SOL_SOCKET, getattr(socket, "SO_EXCLUSIVEADDRUSE"), 1)
         else:
             listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         listener.bind(("127.0.0.1", port))
@@ -126,7 +127,7 @@ def create_desktop_app(settings: Settings, frontend_dir: Path, port: int, instan
                 raise AppError(422, "DESKTOP_IMPORT_INVALID", "Выберите папку с данными Кройки.")
             try:
                 return import_data(Path(payload["source"]), app.state.repository,
-                                   app.state.image_store.root, backups)
+                                   app.state.image_store.root, backups or settings.database_path.parent / "backups")
             except BackupError as error:
                 raise AppError(409, "DESKTOP_IMPORT_BLOCKED", str(error)) from error
 
@@ -208,7 +209,7 @@ class DesktopServer:
         context = multiprocessing.get_context("spawn")
         self.stop_event = context.Event()
         self.errors, self._child_errors = context.Pipe(duplex=False)
-        self.process = None
+        self.process: BaseProcess | None = None
         self._listener = listener
 
     @property
@@ -238,6 +239,7 @@ class DesktopServer:
             raise
 
     def _wait_until_ready(self, timeout_seconds: float) -> None:
+        assert self.process is not None
         # System HTTP proxies must never intercept the local application.
         opener = build_opener(ProxyHandler({}))
         deadline = time.monotonic() + timeout_seconds
@@ -287,7 +289,7 @@ def show_error(message: str) -> None:
     if os.name == "nt":
         import ctypes
 
-        ctypes.windll.user32.MessageBoxW(None, message, "Кройка — ошибка запуска", 0x10)
+        getattr(ctypes, "windll").user32.MessageBoxW(None, message, "Кройка — ошибка запуска", 0x10)
 
 
 def run_desktop(settings: Settings, frontend_dir: Path, profile_dir: Path,

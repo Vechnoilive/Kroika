@@ -56,7 +56,7 @@ def import_data(source: Path, repository: SQLiteRepository, images: Path, backup
             if database.execute("PRAGMA foreign_key_check").fetchone():
                 raise BackupError("Связи исходной базы повреждены.")
             for table in TABLE_KEYS:
-                rows[table] = [dict(row) for row in database.execute(f"SELECT * FROM {table}")]
+                rows[table] = [dict(row) for row in database.execute(f"SELECT * FROM {table}")]  # nosec B608 # TABLE_KEYS is a fixed allowlist
         retained = backups / f"source-{uuid4().hex}"
         create_backup(source_repository.database_path, backup / "images", retained)
         images.mkdir(parents=True, exist_ok=True)
@@ -92,7 +92,7 @@ def import_data(source: Path, repository: SQLiteRepository, images: Path, backup
                 for row in entries:
                     values = {key: value for key, value in row.items() if key != "sequence"}
                     existing = target.execute(
-                        f"SELECT * FROM {table} WHERE " + " AND ".join(f"{key}=?" for key in keys),
+                        f"SELECT * FROM {table} WHERE " + " AND ".join(f"{key}=?" for key in keys),  # nosec B608 # table and keys come from TABLE_KEYS
                         tuple(row[key] for key in keys),
                     ).fetchone()
                     if existing:
@@ -109,9 +109,9 @@ def import_data(source: Path, repository: SQLiteRepository, images: Path, backup
                     else:
                         pending.append((table, values))
             for table, values in pending:
-                columns = ",".join(values)
+                columns = ",".join('"' + key.replace('"', '""') + '"' for key in values)
                 target.execute(
-                    f"INSERT INTO {table} ({columns}) VALUES ({','.join('?' for _ in values)})",
+                    f"INSERT INTO {table} ({columns}) VALUES ({','.join('?' for _ in values)})",  # nosec B608 # fixed table; quoted columns; bound values
                     tuple(values.values()),
                 )
                 report[table] += 1
@@ -135,7 +135,7 @@ def migrate_legacy(source_root: Path, data_dir: Path, home: Path) -> None:
     repository = SQLiteRepository(data_dir / "kroika.db")
     repository.initialize()
     with repository._connect() as connection:
-        populated = any(connection.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone()
+        populated = any(connection.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone()  # nosec B608 # fixed TABLE_KEYS allowlist
                         for table in TABLE_KEYS)
     if not populated:
         import_data(legacy, repository, data_dir / "images", home / "backups")

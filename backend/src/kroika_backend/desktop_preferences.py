@@ -213,6 +213,8 @@ class Preferences:
         new_id = document.get("key_id")
         try:
             if new_id and new_id != old_id:
+                if not candidate.gemini_api_key:
+                    raise PreferenceError("Не задан ключ для системного хранилища.")
                 self.vault.set(self.service, new_id, candidate.gemini_api_key)
             atomic_json(self.path, document)
         except Exception:

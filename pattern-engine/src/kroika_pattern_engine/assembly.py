@@ -1357,7 +1357,7 @@ def assemble_garment(
     facing_builder = _neck_facing_piece if sleeved else _facing_piece
     front_facing = facing_builder(blocks.front_bodice, "front", f"{garment_name} · обтачка переда", True)
     back_facing = facing_builder(blocks.back_bodice, "back", f"{garment_name} · обтачка спинки", False)
-    pieces = (
+    pieces: tuple[DraftPiece, ...] = (
         blocks.front_bodice,
         blocks.back_bodice,
         blocks.front_skirt,

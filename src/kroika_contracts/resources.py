@@ -6,5 +6,5 @@ import sys
 
 def resource_root() -> Path:
     if getattr(sys, "frozen", False):
-        return Path(sys._MEIPASS) / "kroika_resources"
+        return Path(getattr(sys, "_MEIPASS")) / "kroika_resources"
     return Path(__file__).resolve().parents[2]

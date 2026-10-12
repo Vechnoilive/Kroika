@@ -21,6 +21,9 @@ from kroika_backend.desktop_preferences import Preferences, PreferenceError  # n
 from kroika_backend.desktop_smoke import check_bundle  # noqa: E402
 from kroika_backend.desktop_upgrade import prepare_upgrade  # noqa: E402
 from kroika_backend.desktop_version import VERSION, RELEASES_URL  # noqa: E402
+from kroika_backend.desktop_data import import_data  # noqa: E402
+from kroika_backend.backup import BackupError  # noqa: E402
+from kroika_backend.repository import SQLiteRepository  # noqa: E402
 from scripts.build_desktop import checksums, icon, version_resource  # noqa: E402
 from tests.test_desktop_stage2 import seed_source, Vault  # noqa: E402
 
@@ -70,6 +73,24 @@ def test_backup_failure_never_advances_version_or_changes_data(tmp_path, monkeyp
         prepare_upgrade(current, home)
     assert json.loads(marker.read_text())["version"] == "0.2.0"
     assert current.database_path.read_bytes() == before
+
+
+def test_untrusted_import_column_names_cannot_change_sql_or_existing_data(tmp_path):
+    import sqlite3
+    current, _, _ = seed_source(tmp_path / "source")
+    column = 'unexpected") VALUES (1); DROP TABLE projects; --'
+    with sqlite3.connect(current.database_path) as database:
+        escaped = column.replace('"', '""')
+        database.execute(f'ALTER TABLE projects ADD COLUMN "{escaped}" TEXT')
+    target = SQLiteRepository(tmp_path / "target/kroika.db")
+    target.initialize()
+    images = tmp_path / "target/images"
+    with pytest.raises(BackupError):
+        import_data(current.database_path.parent, target, images, tmp_path / "backups")
+    with sqlite3.connect(target.database_path) as database:
+        assert database.execute("SELECT COUNT(*) FROM projects").fetchone()[0] == 0
+        assert database.execute("SELECT COUNT(*) FROM generations").fetchone()[0] == 0
+    assert not list(images.iterdir())
 
 
 def test_release_check_is_guarded_and_sends_no_ai_key(tmp_path, monkeypatch):

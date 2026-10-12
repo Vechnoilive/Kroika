@@ -14,7 +14,7 @@ def check_updates() -> dict:
         "Accept": "application/vnd.github+json", "User-Agent": f"Kroika-Desktop/{VERSION}",
     })
     try:
-        with urlopen(request, timeout=12) as response:
+        with urlopen(request, timeout=12) as response:  # nosec B310 # fixed HTTPS GitHub endpoint
             content = response.read(1_000_001)
         if len(content) > 1_000_000:
             raise ValueError()

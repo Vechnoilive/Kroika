@@ -88,6 +88,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          $head = gh api repos/Vechnoilive/Kroika/git/ref/heads/main --jq '.object.sha'
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to verify current main' }
+          if ($head -ne $env:GITHUB_SHA) { Write-Output 'A newer commit exists; this build remains an artifact.'; exit 0 }
           $version = (Get-Content 'backend/src/kroika_backend/desktop_version.py' | Select-String '^VERSION = "(.*)"').Matches.Groups[1].Value
           $tag = "desktop-v$version"
           gh release view $tag *> $null

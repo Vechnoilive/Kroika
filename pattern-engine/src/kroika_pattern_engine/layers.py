@@ -106,7 +106,7 @@ def apply_foundation_layers(pattern: Mapping[str, Any], request: Mapping[str, An
     result = deepcopy(dict(pattern))
     base = {p["id"]: p for p in pattern["pieces"]}
     pairs = list(pattern["seam_pairs"])
-    occupied = set()
+    occupied: set[tuple[str, str]] = set()
     jacket_lining = {"jacket_front_lining": "jacket_front_center", "jacket_side_front_lining": "jacket_side_front", "jacket_back_lining": "back_bodice", "jacket_sleeve_lining": "base_sleeve"}
     occupied.update(("lining", jacket_lining[p["id"]]) for p in pattern["pieces"] if p["id"] in jacket_lining)
     # Earlier layer recipes may already occupy a body region (including jacket lining).

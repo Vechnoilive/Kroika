@@ -95,7 +95,7 @@ def _subcurve(edge, start: float, end: float):
 
 def _roots(edge, x: float) -> list[float]:
     samples = curve_points(edge, 0.02)
-    roots = []
+    roots: list[float] = []
     for (a, pa), (b, pb) in zip(samples, samples[1:]):
         if (pa.x_mm < x) == (pb.x_mm < x):
             continue
@@ -206,7 +206,7 @@ def apply_fullness_foundation(pattern: Mapping[str, Any], request: Mapping[str, 
         if len(parts) == 1:
             groups.setdefault(parts[0]['id'], []).append(item)
             continue
-        allocated = {}
+        allocated: dict[str, list[int]] = {}
         for index in range(item['count'] // 2):
             x = item['dimensions_mm']['width'] + index * item['dimensions_mm']['spacing']
             owners = []
@@ -1072,7 +1072,7 @@ def _validate_marker_fragments(targets, path_id, start, end, source):
 
 
 def validate_fullness_placements(pattern: Mapping[str, Any]) -> None:
-    anchors_by_piece = {}
+    anchors_by_piece: dict[str, list[tuple[str, float, Any]]] = {}
     for operation in pattern.get("modeling_operations", []):
         if operation["module_id"] not in FOUNDATION_MODULES:
             continue

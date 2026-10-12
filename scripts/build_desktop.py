@@ -72,12 +72,14 @@ def inventory() -> None:
 def verify_microsoft_installer(path: Path) -> None:
     if not path.is_file():
         raise ValueError("Укажите полный offline-установщик WebView2 x64.")
-    command = "$s=Get-AuthenticodeSignature -LiteralPath $env:KROIKA_RUNTIME_TO_VERIFY; if($s.Status -ne 'Valid' -or $s.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation'){exit 1}"
-    result = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command],
-                            env={**os.environ, "KROIKA_RUNTIME_TO_VERIFY": str(path.resolve())},
+    powershell = shutil.which("pwsh.exe") or "powershell.exe"
+    result = subprocess.run([powershell, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                             "-File", str(ROOT / "packaging/windows/verify-runtime.ps1"),
+                             "-RuntimeInstaller", str(path.resolve())],
                             capture_output=True, check=False)
     if result.returncode:
-        raise ValueError("WebView2: действительная подпись Microsoft не подтверждена.")
+        details = result.stderr.decode("utf-8", errors="replace")[-1500:]
+        raise ValueError(f"WebView2: действительная подпись Microsoft не подтверждена. {details}")
 
 
 def checksums(files: list[Path], output: Path) -> None:
