@@ -51,6 +51,7 @@ try {
     $sentinel = Join-Path $profile 'data\images\retained-file.txt'
     [IO.File]::WriteAllText($sentinel, 'preserve user files')
     [IO.File]::WriteAllText((Join-Path $app '_internal\obsolete-test-file.txt'), 'old runtime')
+    [IO.File]::WriteAllText((Join-Path $profile 'installed-version.json'), '{"version":"0.2.0"}', [Text.UTF8Encoding]::new($false))
     Run-Checked $installer @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=`"$app`"", "/LOG=`"$testRoot\upgrade.log`"")
     if (Test-Path (Join-Path $app '_internal\obsolete-test-file.txt')) { throw 'Obsolete packaged runtime not removed' }
     if ((Get-FileHash -LiteralPath $database).Hash -ne $before) { throw 'Installer changed user database' }
@@ -58,6 +59,7 @@ try {
     if (-not (Test-Path $sentinel)) { throw 'Installer removed user image folder' }
     Run-Checked $exe @('--smoke-test', "`"$testRoot\updated-window.json`"")
     Assert-Report "$testRoot\updated-window.json"
+    if (-not (Get-ChildItem -Path (Join-Path $profile 'backups') -Filter 'before-desktop-*' -Directory)) { throw 'Pre-upgrade data snapshot missing' }
     Run-Checked (Join-Path $app 'unins000.exe') @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=`"$testRoot\uninstall.log`"")
     if (-not (Test-Path $database) -or -not (Test-Path $sentinel)) { throw 'Uninstall removed user data' }
     if ((Get-FileHash -LiteralPath $settings).Hash -ne $settingsBefore) { throw 'Uninstall changed AI settings' }

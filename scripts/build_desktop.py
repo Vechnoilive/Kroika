@@ -92,6 +92,10 @@ def checksums(files: list[Path], output: Path) -> None:
 
 
 def main(argv=None) -> int:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+    os.environ.setdefault("PYTHONUTF8", "1")
     parser = argparse.ArgumentParser(description="Сборка Кройки Windows x64")
     parser.add_argument("--skip-frontend", action="store_true")
     parser.add_argument("--skip-installer", action="store_true")
