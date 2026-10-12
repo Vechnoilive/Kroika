@@ -32,14 +32,16 @@ $originalPythonPath = $env:PYTHONPATH
 $originalWorking = Get-Location
 try {
     Run-Checked $installer @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=`"$app`"", "/LOG=`"$testRoot\install.log`"")
-    $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+    $env:PATH = "$env:SystemRoot\System32"
     $env:PYTHONPATH = ''
     $env:KROIKA_DESKTOP_HOME = $profile
     Set-Location $testRoot
-    if (Get-Command python,node,npm,py -ErrorAction SilentlyContinue) { throw 'Developer runtimes still visible in PATH' }
+    $runtimes = @(Get-Command python.exe,node.exe,npm.cmd,py.exe -CommandType Application -ErrorAction SilentlyContinue)
+    if ($runtimes.Count) { $runtimes | Select-Object Name,Source | Format-Table | Out-String | Write-Output; throw 'Developer runtimes still visible in PATH' }
     $exe = Join-Path $app 'Kroika.exe'
     Run-Checked $exe @('--self-test', "`"$testRoot\bundle.json`"")
     Assert-Report "$testRoot\bundle.json"
+    if (-not (Get-Content "$testRoot\bundle.json" -Raw | ConvertFrom-Json).frozen) { throw 'Installed executable used an external interpreter' }
     Run-Checked $exe @('--smoke-test', "`"$testRoot\window.json`"")
     Assert-Report "$testRoot\window.json"
     $database = Join-Path $profile 'data\kroika.db'
