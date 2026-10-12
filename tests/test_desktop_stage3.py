@@ -129,7 +129,10 @@ def test_network_failure_and_absent_release(monkeypatch):
 
 def test_real_diagnostic_builds_exports_and_reopens_data_in_isolation(tmp_path):
     result = tmp_path / "result.json"
-    assert check_bundle(ROOT / "frontend/dist", result) == 0
+    frontend = tmp_path / "frontend"
+    frontend.mkdir()
+    (frontend / "index.html").write_text('<div id="root">Кройка</div>', encoding="utf-8")
+    assert check_bundle(frontend, result) == 0
     report = json.loads(result.read_text())
     assert report["ok"] and "restart" in report["checks"] and "pdf" in report["checks"]
     assert not (tmp_path / "data").exists()

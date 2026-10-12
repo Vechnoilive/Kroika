@@ -19,7 +19,7 @@ from .desktop_version import VERSION
 
 
 def check_bundle(frontend: Path, result_path: Path) -> int:
-    from .desktop import DesktopServer
+    from .desktop import DesktopServer, DesktopError
     report = {"ok": False, "version": VERSION, "frozen": bool(getattr(sys, "frozen", False))}
     server = None
     temporary = tempfile.TemporaryDirectory(prefix="kroika-package-check-")
@@ -67,6 +67,8 @@ def check_bundle(frontend: Path, result_path: Path) -> int:
         report.update(ok=True, checks=["schemas", "interface", "catalog", "images", "generation", "pdf", "svg", "json", "restart", "profiles"])
     except Exception as error:
         report["error_type"] = type(error).__name__
+        if isinstance(error, DesktopError):
+            report["error"] = str(error)
     finally:
         if server is not None:
             server.stop()

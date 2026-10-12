@@ -187,7 +187,10 @@ def _serve(settings, frontend_dir, listener, instance_id, stop_event, errors, co
         asyncio.run(serve())
     except BaseException as error:
         # Do not send exception messages from providers/configuration to native error dialogs.
-        errors.send(type(error).__name__)
+        detail = type(error).__name__
+        if isinstance(error, ImportError) and error.name:
+            detail += f": {error.name}"
+        errors.send(detail)
     finally:
         listener.close()
         errors.close()

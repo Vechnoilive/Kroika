@@ -11,7 +11,13 @@ New-Item -ItemType Directory -Force -Path $testRoot,$profile | Out-Null
 function Run-Checked([string]$program, [string[]]$arguments) {
     $process = Start-Process -FilePath $program -ArgumentList $arguments -PassThru
     if (-not $process.WaitForExit(180000)) { $process.Kill(); throw "Process timed out: $program" }
-    if ($process.ExitCode -ne 0) { throw "Process failed: $program (exit $($process.ExitCode))" }
+    if ($process.ExitCode -ne 0) {
+        foreach ($name in @('bundle.json','window.json','updated-window.json')) {
+            $report = Join-Path $testRoot $name
+            if (Test-Path $report) { Get-Content -LiteralPath $report -Raw | Write-Output }
+        }
+        throw "Process failed: $program (exit $($process.ExitCode))"
+    }
 }
 
 function Assert-Report([string]$path) {
