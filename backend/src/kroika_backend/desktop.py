@@ -29,11 +29,12 @@ from .desktop_data import import_data, migrate_legacy
 from .backup import BackupError
 from .errors import AppError
 from .vision_providers import build_provider_registry
+from kroika_contracts.resources import resource_root
 
 
 DEFAULT_PORT = 18765
 INSTANCE_HEADER = "X-Kroika-Desktop-Instance"
-SOURCE_ROOT = Path(__file__).resolve().parents[3]
+SOURCE_ROOT = resource_root()
 
 
 class DesktopError(RuntimeError):
@@ -166,6 +167,7 @@ def _serve(settings, frontend_dir, listener, instance_id, stop_event, errors, co
         config = uvicorn.Config(
             app, host="127.0.0.1", port=port, access_log=False,
             log_level="warning", proxy_headers=False, timeout_graceful_shutdown=3,
+            use_colors=False,
         )
         server = uvicorn.Server(config)
 
@@ -287,7 +289,7 @@ def show_error(message: str) -> None:
 
 def run_desktop(settings: Settings, frontend_dir: Path, profile_dir: Path,
                 port: int = DEFAULT_PORT, debug: bool = False, home: Path | None = None,
-                listener=None) -> None:
+                listener=None, smoke_result: Path | None = None) -> None:
     try:
         webview = importlib.import_module("webview")
     except ImportError as error:
@@ -308,11 +310,15 @@ def run_desktop(settings: Settings, frontend_dir: Path, profile_dir: Path,
         bridge = DesktopBridge(server, preferences, webview)
         window = webview.create_window(
             "Кройка", server.url, width=1440, height=960, min_size=(900, 640),
-            text_select=True, zoomable=True, confirm_close=True, js_api=bridge,
+            text_select=True, zoomable=True, confirm_close=smoke_result is None, js_api=bridge,
         )
         bridge._window = window
 
         def monitor_backend():
+            if smoke_result is not None:
+                from .desktop_smoke import check_window
+                check_window(window, smoke_result)
+                return
             while server.process.is_alive() and not server.stop_event.wait(0.5):
                 pass
             if not server.stop_event.is_set():
@@ -323,6 +329,7 @@ def run_desktop(settings: Settings, frontend_dir: Path, profile_dir: Path,
         webview.start(
             monitor_backend, gui="edgechromium" if os.name == "nt" else None,
             debug=debug, private_mode=False, storage_path=str(profile_dir.resolve()),
+            icon=str(SOURCE_ROOT / "kroika.ico") if (SOURCE_ROOT / "kroika.ico").is_file() else None,
             localization={
                 "global.quitConfirmation": "Закрыть Кройку? Завершите сохранение текущих изменений.",
                 "global.ok": "ОК", "global.cancel": "Отмена",
@@ -347,19 +354,27 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--profile-dir", type=Path)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--debug", action="store_true")
+    parser.add_argument("--self-test", type=Path, metavar="RESULT_JSON")
+    parser.add_argument("--smoke-test", type=Path, metavar="RESULT_JSON")
     args = parser.parse_args(argv)
+    if args.self_test:
+        from .desktop_smoke import check_bundle
+        return check_bundle(args.frontend_dir, args.self_test)
     if not 1 <= args.port <= 65535:
         parser.error("--port должен быть от 1 до 65535")
     try:
         home = desktop_home()
-        with DesktopLock(home / "desktop.lock"), bind_listener(args.port) as listener:
+        with InstallerMutex(), DesktopLock(home / "desktop.lock"), bind_listener(args.port) as listener:
             data_dir = (args.data_dir or home / "data").expanduser().resolve()
-            if (args.data_dir is None and not os.getenv("KROIKA_DATABASE_PATH")
+            if (not getattr(sys, "frozen", False) and args.data_dir is None and not os.getenv("KROIKA_DATABASE_PATH")
                     and not os.getenv("KROIKA_IMAGE_STORAGE_PATH")):
                 migrate_legacy(SOURCE_ROOT, data_dir, home)
             settings = Preferences(home).load(desktop_settings(data_dir))
+            if getattr(sys, "frozen", False):
+                from .desktop_upgrade import prepare_upgrade
+                prepare_upgrade(settings, home)
             run_desktop(settings, args.frontend_dir, args.profile_dir or home / "webview",
-                        args.port, args.debug, home, listener)
+                        args.port, args.debug, home, listener, args.smoke_test)
     except KeyboardInterrupt:
         return 0
     except (DesktopError, BackupError, ValueError, OSError) as error:
@@ -396,6 +411,28 @@ class DesktopLock:
 
     def __exit__(self, *_):
         self.stream.close()
+
+
+class InstallerMutex:
+    """Tell Windows setup/uninstall to wait for every native window to close."""
+
+    def __enter__(self):
+        self.handle = None
+        if os.name == "nt":
+            import ctypes
+            kernel = ctypes.windll.kernel32
+            kernel.CreateMutexW.argtypes = [ctypes.c_void_p, ctypes.c_bool, ctypes.c_wchar_p]
+            kernel.CreateMutexW.restype = ctypes.c_void_p
+            self.handle = kernel.CreateMutexW(None, False, "Kroika.Desktop.Window")
+            if not self.handle:
+                raise DesktopError("Не удалось зарегистрировать окно приложения.")
+        return self
+
+    def __exit__(self, *_):
+        if self.handle:
+            import ctypes
+            ctypes.windll.kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
+            ctypes.windll.kernel32.CloseHandle(self.handle)
 
 
 if __name__ == "__main__":

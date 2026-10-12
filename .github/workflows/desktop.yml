@@ -13,6 +13,7 @@ on:
       - "scripts/start_local.py"
       - "tests/test_desktop.py"
       - "tests/test_desktop_stage2.py"
+      - "tests/test_desktop_stage3.py"
       - "tests/test_verify_support.py"
       - "requirements*.txt"
       - ".github/workflows/desktop.yml"
@@ -53,7 +54,7 @@ jobs:
           npm ci
           npm run build
       - name: Check desktop API, exports, persistence and process lifecycle
-        run: python -m pytest -q tests/test_desktop.py tests/test_desktop_stage2.py tests/test_verify_support.py
+        run: python -m pytest -q tests/test_desktop.py tests/test_desktop_stage2.py tests/test_desktop_stage3.py tests/test_verify_support.py
       - name: Check desktop source
         run: python -m ruff check backend/src/kroika_backend/desktop.py backend/src/kroika_backend/desktop_bridge.py backend/src/kroika_backend/desktop_preferences.py backend/src/kroika_backend/desktop_data.py scripts/start_desktop.py tests/test_desktop.py tests/test_desktop_stage2.py
       - name: Check complete UI regression

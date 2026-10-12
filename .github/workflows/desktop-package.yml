@@ -1,0 +1,96 @@
+name: Kroika Windows installer
+
+on:
+  push:
+    branches: [main, "codex/**"]
+    paths:
+      - "backend/**"
+      - "src/**"
+      - "pattern-engine/**"
+      - "schemas/**"
+      - "frontend/**"
+      - "packaging/**"
+      - "scripts/build_desktop.py"
+      - "scripts/test_desktop_install.ps1"
+      - "tests/test_desktop*.py"
+      - "requirements*.txt"
+      - ".github/workflows/desktop-package.yml"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install build and verification dependencies
+        run: |
+          python -m pip install -r requirements-desktop-build.txt -r requirements-stage27.txt
+          python -m pip install --no-deps -e . -e pattern-engine -e backend
+      - name: Verify application before packaging
+        run: |
+          python -m pytest -q tests/test_desktop.py tests/test_desktop_stage2.py tests/test_desktop_stage3.py
+          python -m ruff check scripts/build_desktop.py backend/src/kroika_backend/desktop*.py src/kroika_contracts/resources.py tests/test_desktop_stage3.py
+      - name: Verify complete interface
+        working-directory: frontend
+        run: |
+          npm ci
+          npm test
+          npm run build
+      - name: Prepare Microsoft offline WebView2 installer
+        shell: pwsh
+        run: |
+          $runtime = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebView2RuntimeInstallerX64.exe'
+          Invoke-WebRequest 'https://go.microsoft.com/fwlink/?linkid=2124701' -OutFile $runtime
+          $signature = Get-AuthenticodeSignature -LiteralPath $runtime
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') { throw 'Invalid Microsoft signature' }
+          "KROIKA_WEBVIEW2_INSTALLER=$runtime" >> $env:GITHUB_ENV
+          if (-not (Test-Path 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe')) { choco install innosetup --yes --no-progress }
+      - name: Build standalone executable and installer
+        run: python scripts/build_desktop.py --skip-frontend --webview2-installer "$env:KROIKA_WEBVIEW2_INSTALLER"
+      - name: Test installed copy with developer runtimes removed from PATH
+        shell: pwsh
+        run: ./scripts/test_desktop_install.ps1
+      - name: Save installers and checksums
+        uses: actions/upload-artifact@v6
+        with:
+          name: Kroika-windows-x64
+          path: |
+            dist/desktop/*-setup.exe
+            dist/desktop/*-portable.zip
+            dist/desktop/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
+      - name: Save installed test reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: Kroika-installed-checks
+          path: "${{ runner.temp }}/Kroika installed тест # path/*.json"
+          if-no-files-found: ignore
+      - name: Publish new desktop version after successful installation tests
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = (Get-Content 'backend/src/kroika_backend/desktop_version.py' | Select-String '^VERSION = "(.*)"').Matches.Groups[1].Value
+          $tag = "desktop-v$version"
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) { Write-Output 'Version already published; existing release left intact.'; exit 0 }
+          gh release create $tag "dist/desktop/Kroika-$version-windows-x64-setup.exe" "dist/desktop/Kroika-$version-windows-x64-portable.zip" 'dist/desktop/SHA256SUMS.txt' --target $env:GITHUB_SHA --title "Кройка $version для Windows" --notes-file docs/DESKTOP_RELEASE_NOTES.md
+          if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }

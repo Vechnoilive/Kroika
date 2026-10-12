@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import json
 import math
-from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
 from referencing import Registry, Resource
+from .resources import resource_root
 
-SCHEMA_ROOT = Path(__file__).resolve().parents[2] / 'schemas'
+SCHEMA_ROOT = resource_root() / 'schemas'
 
 
 class ContractValidationError(ValueError):

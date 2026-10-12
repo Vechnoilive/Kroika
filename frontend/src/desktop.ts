@@ -16,6 +16,9 @@ export interface DesktopSettings {
   data_dir: string;
   images_dir: string;
   logs_dir: string;
+  app_version?: string;
+  packaged?: boolean;
+  releases_url?: string;
 }
 
 export type SettingsInput = Pick<DesktopSettings,
@@ -33,6 +36,7 @@ export interface ImportResult {
 }
 
 export interface DesktopApi {
+  check_updates(): Promise<NativeResult<{current_version: string; latest_version: string | null; available: boolean; release_url: string}>>;
   get_settings(): Promise<NativeResult<DesktopSettings>>;
   save_settings(value: SettingsInput): Promise<NativeResult<DesktopSettings>>;
   choose_images(): Promise<NativeResult<Array<{name: string; type: string; data_base64: string; last_modified?: number}>>>;

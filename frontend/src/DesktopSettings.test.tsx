@@ -17,6 +17,7 @@ const values: DesktopSettings = {
 
 function bridge(overrides: Partial<DesktopApi> = {}): DesktopApi {
   const result: DesktopApi = {
+    check_updates: vi.fn(async () => ({ok: true as const, value: {current_version: '0.3.0', latest_version: '0.3.0', available: false, release_url: 'https://github.com/Vechnoilive/Kroika/releases'}})),
     get_settings: vi.fn(async () => ({ok: true as const, value: values})),
     save_settings: vi.fn(async () => ({ok: true as const, value: values})),
     choose_images: vi.fn(async () => ({ok: true as const, value: []})),
@@ -32,6 +33,28 @@ function bridge(overrides: Partial<DesktopApi> = {}): DesktopApi {
 afterEach(() => {delete window.pywebview; vi.restoreAllMocks();});
 
 describe('desktop controls preserve web behavior and private credentials', () => {
+  it('checks updates only on request and preserves an unsaved key', async () => {
+    const native = bridge({check_updates: vi.fn(async () => ({ok: true as const, value: {
+      current_version: '0.3.0', latest_version: '0.4.0', available: true,
+      release_url: 'https://github.com/Vechnoilive/Kroika/releases',
+    }}))});
+    render(<DesktopSettingsPanel allowImport onImport={vi.fn()} onClose={vi.fn()} />);
+    await userEvent.type(await screen.findByLabelText('API-ключ Gemini'), 'unsaved-key');
+    expect(native.check_updates).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', {name: 'Проверить обновления'}));
+    expect(await screen.findByRole('status')).toHaveTextContent('Доступна версия 0.4.0');
+    expect(screen.getByLabelText('API-ключ Gemini')).toHaveValue('unsaved-key');
+    expect(native.save_settings).not.toHaveBeenCalled();
+  });
+
+  it('keeps settings available when GitHub update check fails', async () => {
+    bridge({check_updates: vi.fn(async () => ({ok: false as const, message: 'Проверьте интернет'}))});
+    render(<DesktopSettingsPanel allowImport onImport={vi.fn()} onClose={vi.fn()} />);
+    await userEvent.click(await screen.findByRole('button', {name: 'Проверить обновления'}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Проверьте интернет');
+    expect(screen.getByRole('button', {name: 'Применить настройки'})).toBeEnabled();
+  });
+
   it('does not expose desktop settings in the ordinary web application', () => {
     render(<DesktopSettingsButton allowImport onImport={vi.fn()} />);
     expect(screen.queryByRole('button', {name: 'Настройки приложения'})).toBeNull();

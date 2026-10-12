@@ -70,6 +70,10 @@ class DesktopBridge:
     def get_settings(self):
         return self._result(lambda: self._preferences.describe(self._server.settings))
 
+    def check_updates(self):
+        from .desktop_updates import check_updates
+        return self._result(check_updates)
+
     def save_settings(self, payload):
         def save():
             previous = self._server.settings

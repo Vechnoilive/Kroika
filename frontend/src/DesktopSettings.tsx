@@ -121,6 +121,17 @@ export function DesktopSettingsPanel({allowImport, onImport, onClose}: {
           <button type="button" disabled={working} onClick={() => void run(async () => {nativeValue(await desktopApi()!.open_folder('backups'));})}>Исходные копии импорта</button>
           <button type="button" disabled={working} onClick={() => void run(async () => {nativeValue(await desktopApi()!.open_folder('logs'));})}>Открыть папку журналов</button>
         </section>
+        <section className="desktop-data"><h3>Версия и обновления</h3>
+          <p>Кройка {settings.app_version ?? 'из исходников'}{settings.packaged ? ' · приложение Windows' : ''}</p>
+          <button type="button" disabled={working} onClick={() => void run(async () => {
+            const result = nativeValue(await desktopApi()!.check_updates());
+            setNotice(result.available
+              ? `Доступна версия ${result.latest_version}. Сохраните проект, закройте Кройку и запустите новый установщик со страницы выпусков.`
+              : result.latest_version ? 'Новых готовых выпусков не найдено.' : 'Выпуски приложения пока не опубликованы.');
+          })}>Проверить обновления</button>
+          <a href="https://github.com/Vechnoilive/Kroika/releases" target="_blank" rel="noreferrer">Открыть страницу выпусков</a>
+          <small>Проверка обращается к GitHub без фотографий и API-ключа. Обновление устанавливается после закрытия приложения; проекты и настройки сохраняются.</small>
+        </section>
       </>}
     </div>
   </div>;

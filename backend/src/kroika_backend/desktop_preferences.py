@@ -170,7 +170,10 @@ class Preferences:
         return self._apply(base, {field: self.document[field] for field in self.FIELDS}, key)
 
     def describe(self, current: Settings) -> dict:
+        from .desktop_version import VERSION, RELEASES_URL
         return {
+            "app_version": VERSION, "packaged": bool(getattr(sys, "frozen", False)),
+            "releases_url": RELEASES_URL,
             **self._values(current), "has_key": bool(current.gemini_api_key),
             "key_storage": self.document.get("key_mode", "environment")
             if current.gemini_api_key else "none",
